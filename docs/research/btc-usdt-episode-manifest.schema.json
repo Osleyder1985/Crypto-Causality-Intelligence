@@ -1,6 +1,5 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://example.invalid/cci/episode-manifest-v1.schema.json",
   "title": "CCI BTC/USDT Episode Manifest v1",
   "type": "object",
   "additionalProperties": false,
@@ -176,5 +175,87 @@
         "type": "string"
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "manifest_status": {
+            "const": "approved"
+          }
+        },
+        "required": [
+          "manifest_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "venue": {
+            "type": "string",
+            "minLength": 1
+          },
+          "market_type": {
+            "enum": [
+              "spot",
+              "perpetual",
+              "future"
+            ]
+          },
+          "data_source": {
+            "properties": {
+              "provider": {
+                "type": "string",
+                "minLength": 1
+              },
+              "dataset_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "acquisition_method": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "data_usage_authorization": {
+            "properties": {
+              "status": {
+                "const": "authorized"
+              },
+              "evidence_ref": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "episodes": {
+            "minItems": 1,
+            "items": {
+              "properties": {
+                "status": {
+                  "const": "confirmed"
+                },
+                "start_local": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "end_local": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "start_utc": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "end_utc": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }
