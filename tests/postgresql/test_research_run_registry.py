@@ -66,5 +66,37 @@ class ResearchRunRegistryPostgresTests(unittest.TestCase):
                 (id,run_id,artifact_role,logical_uri,media_type,format,sha256,byte_size,retention_class)
                 VALUES (%s,%s,'summary','cci://x','application/json','json','bad',0,'research')""",(uuid.uuid4(),rid))
 
+    def test_unique_run_key_per_experiment(self):
+        rid=self.make_run()
+        with self.assertRaises(self.psycopg.errors.UniqueViolation):
+            self.conn.execute("""INSERT INTO cci.research_experiment_runs
+                (id,experiment_id,run_key,status,code_commit,protocol_version)
+                VALUES (%s,%s,%s,'queued','abcdef1234567','v1')""",
+                (uuid.uuid4(),self.experiment_id,str(rid)))
+
+    def test_artifact_reference_and_hash(self):
+        rid=self.make_run()
+        artifact_id=uuid.uuid4()
+        values=(artifact_id,rid,'summary','cci://synthetic/run-summary.json',
+                'application/json','json','a'*64,128,'research','v1')
+        self.conn.execute("""INSERT INTO cci.research_run_artifacts
+            (id,run_id,artifact_role,logical_uri,media_type,format,sha256,byte_size,retention_class,schema_version)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",values)
+        row=self.conn.execute("SELECT sha256,byte_size FROM cci.research_run_artifacts WHERE id=%s",
+                              (artifact_id,)).fetchone()
+        self.assertEqual(row,('a'*64,128))
+
+    def test_transaction_rollback_removes_partial_run(self):
+        rid=uuid.uuid4()
+        with self.assertRaises(RuntimeError):
+            with self.conn.transaction():
+                self.conn.execute("""INSERT INTO cci.research_experiment_runs
+                    (id,experiment_id,run_key,status,code_commit,protocol_version)
+                    VALUES (%s,%s,%s,'queued','abcdef1234567','v1')""",
+                    (rid,self.experiment_id,str(rid)))
+                raise RuntimeError("synthetic failure after insert")
+        self.assertIsNone(self.conn.execute(
+            "SELECT id FROM cci.research_experiment_runs WHERE id=%s",(rid,)).fetchone())
+
 if __name__ == "__main__":
     unittest.main()
