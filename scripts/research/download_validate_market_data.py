@@ -159,16 +159,24 @@ def fetch_coingecko(asset, coin_id, start_s, end_s, interval, out):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--start", default="2026-10-07T00:00:00Z")
-    parser.add_argument("--end", default="2026-11-06T00:00:00Z",
-                        help="Límite exclusivo; usar último cierre UTC completo.")
+    parser.add_argument("--hourly-start", default="2026-10-07T00:00:00Z")
+    parser.add_argument("--hourly-end", default="2026-11-06T00:00:00Z",
+                        help="Límite horario exclusivo en UTC.")
+    parser.add_argument("--daily-start", default="2025-11-21T00:00:00Z")
+    parser.add_argument("--daily-end", default="2026-11-06T00:00:00Z",
+                        help="Límite diario exclusivo en UTC.")
     parser.add_argument("--out", default="artifacts/issue-11")
     args = parser.parse_args()
-    start_s, end_s = utc_epoch(args.start), utc_epoch(args.end)
-    if end_s <= start_s:
-        raise SystemExit("--end debe ser posterior a --start.")
+    windows = {
+        "1h": (utc_epoch(args.hourly_start), utc_epoch(args.hourly_end), args.hourly_start, args.hourly_end),
+        "1d": (utc_epoch(args.daily_start), utc_epoch(args.daily_end), args.daily_start, args.daily_end),
+    }
+    for label, (start_s, end_s, _, _) in windows.items():
+        if end_s <= start_s or (end_s - start_s) % INTERVALS[label]["seconds"]:
+            raise SystemExit(f"Ventana UTC inválida o desalineada para {label}.")
     out = Path(args.out)
-    manifest = {"experiment": "issue-11", "start_utc": args.start, "end_utc_exclusive": args.end,
+    manifest = {"experiment": "issue-11",
+                "windows_utc": {k: {"start_inclusive": v[2], "end_exclusive": v[3]} for k, v in windows.items()},
                 "retrieved_at_utc": datetime.now(timezone.utc).isoformat(),
                 "intervals": {}, "results": [], "limitations": [
                     "Binance usa pares USDT; Kraken y CoinGecko usan USD. No comparar precios absolutos sin conversión documentada.",
@@ -177,9 +185,8 @@ def main():
                     "CoinGecko puede aplicar granularidad automática y límites por plan/rango."
                 ]}
     for label, spec in INTERVALS.items():
+        start_s, end_s, _, _ = windows[label]
         seconds = spec["seconds"]
-        if (end_s - start_s) % seconds:
-            raise SystemExit(f"Los límites no están alineados con {label}.")
         manifest["intervals"][label] = {"seconds": seconds,
             "expected_continuous_records": (end_s - start_s) // seconds}
         for asset, ids in ASSETS.items():
