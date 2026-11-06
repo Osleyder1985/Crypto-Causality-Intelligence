@@ -46,13 +46,14 @@ Se ha actualizado el modelo lógico para que represente el inventario, las entid
 
 La alineación de inventario y entidades está cerrada como propuesta. La comparación automatizada confirma 28/28 tablas representadas en el modelo lógico. Todavía se requiere:
 
-1. **Inventario de entidades verificado:** comparación automatizada del inventario físico contra el modelo lógico: 28/28 tablas físicas están representadas en el modelo lógico, sin entidades ausentes. Esta comprobación confirma cobertura de nombres de tablas; no sustituye una revisión semántica de cada columna y restricción.
-2. Verificar que el vocabulario de `data_type` en endpoints, evaluaciones y contribuciones sea canónico y no se permita una discrepancia semántica.
-3. Definir la semántica operacional de `scope_reference` y documentar el formato de claves de producto/plan y de tipo de dato.
-4. **Integridad revisión→mapping especificada:** FKs compuestas que incorporan `resolution_status = 'accepted'`, destino, namespace e identificador; para mappings de representación también red y FK a `(asset_representation_id, network_id)`. Para mappings de activo, un trigger compara `network_id` con semántica NULL-safe. La publicación se ejecuta en una única transacción. Falta implementar y probar estas reglas en PostgreSQL real.
-5. Definir reglas de no solapamiento y selección histórica de mappings bajo concurrencia; CHECK no puede imponerlas por sí solo.
-6. Revisar las restricciones de estado terminal y las invariantes de contadores antes del DDL.
-7. Implementar el trigger de ámbito de red para `asset_identifiers`, permisos de escritura append-only y pruebas de rollback atómico para ambos tipos de mapping.
+1. **Inventario de entidades verificado:** comparación automatizada del inventario físico contra el modelo lógico: 29/29 tablas físicas están representadas en el modelo lógico, sin entidades ausentes. Esta comprobación confirma cobertura de nombres de tablas; no sustituye una revisión semántica de cada columna y restricción.
+2. Definir y registrar los namespaces concretos que CCI utilizará inicialmente, con evidencia de autoridad, semántica y nivel de destino; la tabla `identity_namespaces` ya está especificada, pero no hay catálogo poblado ni namespaces aprobados todavía.
+3. Verificar que el vocabulario de `data_type` en endpoints, evaluaciones y contribuciones sea canónico y no se permita una discrepancia semántica.
+4. Definir la semántica operacional de `scope_reference` y documentar el formato de claves de producto/plan y de tipo de dato.
+5. **Integridad revisión→mapping especificada:** FKs compuestas que incorporan `resolution_status = 'accepted'`, destino, namespace e identificador; para mappings de representación también red y FK a `(asset_representation_id, network_id)`. Para mappings de activo, un trigger compara `network_id` con semántica NULL-safe. La publicación se ejecuta en una única transacción. Falta implementar y probar estas reglas en PostgreSQL real.
+6. Definir reglas de no solapamiento y selección histórica de mappings bajo concurrencia; CHECK no puede imponerlas por sí solo.
+7. Revisar las restricciones de estado terminal y las invariantes de contadores antes del DDL.
+8. Implementar el trigger de ámbito de red para `asset_identifiers`, permisos de escritura append-only y pruebas de rollback atómico para ambos tipos de mapping.
 
 ## 5. Plan de validación real PostgreSQL
 
@@ -87,12 +88,12 @@ Decisiones:
 6. La revisión y el mapping accepted se publican atómicamente. El mapping replica exactamente destino, namespace, identificador, red y periodo de la revisión.
 7. La escritura toma un bloqueo transaccional determinista por clave de identidad antes de validar sustituciones y solapamientos. Se probarán carreras con dos sesiones PostgreSQL; un prechequeo de aplicación sin bloqueo no es suficiente.
 
-La especificación física debe concretar la función/trigger, la clave de bloqueo, los permisos append-only y el procedimiento de reintento transaccional. Las FKs y CHECK actuales no prueban estas invariantes. El modo de alcance por namespace debe quedar fijado en un registro canónico. Ese registro todavía no existe como entidad relacional; definirlo y añadir su integridad referencial es un pendiente previo a migraciones.
+La especificación física debe concretar la función/trigger, la clave de bloqueo, los permisos append-only y el procedimiento de reintento transaccional. Las FKs y CHECK actuales no prueban estas invariantes. El catálogo `identity_namespaces` ya está especificado en los modelos lógico y físico, con FK desde las revisiones. Sigue pendiente poblarlo con namespaces concretos respaldados por evidencia e implementar/probar el trigger que valida `scope_mode` y `target_level`.
 
 ## 8. Pendientes técnicos actualizados
 
 - Definir la semántica completa de sucesión de intervalos (nueva vigencia frente a corrección retroactiva), el desempate determinista de revisiones registradas en el mismo instante y la validación de sucesión por clave.
-- Diseñar el registro persistente de namespaces y su modo de alcance; después implementar exclusión temporal por clave bajo bloqueo transaccional, incluida la prevención de mezcla de scopes.
+- Definir el conjunto inicial de filas de `identity_namespaces` con evidencia y validar por trigger `scope_mode`/`target_level`; después implementar exclusión temporal por clave bajo bloqueo transaccional.
 - Garantizar que los mappings reproduzcan el intervalo exacto de la revisión aceptada.
 - Probar consultas `valid_at/known_at`, correcciones retroactivas, cierre y reapertura de vigencia, solapamientos, sustituciones inválidas y carreras concurrentes en PostgreSQL real.
 - Definir una secuencia monotónica por clave si se necesita desempate total además de `recorded_at`; mantener eventos/revisiones append-only mediante roles y triggers; comprobar rollback atómico de revisión y mapping.
