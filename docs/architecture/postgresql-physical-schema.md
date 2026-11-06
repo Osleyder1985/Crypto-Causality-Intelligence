@@ -63,7 +63,9 @@ Todas las tablas siguientes pertenecen a `cci`.
 | `assets` | `id` | Identidad económica/técnica del activo; no identifica un contrato concreto. |
 | `identity_namespaces` | `namespace_key` | Registro inmutable del significado, alcance y nivel de destino de los namespaces de resolución de activos. |
 | `networks` | `id` | Redes blockchain con clave interna estable. |
-| `network_identifiers` | `id` | Chain IDs y alias de red namespaced. |
+| `network_identifiers` | `id` | Identificadores técnicos y externos de red namespaced, con evidencia. |
+| `provider_platforms` | `id` | Observaciones versionadas de plataformas publicadas por proveedores, separadas de las redes canónicas. |
+| `provider_platform_resolution_reviews` | `id` | Revisiones append-only de correspondencia entre una plataforma observada y una red canónica.
 | `asset_representations` | `id` | Unidad nativa o despliegue contractual de un activo en una red. |
 | `asset_relationships` | `id` | Relaciones tipadas, dirigidas y evidenciadas entre activos distintos. |
 | `asset_identity_resolution_reviews` | `id` | Candidatos, decisiones y evidencia de resolución a nivel de activo o representación. |
@@ -740,3 +742,56 @@ La revisión de documentación oficial distingue identificadores de catálogo de
 6. La aprobación documental de estos dos namespaces no autoriza a poblar el catálogo con filas hasta que se cierre la correspondencia de plataformas a redes y se revise la evidencia/versión concreta de los endpoints usados.
 
 No se han creado migraciones, no se han insertado registros y no se han ejecutado pruebas en PostgreSQL real.
+
+
+## 10. Plataformas de proveedores e identidad canónica de redes
+
+La política rectora es `network-identity-resolution-policy.md`. Estas tablas amplían el inventario físico a **31 entidades**. La ampliación es de diseño: no añade filas de redes, plataformas ni mappings.
+
+**`provider_platforms`** — observación versionada de una entrada de catálogo de plataformas de un proveedor.
+- `id UUID PK`
+- `data_source_id UUID NOT NULL FK data_sources(id)`
+- `provider_platform_id TEXT NOT NULL` (literal exacto publicado por el proveedor; no es `network_key`).
+- `provider_name TEXT NULL`, `provider_shortname TEXT NULL`, `provider_native_coin_id TEXT NULL` (metadata descriptiva; no son claves de red).
+- `reported_chain_identifier BIGINT NULL` (valor reportado por el proveedor; NULL se conserva como ausencia, no se imputa).
+- `observed_at TIMESTAMPTZ NOT NULL`
+- `evidence_reference TEXT NOT NULL`, `evidence_sha256 TEXT NULL`
+- UNIQUE `(data_source_id, provider_platform_id, observed_at)`; UNIQUE candidato `(id, data_source_id, provider_platform_id)`.
+- Cada cambio observado crea otra fila. No se sobrescriben los metadatos históricos. Para CoinGecko, `provider_platform_id` corresponde a `asset_platforms[].id`; `reported_chain_identifier` corresponde a `chain_identifier`, que puede ser NULL.
+
+**`provider_platform_resolution_reviews`** — revisión de la correspondencia de una observación de plataforma con una red CCI.
+- `id UUID PK`
+- `provider_platform_observation_id UUID NOT NULL FK provider_platforms(id)`
+- `candidate_network_id UUID NULL FK networks(id)`
+- `resolution_status TEXT NOT NULL`: CHECK `pending_review, accepted, rejected, ambiguous`.
+- `evidence_reference TEXT NULL`, `decision_reference TEXT NULL`
+- `reviewed_at TIMESTAMPTZ NULL`, `recorded_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()`
+- `supersedes_review_id UUID NULL FK provider_platform_resolution_reviews(id)`
+- CHECK: `accepted` exige exactamente un `candidate_network_id`, evidencia y `reviewed_at`; los demás estados no publican mapping.
+- UNIQUE candidato `(id, provider_platform_observation_id, candidate_network_id, resolution_status)`, para que la publicación solo pueda referenciar la revisión aceptada del mismo candidato.
+- Registro append-only. La cadena de sucesión debe ser lineal, sin ciclos ni ramas competidoras; la escritura se serializa por proveedor + platform ID.
+- La publicación accepted y el alta del identificador de proveedor en `network_identifiers` se realizan en una única transacción.
+
+**`network_identifiers` — reglas ampliadas**
+- `namespace` identifica la especificación o autoridad (por ejemplo, `eip155`, `solana`, o el proveedor bajo su namespace).
+- Para una plataforma CoinGecko aceptada, registrar `namespace = 'coingecko'`, `identifier_type = 'asset_platform_id'` y el literal de `provider_platform_id`. No usar este valor como clave canónica.
+- Para EVM, registrar Chain ID bajo namespace EIP-155 y tipo explícito; no asumir unicidad universal.
+- Para Solana, registrar el Genesis Hash bajo namespace Solana y tipo explícito; no crear un Chain ID numérico.
+- Cada identificador conserva `observed_at` y `evidence_reference`. La unicidad candidata solo puede imponerse tras demostrar que el namespace/tipo define ese ámbito de unicidad.
+
+**Invariantes de resolución**
+1. Una observación de plataforma no equivale a una red ni crea una red automáticamente.
+2. Una revisión accepted apunta a exactamente una red; una revisión pending/rejected/ambiguous no puede habilitar direcciones contractuales.
+3. La plataforma y su proveedor deben coincidir en toda revisión y mapping publicado; FKs compuestas deben impedir cruces de proveedor, observación y destino.
+4. El mapping publicado en `network_identifiers` debe conservar namespace, tipo, literal, fuente y evidencia de la revisión aceptada.
+5. Los cambios de metadata del proveedor generan observaciones nuevas. Una nueva observación no cambia automáticamente la red previamente aceptada; debe comprobarse que la semántica de la plataforma siga siendo la misma.
+6. La resolución de `coingecko:contract_address` solo se habilita si la plataforma concreta tiene una revisión accepted vigente y no ambigua.
+7. La política de direcciones (case sensitivity, checksum y normalización) es específica de familia y versionada; el literal original siempre se conserva.
+
+### Evidencia mínima por familia
+
+- **EVM:** Chain ID namespaced + documentación oficial de la red + al menos una señal técnica independiente apropiada (por ejemplo, genesis hash/checkpoint, chain spec o endpoint RPC oficial). Si hay colisión, fork o señales discordantes, exigir evidencia discriminante adicional y mantener pending/ambiguous mientras no exista.
+- **Solana:** `getGenesisHash` observado desde un endpoint identificado, corroborado mediante endpoints independientes y documentación oficial del clúster. No inventar Chain ID.
+- **Otras familias:** no reutilizar reglas EVM/Solana; documentar el identificador nativo y su autoridad antes de aceptar.
+
+Esta sección no autoriza insertar filas ni generar DDL/migraciones. Las restricciones descritas deben probarse posteriormente en PostgreSQL real con fixtures sintéticos.
