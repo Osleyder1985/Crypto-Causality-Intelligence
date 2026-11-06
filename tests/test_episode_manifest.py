@@ -92,6 +92,12 @@ class EpisodeManifestTests(unittest.TestCase):
         with self.assertRaisesRegex(ManifestError, "solapados"):
             validate_manifest(doc)
 
+    def test_authorization_requires_evidence_reference(self):
+        doc = approved_manifest()
+        doc["data_usage_authorization"]["evidence_ref"] = " "
+        with self.assertRaisesRegex(ManifestError, "evidence_ref"):
+            validate_manifest(doc)
+
     def test_cohort_requires_both_directions(self):
         doc = approved_manifest()
         doc["episodes"] = doc["episodes"][:1]
