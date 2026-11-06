@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""Descarga reproducible de muestras BTC/ETH para Issue #11.
-
-Solo usa la biblioteca estándar. No convierte USDT a USD ni mezcla series
-de candles con observaciones agregadas de CoinGecko.
-"""
+"""Descarga reproducible de muestras BTC/ETH para Issue #11."""
 from __future__ import annotations
 
 import argparse
@@ -14,18 +10,22 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from pathlib import Path
 
 BINANCE = "https://data-api.binance.vision/api/v3/klines"
+BINANCE_METADATA = "https://data-api.binance.vision/api/v3/exchangeInfo"
 KRAKEN = "https://api.kraken.com/0/public/OHLC"
+KRAKEN_METADATA = "https://api.kraken.com/0/public/AssetPairs"
 COINGECKO = "https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart/range"
 ASSETS = {
     "BTC": {"binance": "BTCUSDT", "kraken": "XBTUSD", "coingecko": "bitcoin"},
     "ETH": {"binance": "ETHUSDT", "kraken": "ETHUSD", "coingecko": "ethereum"},
 }
-INTERVALS = {"1h": {"binance": "1h", "kraken": 60, "seconds": 3600},
-             "1d": {"binance": "1d", "kraken": 1440, "seconds": 86400}}
+INTERVALS = {
+    "1h": {"binance": "1h", "kraken": 60, "seconds": 3600},
+    "1d": {"binance": "1d", "kraken": 1440, "seconds": 86400},
+}
 
 
 def utc_epoch(value: str) -> int:
@@ -71,6 +71,53 @@ def save_raw(out: Path, name: str, body: bytes):
             "bytes": len(body)}
 
 
+def metadata_record(provider, endpoint, request_meta, raw, parameters, status="captured"):
+    return {
+        "provider": provider, "endpoint": endpoint, "request": request_meta,
+        "query_parameters": parameters, "raw": raw, "status": status,
+    }
+
+
+def fetch_binance_metadata(out: Path):
+    data, body, request_meta = request_json(BINANCE_METADATA)
+    raw = save_raw(out, "binance_exchange_info", body)
+    wanted = {ids["binance"] for ids in ASSETS.values()}
+    selected = []
+    for symbol in data.get("symbols", []):
+        if symbol.get("symbol") not in wanted:
+            continue
+        selected.append({
+            key: symbol.get(key) for key in (
+                "symbol", "status", "baseAsset", "quoteAsset",
+                "baseAssetPrecision", "quoteAssetPrecision",
+                "isSpotTradingAllowed", "permissionSets", "filters"
+            ) if key in symbol
+        })
+    return metadata_record("binance", BINANCE_METADATA, request_meta, raw, {}), selected
+
+
+def fetch_kraken_metadata(out: Path):
+    data, body, request_meta = request_json(KRAKEN_METADATA)
+    if data.get("error"):
+        raise RuntimeError(f"Kraken AssetPairs API error: {data['error']}")
+    raw = save_raw(out, "kraken_asset_pairs", body)
+    wanted = {ids["kraken"] for ids in ASSETS.values()}
+    selected = []
+    for key, pair in data.get("result", {}).items():
+        aliases = {key, pair.get("altname"), pair.get("wsname")}
+        if not aliases.intersection(wanted):
+            continue
+        selected.append({
+            "result_key": key,
+            **{name: pair.get(name) for name in (
+                "altname", "wsname", "aclass_base", "base", "aclass_quote",
+                "quote", "status", "pair_decimals", "lot_decimals",
+                "lot_multiplier", "ordermin", "costmin"
+            ) if name in pair}
+        })
+    return metadata_record("kraken", KRAKEN_METADATA, request_meta, raw, {}), selected
+
+
 def write_csv(path: Path, fields, rows):
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as handle:
@@ -83,31 +130,37 @@ def validate_candles(rows, interval_seconds, start_s, end_s):
     timestamps = [int(r["open_time_utc"]) for r in rows]
     duplicates = len(timestamps) - len(set(timestamps))
     ordered = all(a < b for a, b in zip(timestamps, timestamps[1:]))
-    invalid = []
-    gaps = []
+    invalid, gaps = [], []
     for i, row in enumerate(rows):
-        o, h, low, c, v = (float(row[k]) for k in ("open", "high", "low", "close", "volume"))
-        if not (low <= min(o, c) <= max(o, c) <= h and low <= h):
+        o, h, low, c = (float(row[k]) for k in ("open", "high", "low", "close"))
+        volume = float(row.get("base_volume", row.get("volume", 0)))
+        if not (low <= min(o, c) <= max(o, c) <= h):
             invalid.append({"timestamp": row["open_time_utc"], "type": "ohlc"})
-        if v < 0:
-            invalid.append({"timestamp": row["open_time_utc"], "type": "negative_volume"})
+        if volume < 0:
+            invalid.append({"timestamp": row["open_time_utc"], "type": "negative_base_volume"})
         if i and timestamps[i] - timestamps[i - 1] != interval_seconds:
-            gaps.append({"from": timestamps[i - 1], "to": timestamps[i],
-                         "missing_intervals": (timestamps[i] - timestamps[i - 1]) // interval_seconds - 1})
+            delta = timestamps[i] - timestamps[i - 1]
+            gaps.append({
+                "from": timestamps[i - 1], "to": timestamps[i],
+                "missing_intervals": max(0, delta // interval_seconds - 1),
+            })
     expected = (end_s - start_s) // interval_seconds
     in_window = [t for t in timestamps if start_s <= t < end_s]
     outside_window = [t for t in timestamps if not start_s <= t < end_s]
     misaligned = [t for t in in_window if t % interval_seconds != 0]
-    zero_volume = sum(float(r["volume"]) == 0 for r in rows)
+    zero_volume = sum(float(r.get("base_volume", r.get("volume", 0))) == 0 for r in rows)
+    trade_counts = [int(r["trade_count"]) for r in rows if r.get("trade_count") not in (None, "")]
     return {
         "records_received": len(rows), "records_in_window": len(in_window),
         "records_outside_window": len(outside_window),
         "records_expected_if_continuous": expected,
         "coverage_pct_if_continuous": round(100 * len(set(in_window)) / expected, 4) if expected else None,
         "duplicate_timestamps": duplicates, "strictly_ordered": ordered,
-        "misaligned_timestamps": misaligned, "zero_volume_records": zero_volume,
+        "misaligned_timestamps": misaligned, "zero_base_volume_records": zero_volume,
+        "trade_count_records": len(trade_counts),
+        "zero_trade_count_records": sum(value == 0 for value in trade_counts),
         "ohlc_or_volume_violations": invalid, "gaps": gaps,
-        "note": "La cobertura continua es una referencia; huecos por ausencia de operaciones requieren semántica del proveedor."
+        "gap_interpretation": "Un intervalo ausente no se clasifica automáticamente como pérdida de datos; contrastar la semántica y el conteo de operaciones del proveedor.",
     }
 
 
@@ -124,7 +177,11 @@ def fetch_binance(asset, symbol, interval, start_s, end_s, out):
             "base_asset": asset, "quote_asset": "USDT", "interval": interval,
             "open_time_utc": int(k[0]) // 1000, "close_time_utc": int(k[6]) // 1000,
             "open": k[1], "high": k[2], "low": k[3], "close": k[4],
-            "volume": k[5], "volume_unit": asset, "quote_volume": k[7],
+            "volume": k[5], "base_volume": k[5], "base_volume_unit": asset,
+            "quote_volume": k[7], "quote_volume_unit": "USDT",
+            "trade_count": k[8], "taker_buy_base_volume": k[9],
+            "taker_buy_base_volume_unit": asset, "taker_buy_quote_volume": k[10],
+            "taker_buy_quote_volume_unit": "USDT",
         })
     raw = save_raw(out, f"binance_{asset}_{interval}", body)
     return rows, raw, request_meta
@@ -137,35 +194,34 @@ def fetch_kraken(asset, pair, interval, start_s, end_s, out):
         raise RuntimeError(f"Kraken API error: {data['error']}")
     result = data["result"]
     pair_key = next(k for k in result if k != "last")
+    base_unit = "XBT" if asset == "BTC" else "ETH"
     rows = []
     for k in result[pair_key]:
         ts = int(k[0])
-        # Kraken incluye la vela en curso; solo conservar aperturas en la ventana cerrada.
         if start_s <= ts < end_s:
             rows.append({
                 "provider": "kraken", "asset": asset, "market_id": pair_key,
-                "base_asset": "XBT" if asset == "BTC" else "ETH", "quote_asset": "USD",
+                "base_asset": base_unit, "quote_asset": "USD",
                 "interval": "1h" if interval == 60 else "1d",
                 "open_time_utc": ts, "close_time_utc": ts + (3600 if interval == 60 else 86400) - 1,
                 "open": k[1], "high": k[2], "low": k[3], "close": k[4],
-                "volume": k[6], "volume_unit": "XBT" if asset == "BTC" else "ETH",
-                "vwap": k[5], "trades": k[7],
+                "volume": k[6], "base_volume": k[6], "base_volume_unit": base_unit,
+                "quote_volume": "", "quote_volume_unit": "",
+                "vwap": k[5], "trade_count": k[7],
+                "taker_buy_base_volume": "", "taker_buy_quote_volume": "",
             })
     raw = save_raw(out, f"kraken_{asset}_{interval}", body)
     return rows, raw, pair_key, request_meta
 
 
-def fetch_coingecko(asset, coin_id, start_s, end_s, interval, out):
+def fetch_coingecko(asset, coin_id, start_s, end_s, interval):
     params = urllib.parse.urlencode({"vs_currency": "usd", "from": start_s, "to": end_s})
     data, body, request_meta = request_json(f"{COINGECKO.format(coin_id=coin_id)}?{params}")
-    # Contar observaciones en memoria para validar cobertura sin archivar la serie
-    # ni reproducir valores de CoinGecko mientras se revisan sus condiciones de uso.
-    counts = {}
-    for metric in ("prices", "market_caps", "total_volumes"):
-        counts[metric] = sum(
-            1 for timestamp_ms, _ in data.get(metric, [])
-            if start_s <= int(timestamp_ms) // 1000 < end_s
-        )
+    counts = {
+        metric: sum(1 for timestamp_ms, _ in data.get(metric, [])
+                    if start_s <= int(timestamp_ms) // 1000 < end_s)
+        for metric in ("prices", "market_caps", "total_volumes")
+    }
     response_info = {"sha256": hashlib.sha256(body).hexdigest(), "bytes": len(body)}
     return counts, response_info, request_meta
 
@@ -188,20 +244,33 @@ def main():
         if end_s <= start_s or (end_s - start_s) % INTERVALS[label]["seconds"]:
             raise SystemExit(f"Ventana UTC inválida o desalineada para {label}.")
     out = Path(args.out)
-    manifest = {"experiment": "issue-11",
-                "windows_utc": {k: {"start_inclusive": v[2], "end_exclusive": v[3]} for k, v in windows.items()},
-                "retrieved_at_utc": datetime.now(timezone.utc).isoformat(),
-                "intervals": {}, "results": [], "limitations": [
-                    "Binance usa pares USDT; Kraken y CoinGecko usan USD. No comparar precios absolutos sin conversión documentada.",
-                    "CoinGecko market_chart/range entrega series agregadas, no velas OHLCV equivalentes.",
-                    "Kraken OHLC limita la respuesta a 720 observaciones; verificar conteo y cobertura.",
-                    "CoinGecko puede aplicar granularidad automática y límites por plan/rango."
-                ]}
+    manifest = {
+        "experiment": "issue-11",
+        "windows_utc": {k: {"start_inclusive": v[2], "end_exclusive": v[3]} for k, v in windows.items()},
+        "retrieved_at_utc": datetime.now(timezone.utc).isoformat(),
+        "metadata": [], "metadata_selected_markets": {},
+        "intervals": {}, "results": [],
+        "limitations": [
+            "Binance usa pares USDT; Kraken y CoinGecko usan USD. No comparar precios absolutos sin conversión documentada.",
+            "CoinGecko market_chart/range entrega series agregadas, no velas OHLCV equivalentes.",
+            "Kraken OHLC limita la respuesta a 720 observaciones; verificar conteo y cobertura.",
+            "Una vela ausente en Kraken no implica automáticamente pérdida de datos: considerar intervalos sin operaciones.",
+        ],
+    }
+    for provider, fetcher in (("binance", fetch_binance_metadata), ("kraken", fetch_kraken_metadata)):
+        try:
+            record, selected = fetcher(out)
+            manifest["metadata"].append(record)
+            manifest["metadata_selected_markets"][provider] = selected
+        except Exception as exc:
+            manifest["metadata"].append({"provider": provider, "status": "error", "error": str(exc)})
+            manifest["metadata_selected_markets"][provider] = []
     for label, spec in INTERVALS.items():
         start_s, end_s, _, _ = windows[label]
-        seconds = spec["seconds"]
-        manifest["intervals"][label] = {"seconds": seconds,
-            "expected_continuous_records": (end_s - start_s) // seconds}
+        manifest["intervals"][label] = {
+            "seconds": spec["seconds"],
+            "expected_continuous_records": (end_s - start_s) // spec["seconds"],
+        }
         for asset, ids in ASSETS.items():
             for provider in ("binance", "kraken"):
                 try:
@@ -210,36 +279,52 @@ def main():
                         market_id = ids["binance"]
                     else:
                         rows, raw, market_id, request_meta = fetch_kraken(asset, ids["kraken"], spec["kraken"], start_s, end_s, out)
-                    filename = f"{provider}_{asset}_{label}.csv"
-                    fields = list(rows[0].keys()) if rows else [
+                    fields = [
                         "provider", "asset", "market_id", "base_asset", "quote_asset", "interval",
-                        "open_time_utc", "close_time_utc", "open", "high", "low", "close", "volume", "volume_unit"]
-                    write_csv(out / "normalized" / filename, fields, rows)
-                    report = validate_candles(rows, seconds, start_s, end_s)
-                    manifest["results"].append({"provider": provider, "asset": asset, "interval": label,
+                        "open_time_utc", "close_time_utc", "open", "high", "low", "close",
+                        "volume", "base_volume", "base_volume_unit", "quote_volume", "quote_volume_unit",
+                        "vwap", "trade_count", "taker_buy_base_volume", "taker_buy_base_volume_unit",
+                        "taker_buy_quote_volume", "taker_buy_quote_volume_unit",
+                    ]
+                    write_csv(out / "normalized" / f"{provider}_{asset}_{label}.csv", fields, rows)
+                    report = validate_candles(rows, spec["seconds"], start_s, end_s)
+                    manifest["results"].append({
+                        "provider": provider, "asset": asset, "interval": label,
                         "market_id": market_id, "endpoint": request_meta["url"].split("?")[0],
-                        "request": request_meta, "source_timestamp_unit": "milliseconds" if provider == "binance" else "seconds",
+                        "request": request_meta,
+                        "source_timestamp_unit": "milliseconds" if provider == "binance" else "seconds",
                         "query_parameters": urllib.parse.parse_qs(urllib.parse.urlsplit(request_meta["url"]).query),
-                        "raw": raw, "validation": report, "status": "downloaded"})
+                        "raw": raw, "validation": report, "status": "downloaded",
+                    })
                 except Exception as exc:
-                    manifest["results"].append({"provider": provider, "asset": asset, "interval": label,
+                    manifest["results"].append({
+                        "provider": provider, "asset": asset, "interval": label,
                         "endpoint": BINANCE if provider == "binance" else KRAKEN,
-                        "status": "error", "error": str(exc)})
+                        "status": "error", "error": str(exc),
+                    })
             try:
-                counts, response_info, request_meta = fetch_coingecko(asset, ids["coingecko"], start_s, end_s, label, out)
-                manifest["results"].append({"provider": "coingecko", "asset": asset, "interval": label,
+                counts, response_info, request_meta = fetch_coingecko(
+                    asset, ids["coingecko"], start_s, end_s, label
+                )
+                manifest["results"].append({
+                    "provider": "coingecko", "asset": asset, "interval": label,
                     "market_id": ids["coingecko"], "endpoint": request_meta["url"].split("?")[0],
                     "request": request_meta,
                     "query_parameters": urllib.parse.parse_qs(urllib.parse.urlsplit(request_meta["url"]).query),
                     "source_timestamp_unit": "milliseconds", "volume_unit": "USD",
                     "observations_by_metric": counts, "response_sha256": response_info["sha256"],
-                    "response_bytes": response_info["bytes"], "status": "counted_in_memory_not_archived"})
+                    "response_bytes": response_info["bytes"], "status": "counted_in_memory_not_archived",
+                })
             except Exception as exc:
-                manifest["results"].append({"provider": "coingecko", "asset": asset, "interval": label,
+                manifest["results"].append({
+                    "provider": "coingecko", "asset": asset, "interval": label,
                     "endpoint": COINGECKO.format(coin_id=ids["coingecko"]),
-                    "status": "error", "error": str(exc)})
+                    "status": "error", "error": str(exc),
+                })
     out.mkdir(parents=True, exist_ok=True)
-    (out / "manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+    (out / "manifest.json").write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
     print(json.dumps({"manifest": str(out / "manifest.json"), "results": manifest["results"]},
                      indent=2, ensure_ascii=False))
 
