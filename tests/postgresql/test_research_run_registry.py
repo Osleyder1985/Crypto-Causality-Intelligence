@@ -144,7 +144,7 @@ class ResearchRunRegistryPostgresTests(unittest.TestCase):
                 "manifest_status":"approved",
                 "experiment_key":"btc-usdt-directional-episodes-v1",
                 "market":"BTC/USDT",
-                "venue":"synthetic-test-venue",
+                "venue":"binance",
                 "market_type":"spot",
                 "interval_seconds":3600,
                 "input_timezone":"UTC-05:00",
