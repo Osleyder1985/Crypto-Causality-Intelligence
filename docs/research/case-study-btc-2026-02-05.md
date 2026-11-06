@@ -193,3 +193,74 @@ El endpoint de liquidaciones/force orders no se considerará un archivo históri
 - [ ] Encontrar una fuente histórica independiente de OI para febrero de 2026, o declarar explícitamente que no está disponible.
 
 **Implicación metodológica:** el precio y el volumen spot se pueden reconstruir con archivos históricos oficiales; el OI intradía de febrero no se puede recuperar mediante el endpoint público actual de estadísticas de Binance. Esta asimetría debe reflejarse en el nivel de confianza de cualquier conclusión sobre liquidaciones y desapalancamiento.
+
+
+## 11. Cronología preliminar de catalizadores y flujos (revisión 2026-11-06)
+
+Esta sección corrige una simplificación de la hipótesis macro y separa timestamps de publicación, fechas de negociación y ventanas de mercado.
+
+### 11.1 Kevin Warsh: catalizador anterior, no noticia del 5 de febrero
+
+La elección de Kevin Warsh como candidato de Trump a presidir la Reserva Federal se anunció el **30 de enero de 2026**, no el 5 de febrero. Reuters informó ese día de fortalecimiento del dólar, caídas de bolsas y una lectura de inflación mayorista superior a lo esperado. Bloomberg describió una reacción de alivio relativo en dólar y Treasuries ante la percepción de que Warsh sería menos proclive a una flexibilización monetaria agresiva que otros candidatos considerados.
+
+Por tanto, la nominación puede formar parte del contexto de repricing iniciado el 30 de enero, pero no debe etiquetarse como un titular nuevo que desencadenó por sí solo la caída del 5 de febrero. La hipótesis que debe probarse es si el cambio de expectativas del 30 de enero tuvo efectos persistentes y cómo interactuó con otros shocks posteriores.
+
+### 11.2 Flujos diarios de ETF spot BTC
+
+Una serie diaria pública que atribuye sus datos a Farside Investors informa estos flujos netos agregados de ETF spot estadounidenses:
+
+| Fecha de negociación | Flujo neto agregado |
+|---|---:|
+| 2026-02-02 | +561,8 millones USD |
+| 2026-02-03 | −272,0 millones USD |
+| 2026-02-04 | −544,9 millones USD |
+| 2026-02-05 | −434,1 millones USD |
+| 2026-02-06 | +371,1 millones USD |
+
+La suma de los días 3 a 5 de febrero es −1.251,0 millones USD; el 2 de febrero había registrado una entrada de +561,8 millones USD. La secuencia muestra un cambio brusco desde entradas a salidas durante tres sesiones consecutivas, seguido de una entrada el 6 de febrero.
+
+**Límite de inferencia:** estos son flujos diarios asociados a fechas de negociación estadounidenses, no observaciones intradía. No permiten establecer si las órdenes de reembolso precedieron al tramo de caída del 5 de febrero, ni si los flujos fueron causa, respuesta o ambas cosas. Las páginas de terceros consultadas reproducen una serie atribuida a Farside; no se contarán como verificaciones independientes entre sí. Antes de elevar estos valores a evidencia primaria se archivará y comprobará la tabla original de Farside, su zona horaria y sus revisiones.
+
+### 11.3 Secuencia intradía publicada el 5 de febrero
+
+La prensa financiera permite fijar algunos hitos provisionales en hora de Nueva York (ET):
+
+| Hora ET / fecha | Hito publicado | Qué permite afirmar |
+|---|---|---|
+| 5 feb., 06:36 | CoinDesk informa que BTC había caído por debajo de 70.000 USD antes de la apertura de la bolsa estadounidense | La debilidad de BTC ya estaba presente antes de la sesión regular de acciones |
+| 5 feb., mañana | Se publican datos laborales estadounidenses: solicitudes iniciales de desempleo mayores de lo esperado y vacantes JOLTS en mínimo de más de cinco años | Hubo información macro durante la mañana; falta medir su impacto incremental en BTC |
+| 5 feb., 15:00 | CoinDesk publica BTC cerca de 63.000 USD y pérdidas simultáneas en metales y activos tecnológicos | La venta continuaba durante la sesión estadounidense |
+| 5 feb., 19:20 | The Block informa un mínimo aproximado de 60.000 USD | La fase extrema se produjo después del cierre regular de la bolsa estadounidense |
+| 5 feb., 21:07 | The Block publica liquidaciones cripto de 2.670 millones USD en 24 horas, de las cuales 2.310 millones correspondían a posiciones largas según CoinGlass | Confirma desapalancamiento masivo en la ventana reportada, pero el agregado de 24h no demuestra que las liquidaciones precedieran al primer tramo bajista |
+
+Los tiempos de los artículos son timestamps de publicación o tiempos del acontecimiento citados por los periodistas; no equivalen a una cinta consolidada de operaciones. Se deben convertir a UTC y contrastar con las velas 1m/5m cuando estén disponibles.
+
+### 11.4 Lectura causal provisional
+
+La evidencia disponible obliga a separar tres fases:
+
+1. **Reprecio previo (30 de enero–4 de febrero):** nominación de Warsh, inflación mayorista, debilidad de metales y salidas de ETF durante el 3 y 4 de febrero. Es contexto potencialmente predisponente, no explicación suficiente.
+2. **Deterioro previo a la apertura estadounidense (madrugada–mañana del 5 de febrero ET):** BTC ya estaba por debajo de 70.000 USD antes de la apertura bursátil. Esto impide explicar el inicio de la jornada únicamente por la caída de las acciones estadounidenses durante esa sesión.
+3. **Aceleración y liquidaciones (tarde/noche del 5 de febrero ET):** BTC cayó hacia 60.000 USD y las liquidaciones largas dominaron el agregado reportado. Esto es consistente con liquidaciones como amplificador; no prueba que fueran el detonante inicial.
+
+La caída de acciones tecnológicas, el deterioro de metales y los datos laborales contribuyen al contexto de aversión al riesgo. Sin embargo, para establecer qué variable lideró cada tramo se necesitan series intradía sincronizadas, no solo cierres diarios ni titulares.
+
+### Fuentes consultadas para esta cronología
+
+- Reuters, 30-01-2026, nominación de Warsh y reacción de mercados: https://www.reuters.com/world/china/global-markets-global-markets-2026-01-30/
+- Bloomberg, 30-01-2026, reacción de dólar y Treasuries: https://www.bloomberg.com/news/articles/2026-01-30/treasury-yields-rise-on-expectations-warsh-will-be-fed-chair
+- CoinDesk, 05-02-2026, BTC por debajo de 70.000 USD antes de la apertura estadounidense: https://www.coindesk.com/markets/2026/02/05/bitcoin-drops-below-usd70-000-as-crypto-selloff-deepens-before-u-s-equity-market-opens
+- Reuters, 05-02-2026, solicitudes de desempleo y vacantes laborales: https://www.investing.com/news/economic-indicators/us-weekly-jobless-claims-increase-more-than-expected-4487844
+- New York Fed, calendario de indicadores de febrero de 2026: https://www.newyorkfed.org/research/calendars/i-feb26.html
+- CoinDesk, 05-02-2026, BTC cerca de 63.000 USD y venta cross-asset: https://www.coindesk.com/markets/2026/02/05/bitcoin-drops-below-usd65-000-heading-to-worst-one-day-drawdown-since-ftx-blowup
+- The Block, 05-02-2026, mínimo cercano a 60.000 USD y liquidaciones: https://www.theblock.co/news/markets/2026-02-05-bitcoin-sees-flash-crash-60000-388759
+- ETF flows (serie pública que atribuye los datos a Farside Investors): https://newhedge.dev/bitcoin/spot-bitcoin-etf-flows
+
+### Estado de hipótesis tras esta revisión
+
+- **H1, repricing macro / risk-off:** gana plausibilidad como condición de contexto desde el 30 de enero y durante el 5 de febrero; todavía no se identifica el impulso marginal que inicia la caída intradía.
+- **H2, retirada de demanda institucional:** gana apoyo descriptivo por los flujos negativos del 3 al 5 de febrero; causalidad y orden temporal intradía siguen sin identificarse.
+- **H3, desapalancamiento:** existe evidencia pública de liquidaciones largas muy elevadas en la fase extrema; sigue sin demostrarse si las liquidaciones precedieron al inicio del descenso o amplificaron una caída ya en marcha.
+- **H4, debilidad estructural previa:** sigue siendo consistente con la caída acumulada desde finales de enero, pero requiere métricas de mercado/on-chain adicionales.
+
+**Conclusión:** el episodio no se explica adecuadamente con la frase «la nominación de Warsh provocó la caída del 5 de febrero». La lectura más defendible hoy es un mercado ya debilitado y sometido a repricing y salidas de ETF, seguido por una venta que se aceleró y desencadenó liquidaciones largas masivas. La identificación del detonante inmediato permanece abierta.
