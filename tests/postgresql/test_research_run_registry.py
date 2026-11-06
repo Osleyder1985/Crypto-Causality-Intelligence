@@ -2,6 +2,7 @@
 import os
 import unittest
 import uuid
+from pathlib import Path
 
 DSN = os.environ.get("CCI_TEST_DATABASE_URL")
 
@@ -18,7 +19,7 @@ class ResearchRunRegistryPostgresTests(unittest.TestCase):
         cls.experiment_id = uuid.uuid4()
         cls.conn.execute("INSERT INTO cci.research_experiments VALUES (%s,%s)",
                          (cls.experiment_id, "test-"+str(cls.experiment_id)))
-        migration = open("migrations/postgresql/002_research_run_registry.sql", encoding="utf-8").read()
+        migration = Path("migrations/postgresql/002_research_run_registry.sql").read_text(encoding="utf-8")
         cls.conn.execute(migration)
 
     @classmethod
