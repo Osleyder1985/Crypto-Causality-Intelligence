@@ -18,6 +18,18 @@ Cada método del repositorio usa una transacción PostgreSQL. Las transiciones b
 
 La migración presupone que el esquema `cci` y `research_experiments` ya existen. No pretende instalar el modelo completo v0.7 ni ejecutar el laboratorio NET-04/05/06. El despliegue productivo debe aplicar primero la migración base canónica aprobada.
 
+## Rol operativo de mínimo privilegio
+
+La migración no crea usuarios ni contraseñas. El aprovisionamiento del entorno debe crear el rol fuera del DDL de tablas y entregar credenciales mediante un gestor de secretos. Con el rol `cci_research_runner` ya creado, los permisos mínimos probados para la operación son:
+
+```sql
+GRANT USAGE ON SCHEMA cci TO cci_research_runner;
+GRANT SELECT, INSERT, UPDATE ON cci.research_experiment_runs TO cci_research_runner;
+GRANT SELECT, INSERT ON cci.research_run_artifacts TO cci_research_runner;
+```
+
+No se concede `DELETE`, `TRUNCATE`, creación de objetos ni propiedad de las tablas. La prueba de integración verifica que el rol puede crear y cerrar runs, insertar artefactos y que un borrado directo falla.
+
 ## Reproducibilidad
 
 Un run se identifica por UUID y clave estable dentro del experimento. `input_manifest` debe contener referencias y hashes de entradas, no payloads OHLCV. `parameters` y `protocol_version` registran la configuración efectiva. `code_commit` debe identificar el commit exacto. Los artefactos deben registrar URI lógica, hash SHA-256 y política de retención.
