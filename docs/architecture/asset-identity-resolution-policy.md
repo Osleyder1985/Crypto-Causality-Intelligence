@@ -101,3 +101,39 @@ Esta tabla es deliberadamente conservadora. No afirma que los códigos represent
 La matriz inicial y el protocolo de evidencia se mantienen en `docs/catalog/initial-asset-catalog.md`. Ese documento propone claves internas para Bitcoin, USD y Tether USD, y registra identificadores Binance/Kraken como hipótesis pendientes de revisión.
 
 Ningún mapping listado allí se considera aprobado. La aprobación requiere evidencia oficial específica del namespace, identificación inequívoca del activo y de su scope de red/contrato cuando aplique, decisión auditable y vigencia. La inclusión en el catálogo no autoriza almacenamiento de payloads ni sustituye la evaluación de políticas de uso de datos.
+
+
+## 11. Semántica temporal bitemporal de las identidades
+
+La resolución debe distinguir dos relojes que responden preguntas diferentes:
+
+- **Tiempo de validez (`valid time`):** cuándo el identificador representa al activo dentro del dominio del proveedor. Se almacena como intervalo semiabierto `[valid_from, valid_until)`; el límite final es exclusivo.
+- **Tiempo de conocimiento (`transaction/record time`):** cuándo CCI registró una decisión y pudo utilizarla. Se representa mediante `recorded_at`, inmutable y asignado al insertar la revisión. `observed_at` conserva cuándo se observó la fuente; `reviewed_at` cuándo se tomó la decisión. Ninguno sustituye a `recorded_at`.
+
+### 11.1 Consultas reproducibles
+
+Toda resolución histórica debe declarar ambos instantes:
+
+- `valid_at`: instante del dominio de mercado cuya identidad se desea resolver.
+- `known_at`: instante límite de conocimiento de CCI.
+
+Una fila solo es elegible si `valid_from <= valid_at < valid_until` (o `valid_until IS NULL`) y `recorded_at <= known_at`. Todos los timestamps deben incluir zona horaria y normalizarse a UTC.
+
+Si `valid_from` es NULL, el comienzo de validez es desconocido: la fila no puede resolver una consulta temporal. No se interpreta como “válida desde siempre”. Si `recorded_at` falta, tampoco puede participar en una consulta bitemporal.
+
+### 11.2 Correcciones y cambios
+
+- Las decisiones son append-only. Una corrección inserta una nueva revisión; no modifica ni elimina la anterior.
+- Para un mismo identificador exacto y scope, la revisión con mayor `recorded_at` que no supere `known_at` representa el conocimiento vigente de CCI en esa consulta. Si varias revisiones máximas simultáneas discrepan, la resolución es `ambiguous` y no genera FK.
+- El periodo de validez de la nueva revisión describe el periodo de proveedor al que se aplica; no se debe alterar el pasado para reflejar una decisión posterior.
+- Una revisión nueva puede corregir retroactivamente el periodo de validez. Una consulta con `known_at` anterior a su registro debe seguir devolviendo la decisión que CCI conocía entonces; una consulta con `known_at` posterior puede devolver la corrección.
+- La ausencia de una revisión aplicable produce `unresolved`; una revisión pendiente o ambigua nunca genera FK canónica.
+
+### 11.3 Invariantes
+
+1. Intervalos semiabiertos; se permiten intervalos contiguos, no solapamientos contradictorios dentro de la misma versión de conocimiento.
+2. `valid_until` debe ser estrictamente posterior a `valid_from`.
+3. Los tiempos de observación, revisión y registro se conservan separadamente.
+4. No se reescribe la identidad asociada a un dataset ya publicado. Una nueva interpretación se registra como una nueva versión de transformación o resultado de investigación, con linaje explícito.
+5. La resolución usada por una transformación debe persistir ambos instantes (`valid_at`, `known_at`) y la referencia de revisión elegida para permitir reproducción.
+
