@@ -149,4 +149,4 @@ Estas decisiones no bloquean el modelo conceptual inicial, pero sí deben cerrar
 - Mappings reales de contratos: ninguno aprobado por este documento.
 - Validación empírica con redes o APIs: no realizada en esta etapa.
 - DDL/migraciones PostgreSQL: no implementadas.
-- Estado CI de esta ampliación: pendiente de ejecución/confirmación.
+- CI de esta ampliación: aprobada en el run [#42274805256](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42274805256); `contract-tests` terminó en `success` y el log confirma 47/47 pruebas.
