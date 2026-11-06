@@ -710,3 +710,33 @@ La publicación se define como una operación atómica de base de datos, no como
 - Los triggers son defensas de integridad de la base; la aplicación no debe duplicar la decisión como única garantía.
 - Una transacción que no consiga insertar revisión y mapping completos no deja una revisión accepted publicada parcialmente.
 - Estas reglas deben probarse en PostgreSQL real, incluidos intentos de mapping con revisión inexistente, pendiente, rechazada, destino distinto, namespace/identificador distinto y red incompatible.
+
+
+## 9. Candidatos iniciales de namespaces: validación documental (2026-11-06)
+
+La revisión de documentación oficial distingue identificadores de catálogo de CoinGecko, identificadores de contratos en plataformas blockchain y códigos de activos utilizados por exchanges. Esta sección registra decisiones de diseño; no inserta filas en PostgreSQL ni afirma que se haya validado empíricamente la estabilidad histórica de los identificadores.
+
+| namespace_key | scope_mode | target_level | Campo de origen | Estado / decisión |
+|---|---|---|---|---|
+| `coingecko:coin_id` | `global` | `asset` | CoinGecko API `/coins/list`: `id` | **Aprobado como namespace del proveedor.** Identifica el registro CoinGecko de una moneda; no constituye por sí solo una prueba de identidad económica universal. |
+| `coingecko:contract_address` | `network` | `representation` | CoinGecko API `/coins/list?include_platform=true` y detalle de moneda: `platforms[platform_id]` / dirección de contrato | **Aprobado con condición de resolución de red.** La plataforma CoinGecko debe mapearse mediante evidencia a una fila de `networks`; no se copia el platform ID directamente como si fuera un chain ID. |
+| — | — | — | Binance Spot `exchangeInfo.symbols[].baseAsset` / `quoteAsset` | **No registrar en `identity_namespaces`.** Códigos de activos del contexto de un símbolo; conservar como metadata/códigos nativos de `market_instruments`. |
+| — | — | — | Kraken Spot `base_asset` / `quote_asset` y `symbol` | **No registrar en `identity_namespaces`.** Códigos de moneda y símbolo de mercado; conservar en el contexto de `market_instruments` / `instrument_identifiers`. |
+
+### Evidencia oficial consultada
+
+- CoinGecko, Coins List (ID Map): https://docs.coingecko.com/reference/coins-list. El endpoint devuelve `id`, `name` y `symbol`; permite incluir plataformas y direcciones de contrato. El proveedor advierte que nombres y símbolos pueden no ser únicos.
+- CoinGecko, Asset Platforms List: https://docs.coingecko.com/reference/asset-platforms-list. Devuelve el ID de plataforma, identificador de cadena cuando está disponible y moneda nativa asociada; el platform ID no debe confundirse automáticamente con el identificador canónico interno de red.
+- Binance Spot, Exchange Information: https://developers.binance.com/en/docs/products/spot/market-data/rest-api/exchange-information y glosario: https://developers.binance.com/en/docs/products/spot/faqs/spot_glossary. `baseAsset` designa el activo base del símbolo; no define una identidad global del activo.
+- Kraken Spot, Post-Trade Data: https://docs.kraken.com/api/docs/rest-api/get-post-trade. La respuesta expone `base_asset`, `quote_asset` y `symbol` en el contexto de cada par. Esto no prueba unicidad global de los códigos.
+
+### Reglas de uso
+
+1. `coingecko:coin_id` solo puede resolver a `assets`; nunca se interpreta como contrato o representación blockchain.
+2. `coingecko:contract_address` solo puede resolver a `asset_representations`; la clave de conflicto es (namespace, network_id, external_identifier), y la dirección original se conserva sin normalización destructiva.
+3. El mapeo CoinGecko platform ID → `networks.network_key` requiere una tabla/evidencia de resolución de red independiente y verificable. La existencia de un platform ID no prueba por sí sola que coincida con un chain ID.
+4. Los códigos `baseAsset`, `quoteAsset`, `base_asset` y `quote_asset` no se promueven automáticamente a `asset_identifiers`. Primero deben resolverse con evidencia explícita, evitando colisiones de tickers y alias históricos.
+5. Los símbolos de pares y alias REST/WebSocket pertenecen a `market_instruments` / `instrument_identifiers`, no a namespaces de identidad de activos.
+6. La aprobación documental de estos dos namespaces no autoriza a poblar el catálogo con filas hasta que se cierre la correspondencia de plataformas a redes y se revise la evidencia/versión concreta de los endpoints usados.
+
+No se han creado migraciones, no se han insertado registros y no se han ejecutado pruebas en PostgreSQL real.
