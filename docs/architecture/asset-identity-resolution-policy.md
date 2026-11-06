@@ -4,7 +4,7 @@
 - **Versión:** 0.1.0-draft.
 - **Fecha:** 2026-11-06.
 - **Documentos relacionados:** `canonical-market-data-schemas.md`, `postgresql-physical-schema.md`, `provider-instrument-schema-cross-review.md` y `asset-representation-domain-model.md`.
-- **PR:** #15.
+- **PR:** #16.
 
 ## 1. Objetivo
 
