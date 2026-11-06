@@ -141,7 +141,12 @@ Estas decisiones no bloquean el modelo conceptual inicial, pero sí deben cerrar
 ## 8. Estado de validación
 
 - Diseño conceptual: propuesto.
+- Validador estructural Python: implementado en `scripts/validation/asset_representation_contracts.py`.
+- Fixture sintético: `tests/fixtures/asset_identity/asset_representations.json`; los contratos son placeholders deliberadamente inválidos y no representan despliegues reales.
+- Pruebas automatizadas: 12 escenarios nuevos integrados en `tests/test_market_contracts.py`; la suite contiene 47 métodos `test_*` en total.
+- Alcance probado: cardinalidad multi-chain, representación nativa sin contrato, token contractual con contrato obligatorio, duplicados por red, activos distintos con ticker coincidente, relaciones dirigidas, referencias huérfanas y validez temporal.
+- Normalización/checksum de direcciones: no implementada; se preserva el literal y se aplaza la regla específica por familia de red.
 - Mappings reales de contratos: ninguno aprobado por este documento.
 - Validación empírica con redes o APIs: no realizada en esta etapa.
 - DDL/migraciones PostgreSQL: no implementadas.
-- Fixtures y pruebas automatizadas específicas del nuevo modelo: pendientes.
+- Estado CI de esta ampliación: pendiente de ejecución/confirmación.
