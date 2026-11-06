@@ -65,9 +65,9 @@ Todas las tablas siguientes pertenecen a `cci`.
 | `network_identifiers` | `id` | Chain IDs y alias de red namespaced. |
 | `asset_representations` | `id` | Unidad nativa o despliegue contractual de un activo en una red. |
 | `asset_relationships` | `id` | Relaciones tipadas, dirigidas y evidenciadas entre activos distintos. |
+| `asset_identity_resolution_reviews` | `id` | Candidatos, decisiones y evidencia de resolución a nivel de activo o representación. |
 | `asset_identifiers` | `id` | Identificadores externos aceptados a nivel de activo. |
 | `asset_representation_identifiers` | `id` | Identificadores externos aceptados a nivel de representación. |
-| `asset_identity_resolution_reviews` | `id` | Candidatos, decisiones y evidencia de resolución a nivel de activo o representación. |
 | `market_instruments` | `id` | Identidad estable de instrumentos específicos de una fuente/mercado. |
 | `instrument_identifiers` | `id` | Claves y alias nativos del instrumento por interfaz/namespace. |
 | `instrument_metadata_versions` | `id` | Observaciones históricas de metadata y estado. |
