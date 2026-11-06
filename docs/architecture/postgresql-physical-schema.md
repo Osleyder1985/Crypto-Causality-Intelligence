@@ -1,6 +1,6 @@
 # Diseño físico de PostgreSQL
 
-- **Estado:** especificación física reconciliada v0.7; propuesta, no implementada.
+- **Estado:** especificación física reconciliada v0.7; propuesta de producción, no implementada. El subsistema NET-04/05/06 tiene contrato de laboratorio ejecutado, sin promoción a `cci`.
 - **Fecha:** 2026-11-06.
 - **Modelo lógico:** `postgresql-logical-data-model.md`, contrato reconciliado v0.7.
 - **Revisión:** `postgresql-logical-model-review.md`.
@@ -839,7 +839,9 @@ La política rectora es `network-identity-resolution-policy.md`. El inventario f
 
 ### Estado de implementación
 
-Separación documental solamente. No se han creado migraciones, no se ha ejecutado DDL ni se han probado estas restricciones en PostgreSQL real. Las pruebas Python de contratos no sustituyen las pruebas del motor.
+El contrato lógico/físico de este subsistema está definido en esta sección y en la sección 13. Su DDL de laboratorio se encuentra en `tests/postgresql/001_provider_platform_lab.sql` y sus pruebas de motor en `tests/test_postgresql_lab.py`; la ejecución confirmatoria documentada en el plan de laboratorio alcanzó 29/29 pruebas en PostgreSQL 16.15.
+
+Esto no constituye una migración productiva: el laboratorio usa el esquema desechable `cci_lab`, no integra todavía todas las FKs con las 32 entidades del esquema `cci` y no define roles/grants productivos. No se han creado migraciones productivas ni se han cargado datos reales. Las pruebas Python de contratos siguen siendo distintas de las pruebas del motor.
 
 
 ## 13. Garantías SQL concretas para resolución de plataformas
@@ -1018,4 +1020,8 @@ Las pruebas PG-NET-20/21 deben usar dos conexiones PostgreSQL independientes y b
 
 ### Estado de esta especificación
 
-NET-04/NET-05 quedan traducidos a claves, FKs, índices, triggers, vista, flujo transaccional y pruebas. NET-06 queda cerrado a nivel de contrato: CoinGecko declara `number | null`; se adopta JSONB escalar exacto y se conserva el cuerpo de evidencia para el lexema. Aún no se ha generado DDL ejecutable ni se ha probado PostgreSQL real.
+NET-04/NET-05 quedan traducidos a claves, FKs, índices, triggers, vistas, flujo transaccional y pruebas. NET-06 queda cerrado a nivel de contrato: CoinGecko declara `number | null`; se adopta JSONB escalar exacto y se conserva el cuerpo de evidencia para el lexema.
+
+El contrato de laboratorio está materializado en `tests/postgresql/001_provider_platform_lab.sql` y fue ejecutado contra PostgreSQL 16.15 con 29/29 pruebas aprobadas (Run #38, HEAD probado `55ba44449a1016e7902e90271801ef8ee3f05fa2`). La auditoría de equivalencia laboratorio ↔ especificación está documentada en `postgresql-lab-validation-plan.md`.
+
+**Límite de promoción:** este resultado valida únicamente el subsistema reducido de seis tablas dentro de `cci_lab`. No valida el esquema completo de 32 entidades, la migración desde una base vacía, ni los roles/grants productivos. La especificación de producción sigue siendo propuesta y no se han creado migraciones productivas ni cargado datos reales. La integración en `cci` debe conservar este contrato funcional y añadir sus dependencias, permisos y pruebas de integración.
