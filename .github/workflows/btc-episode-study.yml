@@ -19,6 +19,11 @@ on:
       - "scripts/research/**"
       - "tests/test_btc_episode_study.py"
       - ".github/workflows/btc-episode-study.yml"
+      - "requirements-research.txt"
+      - "migrations/postgresql/**"
+      - "tests/postgresql/**"
+      - "scripts/research/postgres_run_registry.py"
+      - "docs/architecture/postgresql-*.md"
 
 permissions:
   contents: read
