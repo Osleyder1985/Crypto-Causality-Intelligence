@@ -61,7 +61,7 @@ Todas las tablas siguientes pertenecen a `cci`.
 | `source_usage_policies` | `id` | Evidencia versionada de condiciones de uso. |
 | `policy_evaluations` | `id` | Decisión concreta de aplicabilidad de una política a endpoint, uso e instante. |
 | `assets` | `id` | Identidad canónica de activos. |
-| `asset_identifiers` | `id` | Identificadores externos versionables. |
+| `asset_identifiers` | `id` | Identificadores externos con correspondencia canónica aceptada. |\n| `asset_identity_resolution_reviews` | `id` | Candidatos, decisiones y evidencia de resolución, incluidas ambigüedad y pendientes. |
 | `market_instruments` | `id` | Identidad estable de instrumentos específicos de una fuente/mercado. |
 | `instrument_identifiers` | `id` | Claves y alias nativos del instrumento por interfaz/namespace. |
 | `instrument_metadata_versions` | `id` | Observaciones históricas de metadata y estado. |
@@ -152,14 +152,33 @@ La política aplicable se resuelve considerando fuente, endpoint, tipo de dato, 
 
 **`assets`**
 - `id UUID PK`
-- `canonical_code TEXT NOT NULL UNIQUE`
+- `canonical_code TEXT NOT NULL UNIQUE` (clave interna estable; no se exige que sea ticker).
 - `display_name TEXT NOT NULL`
 - `asset_type TEXT NOT NULL`: CHECK en `crypto, fiat, stablecoin, tokenized_asset, other`.
-- `network TEXT NULL` (atributo descriptivo, no identidad universal).
-- `external_identifiers JSONB NOT NULL DEFAULT '{}'` (solo extensión transitoria; los identificadores consultables se registran en la tabla normalizada).
+- `network TEXT NULL` (atributo descriptivo; no es identidad universal).
+- `external_identifiers JSONB NOT NULL DEFAULT '{}'` (extensión transitoria; no sustituye la tabla normalizada).
 - `created_at TIMESTAMPTZ NOT NULL`.
 
+**`asset_identity_resolution_reviews`**
+- `id UUID PK`
+- `namespace TEXT NOT NULL`
+- `network TEXT NULL`
+- `external_identifier TEXT NOT NULL` (código nativo exacto).
+- `candidate_asset_id UUID NULL FK assets(id)`
+- `resolution_status TEXT NOT NULL`: CHECK en `pending_review, accepted, rejected, ambiguous`.
+- `evidence_reference TEXT NULL`
+- `decision_reference TEXT NULL` (identidad del proceso/revisor o acta de decisión; nunca credenciales).
+- `observed_at TIMESTAMPTZ NOT NULL`
+- `reviewed_at TIMESTAMPTZ NULL`
+- `valid_from TIMESTAMPTZ NULL`, `valid_until TIMESTAMPTZ NULL`
+- CHECK: `valid_until IS NULL OR valid_from IS NULL OR valid_until > valid_from`.
+- CHECK: `resolution_status <> 'accepted' OR (candidate_asset_id IS NOT NULL AND evidence_reference IS NOT NULL AND reviewed_at IS NOT NULL)`.
+- Registro append-only. Una nueva decisión crea otra fila; no sobrescribir decisiones históricas.
+- Índice `(namespace, network, external_identifier, observed_at DESC)`; índice parcial por `candidate_asset_id` cuando no sea NULL.
+- Esta tabla conserva estados pendientes, ambiguos y rechazados; no autoriza por sí misma la asociación canónica.
+
 **`asset_identifiers`**
+
 - `id UUID PK`
 - `asset_id UUID NOT NULL FK assets(id)`
 - `namespace TEXT NOT NULL`
@@ -171,7 +190,7 @@ La política aplicable se resuelve considerando fuente, endpoint, tipo de dato, 
 - CHECK `valid_until IS NULL OR valid_from IS NULL OR valid_until > valid_from`.
 - Índice de búsqueda `(namespace, network, external_identifier)`.
 - No se impone UNIQUE simple con `valid_from`: PostgreSQL permite múltiples NULL en una restricción UNIQUE convencional y los identificadores pueden tener periodos históricos. Se implementarán índices únicos parciales para identidades vigentes sin fecha inicial y para observaciones con fecha inicial, una vez definida la política de correcciones.
-- La aplicación impide solapamientos temporales del mismo identificador dentro de un namespace/red; la comprobación debe ejecutarse bajo bloqueo transaccional para evitar carreras.
+- Esta tabla contiene solo correspondencias aceptadas. La evidencia y decisión aprobatoria deben existir en `asset_identity_resolution_reviews`; la aplicación impide solapamientos temporales del mismo identificador dentro de namespace/red bajo bloqueo transaccional.
 
 **`market_instruments`**
 - `id UUID PK`
@@ -402,7 +421,7 @@ Se crearán índices explícitos para FKs usadas en joins y patrones de consulta
 | `data_endpoints` | UNIQUE `(data_source_id, endpoint_key)`; UNIQUE `(id, data_source_id)` | Búsqueda por fuente y FKs compuestas. |
 | `source_usage_policies` | `(data_source_id, valid_from DESC)`; parcial por endpoint | Resolver política aplicable e historial. |
 | `policy_evaluations` | `(data_source_id, data_endpoint_id, intended_use, evaluated_at DESC)`; FK índices | Consultar decisión concreta por endpoint y uso. |
-| `asset_identifiers` | `(namespace, network, external_identifier)` | Resolver identificadores externos. |
+| `asset_identity_resolution_reviews` | `(namespace, network, external_identifier, observed_at DESC)`; parcial por candidato | Auditar resoluciones pendientes, ambiguas, aceptadas y rechazadas. |\n| `asset_identifiers` | `(namespace, network, external_identifier)` | Resolver solo identificadores con correspondencia aprobada. |
 | `market_instruments` | `(data_source_id, native_symbol)` no único; UNIQUE candidato `(id, data_source_id)` | Búsqueda por símbolo conservando alias y ambigüedad. |
 | `instrument_identifiers` | `(identifier_namespace, identifier_value)`; `(market_instrument_id, observed_at DESC)` | Resolver alias nativos y símbolos por interfaz. |
 | `instrument_metadata_versions` | `(market_instrument_id, observed_at DESC)` | Recuperar la última observación conocida. |
