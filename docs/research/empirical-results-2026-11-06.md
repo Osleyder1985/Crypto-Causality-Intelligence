@@ -101,3 +101,15 @@ Las latencias indicadas son mediciones de una sola ejecución y no constituyen u
 A partir del cambio posterior a Run #13, GitHub Actions conserva como artefacto únicamente el manifiesto técnico. Los JSON originales y CSV normalizados de Binance/Kraken ya no se adjuntan a los nuevos artefactos públicos. Los valores se procesan durante la ejecución en el runner efímero; el manifiesto conserva hashes, conteos, parámetros, estados y métricas de validación, sin publicar las series OHLCV.
 
 El artefacto de Run #13 es anterior a este control y contiene datos originales/normalizados. Sigue sujeto a una decisión específica de retención o eliminación; no se ha eliminado automáticamente. Véase la [revisión de condiciones de uso](source-licensing-review-2026-11-06.md).
+
+## Verificación del control de publicación — Run #14
+
+Después de limitar el workflow al manifiesto, la ejecución [Run #14](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42235228173) finalizó correctamente:
+
+- Pruebas unitarias, extracción, controles y carga del artefacto: completados correctamente.
+- Metadata Binance y Kraken: ambas solicitudes HTTP 200.
+- La cobertura técnica volvió a ser 720/720 velas horarias para Binance y 706/720 para Kraken, para BTC y ETH; las cuatro series diarias quedaron en 350/350.
+- No se detectaron duplicados, huecos internos ni violaciones OHLC/volumen en los ocho conjuntos.
+- Se descargó e inspeccionó el ZIP del artefacto: contiene exclusivamente `manifest.json` (37.424 bytes). No contiene JSON originales ni CSV con series OHLCV.
+
+Esta ejecución confirma que el control de publicación funciona y que la extracción/validación sigue operativa. No resuelve los permisos contractuales de almacenamiento local ni la exposición del artefacto histórico Run #13.
