@@ -591,7 +591,7 @@ La implementación física no se considerará aceptada hasta que las pruebas aut
 15. Un activo puede tener representaciones en varias redes; una relación wrapper/bridge no fusiona el activo con su subyacente.
 16. Dos contratos distintos con el mismo ticker pueden pertenecer a activos diferentes; el ticker no participa en la clave de unicidad.
 
-Las pruebas unitarias de parsers y de contratos de representación no prueban todavía el esquema físico PostgreSQL. La suite Python actual incluye 47 métodos `test_*`, de los cuales 12 cubren representaciones con fixtures sintéticos. Son pruebas de contrato de aplicación, no pruebas de restricciones ejecutadas por el motor PostgreSQL; ambas capas deberán reportarse por separado.
+Las pruebas unitarias de parsers y de contratos de representación no prueban todavía el esquema físico PostgreSQL. La suite Python actual incluye 48 métodos `test_*`, de los cuales 13 cubren representaciones con fixtures sintéticos. Son pruebas de contrato de aplicación, no pruebas de restricciones ejecutadas por el motor PostgreSQL; ambas capas deberán reportarse por separado.
 
 ## 10. Decisiones pendientes que bloquean el DDL
 
