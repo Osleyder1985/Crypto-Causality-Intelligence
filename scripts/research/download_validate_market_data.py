@@ -148,9 +148,13 @@ def fetch_coingecko(asset, coin_id, start_s, end_s, interval, out):
     series = []
     for metric in ("prices", "market_caps", "total_volumes"):
         for timestamp_ms, value in data.get(metric, []):
-            series.append({"metric": metric, "timestamp_utc": int(timestamp_ms) // 1000,
-                           "value": value, "asset": asset, "provider": "coingecko",
-                           "coin_id": coin_id, "vs_currency": "usd"})
+            timestamp_s = int(timestamp_ms) // 1000
+            # CoinGecko puede incluir la observación exacta del límite final.
+            # La ventana experimental es [inicio, fin), igual que en los exchanges.
+            if start_s <= timestamp_s < end_s:
+                series.append({"metric": metric, "timestamp_utc": timestamp_s,
+                               "value": value, "asset": asset, "provider": "coingecko",
+                               "coin_id": coin_id, "vs_currency": "usd"})
     # Se conserva el formato largo: precios/volumen/capitalización no son velas OHLC.
     write_csv(out / "normalized" / f"coingecko_{asset}_{interval}.csv",
               ["provider", "asset", "coin_id", "vs_currency", "metric", "timestamp_utc", "value"], series)
