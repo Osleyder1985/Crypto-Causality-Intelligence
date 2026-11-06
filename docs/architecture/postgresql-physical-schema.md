@@ -781,7 +781,7 @@ La política rectora es `network-identity-resolution-policy.md`. El inventario f
 - `resolution_status TEXT NOT NULL`: CHECK `pending_review, accepted, rejected, ambiguous`.
 - `evidence_reference TEXT NULL`, `decision_reference TEXT NULL`, `reviewed_at TIMESTAMPTZ NULL`.
 - `recorded_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()` (sustituye a `created_at` como instante inmutable de registro).
-- `valid_from TIMESTAMPTZ NOT NULL`, `valid_until TIMESTAMPTZ NULL` (intervalo semiabierto; CHECK `valid_until IS NULL OR valid_until > valid_from`). Toda decisión, también `pending_review`, `ambiguous` y `rejected`, debe declarar desde cuándo produce efecto; así la vista temporal puede exponer estados no resolubles y nunca omitirlos por `valid_from IS NULL`).
+- `valid_from TIMESTAMPTZ NOT NULL`, `valid_until TIMESTAMPTZ NULL` (intervalo semiabierto; CHECK `valid_until IS NULL OR valid_until > valid_from`). Toda decisión, también `pending_review`, `ambiguous` y `rejected`, debe declarar desde cuándo produce efecto; así la vista temporal puede exponer estados no resolubles y nunca omitirlos por `valid_from IS NULL`.
 - `supersedes_review_id UUID NULL`; FK compuesta `(supersedes_review_id, provider_platform_id) -> provider_platform_resolution_reviews(id, provider_platform_id)`.
 - CHECK `supersedes_review_id IS NULL OR valid_from IS NOT NULL`: toda sucesión debe fijar el inicio de la nueva decisión para derivar el cierre efectivo de la anterior.
 - UNIQUE candidato `(id, provider_platform_id)` y `(id, provider_platform_id, candidate_network_id, resolution_status)`.
