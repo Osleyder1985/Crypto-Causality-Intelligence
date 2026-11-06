@@ -170,7 +170,8 @@ Revisión estática realizada sobre `tests/postgresql/001_provider_platform_lab.
 
 ### Elementos alineados en la revisión
 
-- Claves candidatas compuestas de plataforma, observación y revisión.
+- Claves candidatas compuestas de plataforma, observación, revisión e identificador de red.
+- CHECK del formato hexadecimal SHA-256 de evidencia opcional en observaciones.
 - FKs compuestas de fuente/plataforma, observación de soporte, sucesión y mapping accepted.
 - `MATCH SIMPLE` para observación de soporte nullable.
 - CHECK de `valid_from` obligatorio, intervalo semiabierto y vocabulario de estados.
