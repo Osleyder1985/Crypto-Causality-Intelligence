@@ -83,3 +83,25 @@ El CSV de entrada permanece local. El JSON/CSV de salida contiene métricas agre
 ## Interpretación
 
 Este incremento es un estudio descriptivo de episodios seleccionados manualmente. No demuestra que una variable cause una subida o caída, no estima probabilidades predictivas y no valida una estrategia. Para inferencia se necesitarán hipótesis preregistradas, controles comparables, múltiples episodios, tratamiento de selección y pruebas fuera de muestra.
+
+
+## Entrada Parquet con DuckDB
+
+Además del CSV, el CLI admite Parquet local mediante DuckDB:
+
+```bash
+python -m pip install -r requirements-research.txt
+python scripts/research/btc_episode_study.py \
+  --input /ruta/local/btcusdt_1h.parquet \
+  --input-format parquet \
+  --episodes /ruta/local/btc_episodes.json \
+  --json-out /ruta/local/btc_episode_summary.json \
+  --csv-out /ruta/local/btc_episode_summary.csv \
+  --interval-seconds 3600
+```
+
+El Parquet debe contener las mismas columnas canónicas. `open_time_utc` debe ser un timestamp con zona horaria UTC o texto ISO-8601 con offset UTC explícito; los timestamps sin zona se rechazan. OHLCV debe ser numérico, no nulo (salvo `quote_volume`, opcional), finito y cumplir las validaciones del adaptador CSV.
+
+DuckDB se ejecuta en memoria y consulta directamente el archivo local. No crea una copia persistente, no escribe tablas temporales al dataset y no realiza conexiones a proveedores. La lectura conserva el orden físico para que los timestamps duplicados o fuera de orden no se oculten mediante ordenación automática. La versión de DuckDB está fijada en `requirements-research.txt`.
+
+Las pruebas crean archivos Parquet temporales con datos sintéticos y verifican equivalencia con el contrato de análisis. No contienen ni requieren datos reales.
