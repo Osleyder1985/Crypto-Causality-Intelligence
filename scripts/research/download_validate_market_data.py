@@ -37,12 +37,21 @@ def utc_epoch(value: str) -> int:
 
 def request_json(url: str, attempts: int = 5):
     headers = {"User-Agent": "Crypto-Causality-Intelligence/0.1 (research PoC)"}
+    started = time.monotonic()
     for attempt in range(attempts):
         req = urllib.request.Request(url, headers=headers)
         try:
             with urllib.request.urlopen(req, timeout=45) as response:
                 body = response.read()
-                return json.loads(body), body
+                metadata = {
+                    "url": url,
+                    "http_status": response.status,
+                    "elapsed_ms": round((time.monotonic() - started) * 1000, 3),
+                    "attempts": attempt + 1,
+                    "retries": attempt,
+                    "retrieved_at_utc": datetime.now(timezone.utc).isoformat(),
+                }
+                return json.loads(body), body, metadata
         except urllib.error.HTTPError as exc:
             if exc.code not in (429, 500, 502, 503, 504) or attempt == attempts - 1:
                 raise
@@ -87,11 +96,16 @@ def validate_candles(rows, interval_seconds, start_s, end_s):
                          "missing_intervals": (timestamps[i] - timestamps[i - 1]) // interval_seconds - 1})
     expected = (end_s - start_s) // interval_seconds
     in_window = [t for t in timestamps if start_s <= t < end_s]
+    outside_window = [t for t in timestamps if not start_s <= t < end_s]
+    misaligned = [t for t in in_window if t % interval_seconds != 0]
+    zero_volume = sum(float(r["volume"]) == 0 for r in rows)
     return {
         "records_received": len(rows), "records_in_window": len(in_window),
+        "records_outside_window": len(outside_window),
         "records_expected_if_continuous": expected,
         "coverage_pct_if_continuous": round(100 * len(set(in_window)) / expected, 4) if expected else None,
         "duplicate_timestamps": duplicates, "strictly_ordered": ordered,
+        "misaligned_timestamps": misaligned, "zero_volume_records": zero_volume,
         "ohlc_or_volume_violations": invalid, "gaps": gaps,
         "note": "La cobertura continua es una referencia; huecos por ausencia de operaciones requieren semántica del proveedor."
     }
@@ -102,7 +116,7 @@ def fetch_binance(asset, symbol, interval, start_s, end_s, out):
         "symbol": symbol, "interval": interval,
         "startTime": start_s * 1000, "endTime": end_s * 1000 - 1, "limit": 1000
     })
-    data, body = request_json(f"{BINANCE}?{params}")
+    data, body, request_meta = request_json(f"{BINANCE}?{params}")
     rows = []
     for k in data:
         rows.append({
@@ -113,12 +127,12 @@ def fetch_binance(asset, symbol, interval, start_s, end_s, out):
             "volume": k[5], "volume_unit": asset, "quote_volume": k[7],
         })
     raw = save_raw(out, f"binance_{asset}_{interval}", body)
-    return rows, raw
+    return rows, raw, request_meta
 
 
 def fetch_kraken(asset, pair, interval, start_s, end_s, out):
     params = urllib.parse.urlencode({"pair": pair, "interval": interval, "since": start_s})
-    data, body = request_json(f"{KRAKEN}?{params}")
+    data, body, request_meta = request_json(f"{KRAKEN}?{params}")
     if data.get("error"):
         raise RuntimeError(f"Kraken API error: {data['error']}")
     result = data["result"]
@@ -138,12 +152,12 @@ def fetch_kraken(asset, pair, interval, start_s, end_s, out):
                 "vwap": k[5], "trades": k[7],
             })
     raw = save_raw(out, f"kraken_{asset}_{interval}", body)
-    return rows, raw, pair_key
+    return rows, raw, pair_key, request_meta
 
 
 def fetch_coingecko(asset, coin_id, start_s, end_s, interval, out):
     params = urllib.parse.urlencode({"vs_currency": "usd", "from": start_s, "to": end_s})
-    data, body = request_json(f"{COINGECKO.format(coin_id=coin_id)}?{params}")
+    data, body, request_meta = request_json(f"{COINGECKO.format(coin_id=coin_id)}?{params}")
     raw = save_raw(out, f"coingecko_{asset}_{interval}", body)
     series = []
     for metric in ("prices", "market_caps", "total_volumes"):
@@ -158,7 +172,7 @@ def fetch_coingecko(asset, coin_id, start_s, end_s, interval, out):
     # Se conserva el formato largo: precios/volumen/capitalización no son velas OHLC.
     write_csv(out / "normalized" / f"coingecko_{asset}_{interval}.csv",
               ["provider", "asset", "coin_id", "vs_currency", "metric", "timestamp_utc", "value"], series)
-    return len(series), raw
+    return len(series), raw, request_meta
 
 
 def main():
@@ -197,10 +211,10 @@ def main():
             for provider in ("binance", "kraken"):
                 try:
                     if provider == "binance":
-                        rows, raw = fetch_binance(asset, ids["binance"], spec["binance"], start_s, end_s, out)
+                        rows, raw, request_meta = fetch_binance(asset, ids["binance"], spec["binance"], start_s, end_s, out)
                         market_id = ids["binance"]
                     else:
-                        rows, raw, market_id = fetch_kraken(asset, ids["kraken"], spec["kraken"], start_s, end_s, out)
+                        rows, raw, market_id, request_meta = fetch_kraken(asset, ids["kraken"], spec["kraken"], start_s, end_s, out)
                     filename = f"{provider}_{asset}_{label}.csv"
                     fields = list(rows[0].keys()) if rows else [
                         "provider", "asset", "market_id", "base_asset", "quote_asset", "interval",
@@ -208,15 +222,23 @@ def main():
                     write_csv(out / "normalized" / filename, fields, rows)
                     report = validate_candles(rows, seconds, start_s, end_s)
                     manifest["results"].append({"provider": provider, "asset": asset, "interval": label,
-                        "market_id": market_id, "raw": raw, "validation": report, "status": "downloaded"})
+                        "market_id": market_id, "endpoint": request_meta["url"].split("?")[0],
+                        "request": request_meta, "source_timestamp_unit": "milliseconds" if provider == "binance" else "seconds",
+                        "query_parameters": urllib.parse.parse_qs(urllib.parse.urlsplit(request_meta["url"]).query),
+                        "raw": raw, "validation": report, "status": "downloaded"})
                 except Exception as exc:
                     manifest["results"].append({"provider": provider, "asset": asset, "interval": label,
-                        "status": "error", "error": str(exc)})
+                        "endpoint": BINANCE if provider == "binance" else KRAKEN,
+                        "endpoint": COINGECKO.format(coin_id=ids["coingecko"]),
+                    "status": "error", "error": str(exc)})
             try:
-                count, raw = fetch_coingecko(asset, ids["coingecko"], start_s, end_s, label, out)
+                count, raw, request_meta = fetch_coingecko(asset, ids["coingecko"], start_s, end_s, label, out)
                 manifest["results"].append({"provider": "coingecko", "asset": asset, "interval": label,
-                    "market_id": ids["coingecko"], "observations_long_format": count,
-                    "raw": raw, "status": "downloaded_non_ohlcv"})
+                    "market_id": ids["coingecko"], "endpoint": request_meta["url"].split("?")[0],
+                    "request": request_meta,
+                    "query_parameters": urllib.parse.parse_qs(urllib.parse.urlsplit(request_meta["url"]).query),
+                    "source_timestamp_unit": "milliseconds", "volume_unit": "USD",
+                    "observations_long_format": count, "raw": raw, "status": "downloaded_non_ohlcv"})
             except Exception as exc:
                 manifest["results"].append({"provider": "coingecko", "asset": asset, "interval": label,
                     "status": "error", "error": str(exc)})
