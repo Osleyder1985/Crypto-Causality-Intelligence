@@ -10,8 +10,8 @@
     {"asset_key": "bitcoin", "asset_type": "crypto"},
     {"asset_key": "wbtc_synthetic", "asset_type": "tokenized_asset"},
     {"asset_key": "tether_usd_synthetic", "asset_type": "stablecoin"},
-    {"asset_key": "token_abc_alpha", "asset_type": "crypto"},
-    {"asset_key": "token_abc_beta", "asset_type": "crypto"}
+    {"asset_key": "token_abc_alpha", "asset_type": "crypto", "symbol": "ABC"},
+    {"asset_key": "token_abc_beta", "asset_type": "crypto", "symbol": "ABC"}
   ],
   "networks": [
     {"network_key": "bitcoin_mainnet_synthetic", "network_family": "bitcoin"},
