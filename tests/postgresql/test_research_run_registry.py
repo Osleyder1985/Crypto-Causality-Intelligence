@@ -22,12 +22,13 @@ class ResearchRunRegistryPostgresTests(unittest.TestCase):
         import psycopg
         cls.psycopg = psycopg
         cls.conn = psycopg.connect(DSN, autocommit=True)
-        cls.conn.execute("CREATE SCHEMA IF NOT EXISTS cci")
-        cls.conn.execute("""CREATE TABLE IF NOT EXISTS cci.research_experiments (
-            id UUID PRIMARY KEY, experiment_key TEXT NOT NULL UNIQUE)""")
+        base_migration = Path("migrations/postgresql/001_research_experiments.sql").read_text(encoding="utf-8")
+        cls.conn.execute(base_migration)
         cls.experiment_id = uuid.uuid4()
-        cls.conn.execute("INSERT INTO cci.research_experiments VALUES (%s,%s)",
-                         (cls.experiment_id, "test-"+str(cls.experiment_id)))
+        cls.conn.execute("""INSERT INTO cci.research_experiments
+            (id,experiment_key,title,objective,status,protocol)
+            VALUES (%s,%s,'Synthetic integration test','Verify PostgreSQL registry','planned','{}'::jsonb)""",
+            (cls.experiment_id, "test-"+str(cls.experiment_id)))
         migration = Path("migrations/postgresql/002_research_run_registry.sql").read_text(encoding="utf-8")
         cls.conn.execute(migration)
         cls.conn.execute("CREATE ROLE cci_research_runner NOLOGIN")
