@@ -194,11 +194,15 @@ La política aplicable se resuelve considerando fuente, alcance y referencia est
 - `id UUID PK`
 - `network_id UUID NOT NULL FK networks(id)`
 - `namespace TEXT NOT NULL` (familia/especificación que define el identificador).
-- `identifier_type TEXT NOT NULL` (por ejemplo `eip155_chain_id`, `genesis_hash`, `provider_network_key`).
+- `identifier_type TEXT NOT NULL` (por ejemplo `eip155_chain_id`, `genesis_hash`, `asset_platform_id`).
 - `identifier_value TEXT NOT NULL` (literal exacto).
 - `observed_at TIMESTAMPTZ NOT NULL`, `evidence_reference TEXT NOT NULL`.
+- `provider_platform_observation_id UUID NULL`, `provider_data_source_id UUID NULL`, `provider_platform_resolution_review_id UUID NULL` (solo para identificadores originados en una plataforma de proveedor).
+- FK compuesta `(provider_platform_observation_id, provider_data_source_id, identifier_value) -> provider_platforms(id, data_source_id, provider_platform_id)`; obliga a que el valor publicado sea exactamente el ID observado para ese proveedor.
+- FK compuesta `(provider_platform_resolution_review_id, provider_platform_observation_id, network_id, provider_platform_resolution_status) -> provider_platform_resolution_reviews(id, provider_platform_observation_id, candidate_network_id, resolution_status)`, con `provider_platform_resolution_status TEXT NULL`; CHECK exige que los cuatro campos de procedencia sean todos NULL para identificadores nativos, o todos completos y status = `accepted` para identificadores de plataforma.
 - UNIQUE candidato `(namespace, identifier_type, identifier_value)`, solo tras verificar que el namespace define unicidad en ese ámbito.
-- No almacenar un chain ID aislado sin namespace ni asumir que es globalmente único.
+- UNIQUE candidato `(id, network_id)` y las claves candidatas compuestas requeridas por las FKs anteriores.
+- No almacenar un chain ID aislado sin namespace ni asumir que es globalmente único. Una fila con identificador de proveedor no puede existir sin la observación y revisión accepted exactas.
 
 **`asset_representations`**
 - `id UUID PK`
@@ -748,7 +752,7 @@ No se han creado migraciones, no se han insertado registros y no se han ejecutad
 
 La política rectora es `network-identity-resolution-policy.md`. Estas tablas amplían el inventario físico a **31 entidades**. La ampliación es de diseño: no añade filas de redes, plataformas ni mappings.
 
-**`provider_platforms`** — observación versionada de una entrada de catálogo de plataformas de un proveedor.
+**`provider_platforms`** — observación versionada de una entrada de catálogo de un proveedor.
 - `id UUID PK`
 - `data_source_id UUID NOT NULL FK data_sources(id)`
 - `provider_platform_id TEXT NOT NULL` (literal exacto publicado por el proveedor; no es `network_key`).
@@ -759,18 +763,20 @@ La política rectora es `network-identity-resolution-policy.md`. Estas tablas am
 - UNIQUE `(data_source_id, provider_platform_id, observed_at)`; UNIQUE candidato `(id, data_source_id, provider_platform_id)`.
 - Cada cambio observado crea otra fila. No se sobrescriben los metadatos históricos. Para CoinGecko, `provider_platform_id` corresponde a `asset_platforms[].id`; `reported_chain_identifier` corresponde a `chain_identifier`, que puede ser NULL.
 
-**`provider_platform_resolution_reviews`** — revisión de la correspondencia de una observación de plataforma con una red CCI.
+**`provider_platform_resolution_reviews`** — revisión append-only de la correspondencia de una observación de plataforma con una red CCI.
 - `id UUID PK`
-- `provider_platform_observation_id UUID NOT NULL FK provider_platforms(id)`
+- `provider_platform_observation_id UUID NOT NULL`, `data_source_id UUID NOT NULL`; FK compuesta `(provider_platform_observation_id, data_source_id) -> provider_platforms(id, data_source_id)`.
 - `candidate_network_id UUID NULL FK networks(id)`
 - `resolution_status TEXT NOT NULL`: CHECK `pending_review, accepted, rejected, ambiguous`.
 - `evidence_reference TEXT NULL`, `decision_reference TEXT NULL`
 - `reviewed_at TIMESTAMPTZ NULL`, `recorded_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()`
-- `supersedes_review_id UUID NULL FK provider_platform_resolution_reviews(id)`
-- CHECK: `accepted` exige exactamente un `candidate_network_id`, evidencia y `reviewed_at`; los demás estados no publican mapping.
-- UNIQUE candidato `(id, provider_platform_observation_id, candidate_network_id, resolution_status)`, para que la publicación solo pueda referenciar la revisión aceptada del mismo candidato.
-- Registro append-only. La cadena de sucesión debe ser lineal, sin ciclos ni ramas competidoras; la escritura se serializa por proveedor + platform ID.
-- La publicación accepted y el alta del identificador de proveedor en `network_identifiers` se realizan en una única transacción.
+- `valid_from TIMESTAMPTZ NULL`, `valid_until TIMESTAMPTZ NULL` (validez del mapping; semiabierta).
+- `supersedes_review_id UUID NULL` FK compuesta a una revisión de la misma observación/plataforma; no basta una FK simple por ID.
+- CHECK: `accepted` exige exactamente un `candidate_network_id`, evidencia, `reviewed_at` y `valid_from`; CHECK temporal `valid_until IS NULL OR (valid_from IS NOT NULL AND valid_until > valid_from)`.
+- UNIQUE candidato `(id, provider_platform_observation_id, candidate_network_id, resolution_status)`, para que la publicación referencie la revisión accepted exacta.
+- UNIQUE candidato parcial en `supersedes_review_id` (no NULL) para impedir dos sucesoras directas; la ausencia de ciclos y la misma clave se validan mediante función/trigger transaccional.
+- La sucesión debe enlazar observaciones de la misma plataforma y proveedor; no se permite que una observación nueva cree por sí sola un cambio de red. La nueva observación requiere revisión independiente.
+- La publicación accepted y el alta del identificador externo en `network_identifiers` se realizan en una única transacción. Un identificador de proveedor se vincula por FK compuesta a la revisión, observación, red y status accepted exactos.
 
 **`network_identifiers` — reglas ampliadas**
 - `namespace` identifica la especificación o autoridad (por ejemplo, `eip155`, `solana`, o el proveedor bajo su namespace).
@@ -795,3 +801,24 @@ La política rectora es `network-identity-resolution-policy.md`. Estas tablas am
 - **Otras familias:** no reutilizar reglas EVM/Solana; documentar el identificador nativo y su autoridad antes de aceptar.
 
 Esta sección no autoriza insertar filas ni generar DDL/migraciones. Las restricciones descritas deben probarse posteriormente en PostgreSQL real con fixtures sintéticos.
+
+
+## 11. Auditoría de integridad del dominio de plataformas y redes
+
+La auditoría identificó que la versión anterior describía la publicación atómica como regla de proceso, pero no vinculaba relacionalmente la fila de `network_identifiers` con la revisión accepted concreta. También faltaba formalizar la integridad de proveedor/observación en la revisión y la vigencia temporal del mapping.
+
+Correcciones incorporadas en esta versión:
+1. `network_identifiers` conserva opcionalmente la procedencia de plataforma (`provider_platform_observation_id`, `provider_data_source_id`, `provider_platform_resolution_review_id`, `provider_platform_resolution_status`).
+2. FKs compuestas atan el valor externo al `provider_platform_id` literal de la observación y la red al `candidate_network_id` de la revisión accepted.
+3. La revisión referencia la observación y fuente mediante FK compuesta; se incorporan `valid_from/valid_until`.
+4. La sucesión requiere FK compuesta de misma plataforma/proveedor, unicidad de sucesora y trigger para ciclo/clave.
+5. La transacción de publicación sigue siendo necesaria: las FKs validan coherencia, no prueban autoridad ni calidad documental.
+
+**Hallazgos que siguen requiriendo definición antes de DDL:**
+- Concretar las columnas exactas y claves candidatas de las FKs compuestas sin introducir redundancias inconsistentes.
+- Definir si una revisión nueva para otra observación sustituye a la anterior o si ambas son snapshots paralelos del mismo mapping; la semántica no debe mezclarse con la sucesión de correcciones.
+- Definir política para dos observaciones del mismo platform ID tomadas en el mismo instante, ya que UNIQUE actual no permite duplicado con timestamp idéntico.
+- Definir y probar bloqueo por clave `(data_source_id, provider_platform_id)`, no por UUID de snapshot, para impedir revisiones concurrentes incompatibles.
+- Definir el tipo físico exacto de `chain_identifier` a partir del contrato oficial del endpoint; preservar el literal reportado si el proveedor no garantiza representación numérica canónica.
+
+No se han generado migraciones ni DDL; la auditoría es una corrección de contrato documental.
