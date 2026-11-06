@@ -753,7 +753,7 @@ La política rectora es `network-identity-resolution-policy.md`. Estas tablas am
 - `data_source_id UUID NOT NULL FK data_sources(id)`
 - `provider_platform_id TEXT NOT NULL` (literal exacto publicado por el proveedor; no es `network_key`).
 - `provider_name TEXT NULL`, `provider_shortname TEXT NULL`, `provider_native_coin_id TEXT NULL` (metadata descriptiva; no son claves de red).
-- `reported_chain_identifier BIGINT NULL` (valor reportado por el proveedor; NULL se conserva como ausencia, no se imputa).
+- `reported_chain_identifier NUMERIC NULL` (valor reportado por el proveedor; NULL se conserva como ausencia, no se imputa).
 - `observed_at TIMESTAMPTZ NOT NULL`
 - `evidence_reference TEXT NOT NULL`, `evidence_sha256 TEXT NULL`
 - UNIQUE `(data_source_id, provider_platform_id, observed_at)`; UNIQUE candidato `(id, data_source_id, provider_platform_id)`.
