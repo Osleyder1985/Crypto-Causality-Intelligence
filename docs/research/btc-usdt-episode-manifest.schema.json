@@ -14,8 +14,7 @@
     "input_timezone",
     "data_source",
     "data_usage_authorization",
-    "episodes",
-    "pending_boundary_notes"
+    "episodes"
   ],
   "properties": {
     "schema_version": {
