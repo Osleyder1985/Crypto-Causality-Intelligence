@@ -19,6 +19,7 @@ on:
     paths:
       - "scripts/research/**"
       - "tests/test_btc_episode_study.py"
+      - "tests/test_episode_manifest.py"
       - ".github/workflows/btc-episode-study.yml"
       - "requirements-research.txt"
       - "migrations/postgresql/**"
