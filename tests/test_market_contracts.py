@@ -305,6 +305,79 @@ class AssetIdentityResolutionTests(unittest.TestCase):
             resolve_asset_identity("provider", "ABC", mappings)
 
 
+class BitemporalAssetIdentityResolutionTests(unittest.TestCase):
+    def setUp(self):
+        self.mappings = [{
+            "namespace": "provider",
+            "native_code": "ABC",
+            "network": None,
+            "canonical_asset_key": "asset-old",
+            "status": "accepted",
+            "evidence_reference": "evidence:old",
+            "valid_from": "2020-01-01T00:00:00Z",
+            "valid_until": "2024-01-01T00:00:00Z",
+            "recorded_at": "2020-01-02T00:00:00Z",
+        }, {
+            "namespace": "provider",
+            "native_code": "ABC",
+            "network": None,
+            "canonical_asset_key": "asset-new",
+            "status": "accepted",
+            "evidence_reference": "evidence:new",
+            "valid_from": "2024-01-01T00:00:00Z",
+            "valid_until": None,
+            "recorded_at": "2024-01-03T00:00:00Z",
+        }]
+
+    def test_valid_time_selects_historical_mapping(self):
+        result = resolve_asset_identity(
+            "provider", "ABC", self.mappings,
+            valid_at="2022-06-01T00:00:00Z",
+            known_at="2023-01-01T00:00:00Z",
+        )
+        self.assertEqual(result["canonical_asset_key"], "asset-old")
+
+    def test_new_mapping_does_not_rewrite_what_was_previously_known(self):
+        result = resolve_asset_identity(
+            "provider", "ABC", self.mappings,
+            valid_at="2024-06-01T00:00:00Z",
+            known_at="2024-01-02T00:00:00Z",
+        )
+        self.assertEqual(result["resolution_status"], "unresolved")
+        self.assertIsNone(result["canonical_asset_key"])
+
+    def test_validity_interval_is_half_open(self):
+        result = resolve_asset_identity(
+            "provider", "ABC", self.mappings,
+            valid_at="2024-01-01T00:00:00Z",
+            known_at="2025-01-01T00:00:00Z",
+        )
+        self.assertEqual(result["canonical_asset_key"], "asset-new")
+
+    def test_temporal_resolution_requires_both_query_clocks_and_aware_timestamps(self):
+        with self.assertRaises(ValueError):
+            resolve_asset_identity(
+                "provider", "ABC", self.mappings,
+                valid_at="2024-06-01T00:00:00Z",
+            )
+        with self.assertRaises(ValueError):
+            resolve_asset_identity(
+                "provider", "ABC", self.mappings,
+                valid_at="2024-06-01T00:00:00",
+                known_at="2025-01-01T00:00:00Z",
+            )
+
+    def test_mapping_without_documented_valid_from_is_not_resolved_temporally(self):
+        mapping = dict(self.mappings[1])
+        mapping["valid_from"] = None
+        result = resolve_asset_identity(
+            "provider", "ABC", [mapping],
+            valid_at="2024-06-01T00:00:00Z",
+            known_at="2025-01-01T00:00:00Z",
+        )
+        self.assertEqual(result["resolution_status"], "unresolved")
+
+
 class InitialAssetCatalogFixtureTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
