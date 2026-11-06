@@ -556,6 +556,8 @@ class PostgreSQLProviderPlatformLabTests(unittest.TestCase):
 
         def publish(network_id, first_writer):
             with psycopg.connect(self.dsn) as conn:
+                if not first_writer:
+                    second_attempting.set()
                 conn.execute(
                     "SELECT id FROM cci_lab.provider_platforms WHERE id = %s FOR UPDATE",
                     (self.platform_id,),
@@ -564,8 +566,6 @@ class PostgreSQLProviderPlatformLabTests(unittest.TestCase):
                     lock_acquired.set()
                     if not release_first.wait(timeout=10):
                         raise TimeoutError("test coordination timed out")
-                else:
-                    second_attempting.set()
                 review_id = uuid.uuid4()
                 try:
                     conn.execute(
