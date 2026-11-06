@@ -2,6 +2,8 @@
 
 ## Estado
 
+**Informe de resultados observados:** [empirical-results-2026-11-06.md](empirical-results-2026-11-06.md).
+
 **Preparación técnica; extracción pendiente.** Este documento describe cómo ejecutar la PoC. No contiene resultados experimentales ni presupone que las API hayan respondido correctamente.
 
 ## Diseño congelado
