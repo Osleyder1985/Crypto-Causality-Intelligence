@@ -1,10 +1,10 @@
 # Modelo lógico de PostgreSQL — Crypto Causality Intelligence
 
-- **Estado:** contrato lógico reconciliado v0.4; propuesta, no implementada.
+- **Estado:** contrato lógico reconciliado v0.5; propuesta, no implementada.
 - **Fecha:** 2026-11-06.
 - **Decisión relacionada:** ADR-001.
 - **Issue / PR:** #14 / #16.
-- **Especificación física vinculada:** `postgresql-physical-schema.md` v0.3.
+- **Especificación física vinculada:** `postgresql-physical-schema.md` v0.4.
 
 ## 1. Propósito y límites
 
