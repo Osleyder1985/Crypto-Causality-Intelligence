@@ -79,6 +79,15 @@ Cardinalidades:
 - Una relación conecta dos activos distintos; no se permiten autorrelaciones salvo que un tipo futuro lo justifique expresamente.
 - Los instrumentos de mercado referencian assets para base y quote. La metadata de proveedor conserva el código nativo y el scope de representación cuando la fuente lo publique.
 
+### 3.1 Contrato temporal y frontera de persistencia
+
+- `valid_from` y `valid_until` expresan la vigencia efectiva de la representación o relación; el intervalo es semiabierto.
+- `observed_at` expresa cuándo se observó la evidencia que respalda el registro. Es obligatorio en la entrada normalizada y debe proceder de la captura/revisión, no de una fecha inventada por el validador.
+- `recorded_at` expresa cuándo CCI incorporó el registro al sistema. Lo asigna PostgreSQL durante la persistencia y no forma parte del objeto de entrada ni de la salida del validador Python.
+- La capa de persistencia debe convertir las claves semánticas `asset_key` y `network_key` en los UUID de `assets` y `networks`; el validador no genera ni simula esos UUID.
+- Las relaciones son dirigidas. `directionality` tiene el valor físico constante `directed`; si se omite en el fixture, el validador aplica ese valor. Cualquier otro valor se rechaza.
+- El validador devuelve tanto `representations` como `relationships` normalizadas. La persistencia no debe reconstruir relaciones a partir del catálogo original ni descartar los campos temporales/de evidencia.
+
 ## 4. Invariantes obligatorios
 
 1. Un activo subyacente y su wrapper/bridge son registros assets distintos.
