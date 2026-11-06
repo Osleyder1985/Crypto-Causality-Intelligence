@@ -44,9 +44,9 @@ Se ha actualizado el modelo lógico para que represente el inventario, las entid
 
 ## 4. Pendientes antes de generar migraciones
 
-La alineación de inventario y entidades está cerrada como propuesta. La comparación automatizada confirma 31/31 tablas representadas en el modelo lógico. Todavía se requiere:
+La alineación de inventario y entidades está cerrada como propuesta. La comparación automatizada confirma 32/32 tablas representadas en el modelo lógico. Todavía se requiere:
 
-1. **Inventario de entidades verificado:** comparación automatizada del inventario físico contra el modelo lógico: 31/31 tablas físicas están representadas en el modelo lógico, sin entidades ausentes. Esta comprobación confirma cobertura de nombres de tablas; no sustituye una revisión semántica de cada columna y restricción.
+1. **Inventario de entidades verificado:** comparación automatizada del inventario físico contra el modelo lógico: 31/32 tablas físicas están representadas en el modelo lógico, sin entidades ausentes. Esta comprobación confirma cobertura de nombres de tablas; no sustituye una revisión semántica de cada columna y restricción.
 2. Mantener el catálogo `identity_namespaces` sin poblar hasta que exista evidencia concreta por proveedor/endpoint y la etapa de validación autorice su carga. El procedimiento de resolución de redes y plataformas ya está documentado; las filas y mappings reales siguen fuera de alcance.
 3. Verificar que el vocabulario de `data_type` en endpoints, evaluaciones y contribuciones sea canónico y no se permita una discrepancia semántica.
 4. Definir la semántica operacional de `scope_reference` y documentar el formato de claves de producto/plan y de tipo de dato.
@@ -126,7 +126,7 @@ La documentación no autoriza todavía insertar filas en `identity_namespaces`, 
 
 ## 10. Cierre documental del procedimiento de identidad de redes
 
-Se incorpora `network-identity-resolution-policy.md` y se amplía el contrato lógico/físico con `provider_platforms` y `provider_platform_resolution_reviews`. El inventario físico pasa de 29 a **31 entidades**, y el modelo lógico y el diagrama incorporan ambas relaciones.
+Se incorpora `network-identity-resolution-policy.md` y se amplía el contrato lógico/físico con `provider_platforms` y `provider_platform_resolution_reviews`. El inventario físico pasa de 29 a **32 entidades**, y el modelo lógico y el diagrama incorporan ambas relaciones.
 
 Decisiones:
 - `networks.network_key` permanece como identidad interna canónica.
