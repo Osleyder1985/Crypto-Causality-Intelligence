@@ -16,8 +16,8 @@ PostgreSQL mantiene catálogo, identidades, metadata, operaciones, autorizacione
 
 - Las tablas y columnas físicas usan los nombres exactos en inglés y `snake_case` indicados aquí y en la especificación física.
 - Identificadores internos UUID; instantes TIMESTAMPTZ interpretados en UTC; cantidades financieras NUMERIC; extensiones variables JSONB.
-- Los intervalos temporales de validez son semiabiertos `[valid_from, valid_until)`.
-- Se distinguen tiempo de validez del dato y tiempo en que CCI lo observó/registró.
+- Los intervalos de validez son semiabiertos `[valid_from, valid_until)`. En resolución de identidades, `recorded_at` es el instante inmutable de conocimiento de CCI; la historia bitemporal se reconstruye desde revisiones append-only y sus relaciones de sustitución, consultando `valid_at` y `known_at`.
+- Se distinguen el tiempo de validez del dato, el tiempo de observación de evidencia y el tiempo en que CCI registró una decisión.
 - Las entidades históricas y las decisiones de autorización son append-only desde los servicios autorizados.
 - No se infiere identidad por ticker, alias, chain ID aislado ni dirección sin namespace/red.
 - Las FKs históricas usan RESTRICT salvo excepción explícita para relaciones puramente asociativas.
@@ -47,7 +47,7 @@ PostgreSQL mantiene catálogo, identidades, metadata, operaciones, autorizacione
 
 **`asset_relationships`** — relación dirigida y evidenciada entre activos distintos. Atributos: `id`, `subject_asset_id`, `object_asset_id`, `relationship_type`, `directionality`, `valid_from`, `valid_until`, `evidence_reference`, `observed_at`, `recorded_at`. No establece equivalencia ni transitividad automática.
 
-**`asset_identity_resolution_reviews`** — historial de decisiones de identidad. Atributos: `id`, `namespace`, `network_id`, `external_identifier`, `candidate_asset_id`, `candidate_asset_representation_id`, `resolution_status`, `evidence_reference`, `decision_reference`, `observed_at`, `reviewed_at`, `recorded_at`, `valid_from`, `valid_until`, `supersedes_review_id`. Una decisión aceptada apunta exactamente a un activo o representación, nunca a ambos; una ambigüedad no se publica como mapping aceptado. Expone claves candidatas compuestas para que las tablas de mappings solo puedan referenciar revisiones accepted del mismo destino y clave externa.
+**`asset_identity_resolution_reviews`** — historial de decisiones de identidad. Atributos: `id`, `namespace`, `network_id`, `external_identifier`, `candidate_asset_id`, `candidate_asset_representation_id`, `resolution_status`, `evidence_reference`, `decision_reference`, `observed_at`, `reviewed_at`, `recorded_at`, `valid_from`, `valid_until`, `supersedes_review_id`. Una decisión aceptada apunta exactamente a un activo o representación, nunca a ambos; una ambigüedad no se publica como mapping aceptado. Expone claves candidatas compuestas para que las tablas de mappings solo puedan referenciar revisiones accepted del mismo destino y clave externa. Las revisiones son append-only: `recorded_at` conserva el instante de conocimiento y `supersedes_review_id` permite reconstruir qué decisión conocía CCI en cada `known_at`; el periodo de aplicación se expresa con `[valid_from, valid_until)`. Cada namespace tiene alcance global o por red, nunca ambos.
 
 **`asset_identifiers`** — mapping externo aceptado a nivel de activo. Atributos: `id`, `asset_id`, `namespace`, `external_identifier`, `network_id` nullable, `valid_from`, `valid_until`, `recorded_at`, `evidence_reference`, `resolution_review_id`, `resolution_status`. La FK compuesta exige que la revisión esté accepted y coincidan exactamente activo, namespace e identificador; un trigger compara el ámbito de red con igualdad NULL-safe.
 
