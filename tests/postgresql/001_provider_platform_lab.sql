@@ -154,6 +154,7 @@ CREATE TABLE network_identifiers (
                 provider_platform_id IS NOT NULL
                 AND provider_data_source_id IS NOT NULL
                 AND provider_platform_resolution_review_id IS NOT NULL
+                AND provider_platform_resolution_status IS NOT NULL
                 AND provider_platform_resolution_status = 'accepted'
                 AND identifier_type = 'asset_platform_id'
             )
