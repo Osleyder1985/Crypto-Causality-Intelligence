@@ -158,21 +158,16 @@ def fetch_kraken(asset, pair, interval, start_s, end_s, out):
 def fetch_coingecko(asset, coin_id, start_s, end_s, interval, out):
     params = urllib.parse.urlencode({"vs_currency": "usd", "from": start_s, "to": end_s})
     data, body, request_meta = request_json(f"{COINGECKO.format(coin_id=coin_id)}?{params}")
-    raw = save_raw(out, f"coingecko_{asset}_{interval}", body)
-    series = []
+    # Contar observaciones en memoria para validar cobertura sin archivar la serie
+    # ni reproducir valores de CoinGecko mientras se revisan sus condiciones de uso.
+    counts = {}
     for metric in ("prices", "market_caps", "total_volumes"):
-        for timestamp_ms, value in data.get(metric, []):
-            timestamp_s = int(timestamp_ms) // 1000
-            # CoinGecko puede incluir la observación exacta del límite final.
-            # La ventana experimental es [inicio, fin), igual que en los exchanges.
-            if start_s <= timestamp_s < end_s:
-                series.append({"metric": metric, "timestamp_utc": timestamp_s,
-                               "value": value, "asset": asset, "provider": "coingecko",
-                               "coin_id": coin_id, "vs_currency": "usd"})
-    # Se conserva el formato largo: precios/volumen/capitalización no son velas OHLC.
-    write_csv(out / "normalized" / f"coingecko_{asset}_{interval}.csv",
-              ["provider", "asset", "coin_id", "vs_currency", "metric", "timestamp_utc", "value"], series)
-    return len(series), raw, request_meta
+        counts[metric] = sum(
+            1 for timestamp_ms, _ in data.get(metric, [])
+            if start_s <= int(timestamp_ms) // 1000 < end_s
+        )
+    response_info = {"sha256": hashlib.sha256(body).hexdigest(), "bytes": len(body)}
+    return counts, response_info, request_meta
 
 
 def main():
@@ -231,13 +226,14 @@ def main():
                         "endpoint": BINANCE if provider == "binance" else KRAKEN,
                         "status": "error", "error": str(exc)})
             try:
-                count, raw, request_meta = fetch_coingecko(asset, ids["coingecko"], start_s, end_s, label, out)
+                counts, response_info, request_meta = fetch_coingecko(asset, ids["coingecko"], start_s, end_s, label, out)
                 manifest["results"].append({"provider": "coingecko", "asset": asset, "interval": label,
                     "market_id": ids["coingecko"], "endpoint": request_meta["url"].split("?")[0],
                     "request": request_meta,
                     "query_parameters": urllib.parse.parse_qs(urllib.parse.urlsplit(request_meta["url"]).query),
                     "source_timestamp_unit": "milliseconds", "volume_unit": "USD",
-                    "observations_long_format": count, "raw": raw, "status": "downloaded_non_ohlcv"})
+                    "observations_by_metric": counts, "response_sha256": response_info["sha256"],
+                    "response_bytes": response_info["bytes"], "status": "counted_in_memory_not_archived"})
             except Exception as exc:
                 manifest["results"].append({"provider": "coingecko", "asset": asset, "interval": label,
                     "endpoint": COINGECKO.format(coin_id=ids["coingecko"]),
