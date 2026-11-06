@@ -122,3 +122,22 @@ Fuentes oficiales: CoinGecko Coins List (ID Map), https://docs.coingecko.com/ref
 5. Mantener los códigos Binance/Kraken en contexto de instrumento hasta que una evidencia independiente permita una resolución revisada a `assets`.
 
 La documentación no autoriza todavía insertar filas en `identity_namespaces`, crear mappings aceptados, generar migraciones ni declarar pruebas PostgreSQL. El próximo paso es cerrar el catálogo de redes/plataformas y las reglas de normalización de direcciones; después se podrá fijar el conjunto inicial de filas del registro.
+
+
+## 10. Cierre documental del procedimiento de identidad de redes
+
+Se incorpora `network-identity-resolution-policy.md` y se amplía el contrato lógico/físico con `provider_platforms` y `provider_platform_resolution_reviews`. El inventario físico pasa de 29 a **31 entidades**, y el modelo lógico y el diagrama incorporan ambas relaciones.
+
+Decisiones:
+- `networks.network_key` permanece como identidad interna canónica.
+- `network_identifiers` conserva identificadores técnicos y externos namespaced, con evidencia.
+- El ID de plataforma CoinGecko se registra como identificador del proveedor, nunca como clave canónica.
+- `chain_identifier` nullable se conserva como dato reportado; no se imputa ni se acepta aisladamente como prueba.
+- En EVM se requiere Chain ID namespaced y corroboración independiente cuando corresponda; no se presume unicidad universal.
+- En Solana se utiliza `getGenesisHash` como evidencia nativa de clúster, sin inventar Chain ID.
+- La publicación de la correspondencia accepted y del identificador externo debe ser atómica y append-only.
+- Las direcciones contractuales quedan bloqueadas hasta que la plataforma se resuelva a una única red canónica.
+
+**Estado:** cierre del procedimiento documental. No se ha poblado el catálogo, no se han creado mappings reales, no se han generado migraciones ni se ha probado PostgreSQL real. La ampliación de entidades y restricciones debe someterse a comparación automatizada y revisión de integridad antes de generar DDL. Las pruebas Python existentes no validan estas restricciones del motor.
+
+Fuente normativa/técnica: CoinGecko Asset Platforms List, EIP-155 y Solana RPC `getGenesisHash`; referencias y procedimiento completos en `network-identity-resolution-policy.md`.
