@@ -1,83 +1,83 @@
-# Data Architecture
+# Arquitectura de datos
 
-## Purpose
+## Propósito
 
-This document defines the initial data architecture for **Historical Market Intelligence**. It is a logical design, not a commitment to a specific database, cloud provider, exchange API, or deployment topology.
+Este documento define la arquitectura inicial de datos para **Historical Market Intelligence**. Se trata de un diseño lógico, no de un compromiso con una base de datos, proveedor cloud, API de exchange o topología de despliegue específicos.
 
-The architecture must preserve source fidelity, temporal correctness, reproducibility, and the separation between observed facts and research interpretations.
+La arquitectura debe preservar la fidelidad de las fuentes, la corrección temporal, la reproducibilidad y la separación entre hechos observados e interpretaciones de investigación.
 
-## Architectural principles
+## Principios arquitectónicos
 
-1. **Preserve originals:** raw source records are immutable. Corrections create new versions or append-only revision records.
-2. **Separate concerns:** raw, normalized, and derived data have distinct responsibilities.
-3. **Preserve provenance:** every normalized or derived record must be traceable to its source records and transformation run.
-4. **Respect time:** distinguish when something happened, when it was published, and when it became available to the system.
-5. **Avoid premature coupling:** source-specific formats are handled by adapters; the canonical model is provider-neutral.
-6. **Make uncertainty explicit:** missing, estimated, disputed, provisional, and corrected values must remain distinguishable.
-7. **Human-governed research:** outputs inform investigation and decisions; this architecture does not authorize automated trading.
+1. **Preservar los originales:** los registros de origen en la capa raw son inmutables. Las correcciones generan nuevas versiones o registros de revisión de solo anexado.
+2. **Separar responsabilidades:** las capas raw, normalized y derived tienen funciones diferenciadas.
+3. **Preservar la procedencia:** cada registro normalizado o derivado debe poder rastrearse hasta sus registros de origen y la ejecución de transformación correspondiente.
+4. **Respetar el tiempo:** distinguir cuándo ocurrió algo, cuándo se publicó y cuándo estuvo disponible para el sistema.
+5. **Evitar acoplamientos prematuros:** los formatos específicos de cada fuente se gestionan mediante adapters; el modelo canónico es independiente del proveedor.
+6. **Hacer explícita la incertidumbre:** los valores faltantes, estimados, disputados, provisionales y corregidos deben seguir siendo distinguibles.
+7. **Investigación bajo supervisión humana:** los resultados sirven para investigar y apoyar decisiones; esta arquitectura no autoriza operaciones de trading automatizadas.
 
-## Logical data flow
+## Flujo lógico de datos
 
 ```mermaid
 flowchart TD
-    A[External Sources] --> B[Ingestion Adapters]
-    B --> C[Raw Layer]
-    C --> D[Normalization and Validation]
-    D --> E[Normalized Layer]
-    E --> F[Research and Evidence]
-    E --> G[Derived Layer]
+    A[Fuentes externas] --> B[Adaptadores de ingesta]
+    B --> C[Capa Raw]
+    C --> D[Normalización y validación]
+    D --> E[Capa Normalized]
+    E --> F[Investigación y evidencias]
+    E --> G[Capa Derived]
     F --> G
-    H[Source Registry] --> B
+    H[Registro de fuentes] --> B
     H --> D
-    I[Schema and Transformation Versions] --> D
+    I[Versiones de esquemas y transformaciones] --> D
     I --> G
-    C --> J[Lineage and Audit Metadata]
+    C --> J[Metadatos de linaje y auditoría]
     E --> J
     F --> J
     G --> J
 ```
 
-## Data layers
+## Capas de datos
 
-### Raw layer
+### Capa Raw
 
-Stores source payloads or the most faithful legally permitted representation, together with source/provider identifiers, source-native record identifiers, retrieval/capture timestamps, original publication/event timestamps, request context, payload format, content hash, ingestion batch identifier, and license/retention restrictions.
+Almacena los payloads de origen o la representación más fiel permitida legalmente, junto con identificadores del proveedor y de sus registros nativos, marcas de tiempo de recuperación/captura, marcas de tiempo originales de publicación/evento, contexto de la solicitud, formato del payload, hash del contenido, identificador del lote de ingesta y restricciones de licencia/retención.
 
-Raw records are append-only. If a provider corrects or republishes a record, retain the new observation and link it to the prior version rather than silently replacing it.
+Los registros raw son de solo anexado. Si un proveedor corrige o vuelve a publicar un registro, se conserva la nueva observación y se vincula con la versión anterior, en lugar de reemplazarla silenciosamente.
 
-### Normalized layer
+### Capa Normalized
 
-Contains canonical representations independent of provider-specific schemas: assets, exchanges, markets, trading pairs, market observations, events, documents, and source metadata. Normalization must not erase source-native values. Preserve original values and units when conversion or interpretation is required.
+Contiene representaciones canónicas independientes de los esquemas específicos de cada proveedor: activos, exchanges, mercados, pares de trading, observaciones de mercado, eventos, documentos y metadatos de fuentes. La normalización no debe eliminar los valores nativos de la fuente. Cuando se requiera conversión o interpretación, deben conservarse los valores y unidades originales.
 
-### Research and evidence layer
+### Capa de investigación y evidencias
 
-Represents evidence linked to source records or market observations, claims attributed to documents/sources/analysts, hypotheses and competing explanations, supporting/contradicting/contextual evidence, review status, and rationale.
+Representa evidencias vinculadas a registros de origen u observaciones de mercado; afirmaciones atribuidas a documentos, fuentes o analistas; hipótesis y explicaciones alternativas; evidencias de apoyo, contradicción o contexto; estado de revisión y justificación.
 
-A claim is not automatically a verified fact. A hypothesis is not an observation.
+Una afirmación no se convierte automáticamente en un hecho verificado. Una hipótesis no es una observación.
 
-### Derived layer
+### Capa Derived
 
-Contains reproducible outputs such as aggregates, features, event windows, market episodes, regime labels, and research datasets. Every derived output must record its inputs, transformation version, parameters, and execution time.
+Contiene resultados reproducibles, como agregados, features, ventanas de eventos, episodios de mercado, etiquetas de régimen y datasets de investigación. Cada resultado derivado debe registrar sus entradas, versión de la transformación, parámetros y tiempo de ejecución.
 
-## Ingestion and processing
+## Ingesta y procesamiento
 
-Source adapters retrieve data and record request context. Validation runs before normalized records are accepted. Failed or quarantined records remain traceable; they must not disappear silently.
+Los adapters de fuentes recuperan datos y registran el contexto de cada solicitud. La validación se ejecuta antes de aceptar registros en la capa normalized. Los registros fallidos o puestos en cuarentena deben seguir siendo trazables; nunca deben desaparecer silenciosamente.
 
-A processing run should identify input record IDs or a stable input manifest, adapter/version, schema and transformation versions, parameters and reference-data versions, execution timestamps/status, warnings, rejected records, and validation outcomes.
+Cada ejecución de procesamiento debe identificar los IDs de los registros de entrada o un manifiesto estable de entradas, la versión del adapter, las versiones de esquema y transformación, los parámetros y versiones de datos de referencia, las marcas de tiempo y el estado de ejecución, las advertencias, los registros rechazados y los resultados de validación.
 
-## Storage and deployment boundaries
+## Límites de almacenamiento y despliegue
 
-The initial design is modular and may be implemented as a single deployable system. A relational store is a reasonable candidate for canonical entities, relationships, and metadata; object storage may be suitable for large raw payloads. Time-series or analytical systems should be evaluated only after workload and scale requirements are measured.
+El diseño inicial es modular y puede implementarse como un único sistema desplegable. Una base de datos relacional es una opción razonable para las entidades canónicas, relaciones y metadatos; el object storage puede ser adecuado para payloads raw de gran tamaño. Los sistemas time-series o analíticos solo deben evaluarse después de medir los requisitos de carga y escala.
 
-No database, message broker, lakehouse, microservice topology, or cloud vendor is selected by this document.
+Este documento no selecciona ninguna base de datos, message broker, lakehouse, topología de microservicios ni proveedor cloud.
 
-## Security, licensing, and retention
+## Seguridad, licencias y retención
 
-Before ingestion, record applicable terms of use, redistribution restrictions, retention limits, rate limits, and attribution requirements. Do not retain or redistribute content beyond applicable permissions. Credentials and secrets must never be stored in raw payload metadata or committed to the repository.
+Antes de la ingesta, deben registrarse los términos de uso aplicables, las restricciones de redistribución, los límites de retención, los rate limits y los requisitos de atribución. No se debe conservar ni redistribuir contenido más allá de los permisos aplicables. Las credenciales y los secretos nunca deben almacenarse en los metadatos de payloads raw ni incorporarse al repositorio.
 
-## Out of scope
+## Fuera del alcance
 
-- Production integrations with multiple providers.
-- Final database and cloud infrastructure selection.
-- Predictive model training or automated trading.
-- Claims of causality based solely on correlation or temporal proximity.
+- Integraciones productivas con múltiples proveedores.
+- Selección definitiva de base de datos e infraestructura cloud.
+- Entrenamiento de modelos predictivos o trading automatizado.
+- Afirmaciones de causalidad basadas únicamente en correlación o proximidad temporal.
