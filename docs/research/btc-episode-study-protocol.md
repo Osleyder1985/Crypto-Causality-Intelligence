@@ -125,3 +125,13 @@ El manifiesto conserva los límites originales en `start_local` y `end_local` co
 El manifiesto solo puede pasar a `approved` cuando se identifiquen un venue y tipo de mercado únicos, la procedencia del dataset, la autorización de uso/retención y todos los episodios confirmados. El CLI rechaza manifiestos `pending_confirmation`, datasets sin autorización y episodios no confirmados. El esquema JSON documenta la estructura; el validador Python aplica además las invariantes temporales y de ejecución.
 
 Las listas JSON heredadas siguen admitidas únicamente por compatibilidad en la función de lectura y en pruebas históricas. El CLI de investigación las rechaza: toda ejecución operativa exige el manifiesto versionado y sus controles de procedencia, zona horaria local y autorización.
+
+
+Antes de disponer de las velas, el manifiesto aprobado puede validarse de forma independiente:
+
+```bash
+python -m scripts.research.episode_manifest \
+  --manifest /ruta/local/btc-usdt-episode-manifest.json
+```
+
+El comando devuelve código distinto de cero si el manifiesto sigue pendiente, carece de autorización o incumple las reglas de cohorte y tiempo. No abre archivos OHLCV ni consulta proveedores.
