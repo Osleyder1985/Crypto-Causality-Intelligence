@@ -4,7 +4,7 @@
 - **Fecha:** 2026-11-06.
 - **Decisión relacionada:** ADR-001.
 - **Issue relacionado:** #14.
-- **PR de trabajo:** #15.
+- **PR de trabajo:** #16.
 
 ## 1. Propósito y límites
 
