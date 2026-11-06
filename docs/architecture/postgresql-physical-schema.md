@@ -766,7 +766,7 @@ La política rectora es `network-identity-resolution-policy.md`. El inventario f
 - `id UUID PK`
 - `provider_platform_id UUID NOT NULL`, `data_source_id UUID NOT NULL`; FK compuesta `(provider_platform_id, data_source_id) -> provider_platforms(id, data_source_id)`.
 - `capture_id UUID NOT NULL` (identificador del lote de ingestión, compartido por todas las entradas del mismo snapshot).
-- `observed_at TIMESTAMPTZ NOT NULL`; `recorded_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()`.
+- `observed_at TIMESTAMPTZ NOT NULL`; `recorded_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()` (sustituye a `created_at` como instante inmutable de incorporación).
 - `provider_name TEXT NULL`, `provider_shortname TEXT NULL`, `provider_native_coin_id TEXT NULL`.
 - `reported_chain_identifier_raw TEXT NULL`, `reported_chain_identifier_json_type TEXT NULL` (literal escalar recibido y tipo JSON; no convertir a NUMERIC hasta confirmar el contrato oficial).
 - `evidence_reference TEXT NOT NULL`, `evidence_sha256 TEXT NULL`.
@@ -780,9 +780,10 @@ La política rectora es `network-identity-resolution-policy.md`. El inventario f
 - `candidate_network_id UUID NULL FK networks(id)`.
 - `resolution_status TEXT NOT NULL`: CHECK `pending_review, accepted, rejected, ambiguous`.
 - `evidence_reference TEXT NULL`, `decision_reference TEXT NULL`, `reviewed_at TIMESTAMPTZ NULL`.
-- `recorded_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()`.
+- `recorded_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()` (sustituye a `created_at` como instante inmutable de registro).
 - `valid_from TIMESTAMPTZ NULL`, `valid_until TIMESTAMPTZ NULL` (intervalo semiabierto; CHECK `valid_until IS NULL OR (valid_from IS NOT NULL AND valid_until > valid_from)`).
 - `supersedes_review_id UUID NULL`; FK compuesta `(supersedes_review_id, provider_platform_id) -> provider_platform_resolution_reviews(id, provider_platform_id)`.
+- CHECK `supersedes_review_id IS NULL OR valid_from IS NOT NULL`: toda sucesión debe fijar el inicio de la nueva decisión para derivar el cierre efectivo de la anterior.
 - UNIQUE candidato `(id, provider_platform_id)` y `(id, provider_platform_id, candidate_network_id, resolution_status)`.
 - Índices UNIQUE parciales: una sola raíz por `provider_platform_id` (`supersedes_review_id IS NULL`) y una sola sucesora por revisión (`supersedes_review_id IS NOT NULL`).
 - CHECK: `accepted` exige exactamente un `candidate_network_id`, evidencia, `reviewed_at` y `valid_from`.
