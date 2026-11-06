@@ -143,5 +143,78 @@ class InstrumentMetadataContractTests(unittest.TestCase):
         self.assertEqual(result["min_notional"], Decimal("0.5"))
 
 
+    def test_binance_keeps_market_lot_separate_and_unknown_filters(self):
+        symbol = {
+            "symbol": "BTCUSDT", "status": "TRADING",
+            "baseAsset": "BTC", "quoteAsset": "USDT",
+            "filters": [
+                {"filterType": "LOT_SIZE", "minQty": "0.001",
+                 "maxQty": "10", "stepSize": "0.001"},
+                {"filterType": "MARKET_LOT_SIZE", "minQty": "0.01",
+                 "maxQty": "5", "stepSize": "0.01"},
+                {"filterType": "ICEBERG_PARTS", "limit": 10},
+                {"filterType": "PRICE_FILTER", "minPrice": "0",
+                 "maxPrice": "0", "tickSize": "0.10"},
+            ],
+            "futureProviderField": {"revision": "synthetic-v2"},
+        }
+        result = map_binance_instrument_metadata(symbol)
+        self.assertEqual(result["quantity_step"], Decimal("0.001"))
+        self.assertEqual(result["market_quantity_step"], Decimal("0.01"))
+        self.assertEqual(result["price_tick"], Decimal("0.10"))
+        self.assertEqual(result["trading_rules"][2]["parameters"]["limit"], 10)
+        self.assertEqual(result["provider_extensions"]["unknown_filter_types"],
+                         ["ICEBERG_PARTS"])
+        self.assertEqual(result["provider_extensions"]["futureProviderField"],
+                         {"revision": "synthetic-v2"})
+
+    def test_binance_rejects_malformed_or_duplicate_filters(self):
+        with self.assertRaises(ValueError):
+            map_binance_instrument_metadata({
+                "symbol": "BTCUSDT", "filters": [{"minQty": "1"}]
+            })
+        with self.assertRaises(ValueError):
+            map_binance_instrument_metadata({
+                "symbol": "BTCUSDT", "filters": [
+                    {"filterType": "LOT_SIZE", "stepSize": "1"},
+                    {"filterType": "LOT_SIZE", "stepSize": "2"},
+                ]
+            })
+
+    def test_binance_missing_optional_filters_remain_null(self):
+        result = map_binance_instrument_metadata({
+            "symbol": "BTCUSDT", "baseAsset": "BTC", "quoteAsset": "USDT",
+            "filters": [],
+        })
+        self.assertIsNone(result["price_tick"])
+        self.assertIsNone(result["quantity_step"])
+        self.assertIsNone(result["market_quantity_step"])
+        self.assertEqual(result["trading_rules"], [])
+
+    def test_kraken_preserves_unrecognized_fields_and_rule_parameters(self):
+        pair = {
+            "altname": "XBTUSD", "wsname": "XBT/USD", "base": "XXBT",
+            "quote": "ZUSD", "status": "online", "tick_size": "0.1",
+            "pair_decimals": 1, "lot_decimals": 8, "ordermin": "0.0001",
+            "costmin": "0.5", "future_field": {"mode": "synthetic"},
+        }
+        result = map_kraken_instrument_metadata("XXBTZUSD", pair)
+        self.assertEqual(result["provider_extensions"]["future_field"],
+                         {"mode": "synthetic"})
+        self.assertEqual(result["trading_rules"][0]["parameters"]["tick_size"],
+                         "0.1")
+        self.assertIsNone(result["quantity_step"])
+
+    def test_kraken_missing_optional_fields_are_not_invented(self):
+        result = map_kraken_instrument_metadata(
+            "UNKNOWNPAIR", {"base": "XAAA", "quote": "ZBBB"}
+        )
+        self.assertEqual(result["source_instrument_id"], "UNKNOWNPAIR")
+        self.assertIsNone(result["price_tick"])
+        self.assertIsNone(result["min_quantity"])
+        self.assertIsNone(result["min_notional"])
+        self.assertEqual(result["provider_extensions"], {})
+
+
 if __name__ == "__main__":
     unittest.main()
