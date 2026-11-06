@@ -1,0 +1,68 @@
+{
+  "schema_version": "1.0.0",
+  "status": "synthetic_test_fixture",
+  "canonical_assets": [
+    {
+      "canonical_asset_key": "bitcoin",
+      "display_name": "Bitcoin",
+      "asset_type": "crypto"
+    },
+    {
+      "canonical_asset_key": "usd",
+      "display_name": "US dollar",
+      "asset_type": "fiat"
+    },
+    {
+      "canonical_asset_key": "tether_usd",
+      "display_name": "Tether USD",
+      "asset_type": "stablecoin"
+    }
+  ],
+  "mappings": [
+    {
+      "namespace": "binance_spot",
+      "native_code": "BTC",
+      "network": null,
+      "canonical_asset_key": "bitcoin",
+      "status": "pending_review",
+      "evidence_reference": null
+    },
+    {
+      "namespace": "kraken_spot_assets",
+      "native_code": "XBT",
+      "network": null,
+      "canonical_asset_key": "bitcoin",
+      "status": "pending_review",
+      "evidence_reference": null
+    },
+    {
+      "namespace": "kraken_spot_assetpairs",
+      "native_code": "XXBT",
+      "network": null,
+      "canonical_asset_key": "bitcoin",
+      "status": "pending_review",
+      "evidence_reference": null
+    },
+    {
+      "namespace": "binance_spot",
+      "native_code": "USDT",
+      "network": null,
+      "canonical_asset_key": "tether_usd",
+      "status": "pending_review",
+      "evidence_reference": null
+    },
+    {
+      "namespace": "kraken_spot_assetpairs",
+      "native_code": "ZUSD",
+      "network": null,
+      "canonical_asset_key": "usd",
+      "status": "pending_review",
+      "evidence_reference": null
+    }
+  ],
+  "notes": [
+    "Synthetic metadata only; no provider payloads are included.",
+    "No mapping in this fixture is approved.",
+    "A candidate canonical key does not authorize propagation to a canonical foreign key."
+  ]
+}
