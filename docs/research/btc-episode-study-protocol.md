@@ -1,0 +1,85 @@
+# Protocolo del primer estudio de episodios BTC/USDT
+
+- Issue: #17
+- Estado: implementación inicial; pendiente de ejecutar con un dataset cuyo tratamiento esté autorizado.
+- Granularidad inicial: velas de 1 hora.
+- Ventanas de episodio: intervalos UTC semiabiertos [inicio, fin).
+
+## Restricción de datos
+
+Este módulo no descarga datos ni se conecta a Binance, Kraken o CoinGecko. Lee un CSV local proporcionado por el operador. La política vigente mantiene las nuevas ejecuciones de proveedores en modalidad metadata-only y prohíbe incorporar a este repositorio respuestas originales o series OHLCV. Los datos reales solo se procesarán localmente cuando su uso y tratamiento estén autorizados. Las pruebas automatizadas usan exclusivamente datos sintéticos.
+
+Los reportes de salida son agregados por episodio. No deben versionarse en Git si contienen métricas derivadas de proveedores cuyo almacenamiento no esté autorizado.
+
+## Formato de entrada CSV
+
+Columnas obligatorias:
+
+| Campo | Semántica |
+|---|---|
+| `open_time_utc` | Inicio de vela en ISO-8601 UTC, por ejemplo `2026-01-01T00:00:00Z` |
+| `open`, `high`, `low`, `close` | Precios positivos de la vela |
+| `volume` | Volumen base, sin conversión implícita |
+
+Columna opcional:
+
+- `quote_volume`: volumen expresado en el activo cotizado. Solo se calcula si está presente en todas las velas de la ventana.
+
+El archivo debe contener un solo instrumento y un solo proveedor/venue. No mezclar BTCUSDT con XBT/USD ni series agregadas con datos de un exchange. La procedencia y la unidad de volumen deben quedar documentadas fuera del CSV o en el manifiesto operativo del experimento.
+
+## Formato de episodios JSON
+
+Cada episodio identifica una ventana manualmente clasificada:
+
+```json
+[
+  {
+    "episode_id": "btc-rise-01",
+    "direction": "bullish",
+    "start_utc": "2026-08-16T16:00:00Z",
+    "end_utc": "2026-08-17T16:00:00Z"
+  }
+]
+```
+
+La fecha final es exclusiva: una vela cuya apertura coincide con `end_utc` no pertenece al episodio. Las fechas deben alinearse con la granularidad seleccionada. El ejemplo anterior es ilustrativo, no una ventana de investigación aprobada.
+
+## Métricas
+
+Por episodio:
+- retorno porcentual desde la apertura de la primera vela hasta el cierre de la última;
+- desviación estándar poblacional de retornos logarítmicos por vela, no anualizada;
+- máximo drawdown intraperiodo estimado con máximos y mínimos OHLC;
+- rango entre máximo high y mínimo low;
+- volumen base medio y, si existe, volumen cotizado medio;
+- ratio del volumen base medio del episodio frente a las 168 horas previas.
+
+Ventanas previas: 24, 72 y 168 horas antes del inicio. Si no hay cobertura completa, se devuelve `null`; no se rellenan huecos ni se extrapola.
+
+## Controles
+
+- timestamps ISO-8601 con zona UTC explícita;
+- orden estrictamente creciente y cero duplicados;
+- precios positivos;
+- consistencia OHLC;
+- volúmenes no negativos;
+- límites de episodios alineados al intervalo;
+- cobertura completa dentro de cada episodio;
+- huecos globales informados, sin imputación.
+
+## Ejecución local
+
+```bash
+python scripts/research/btc_episode_study.py \
+  --input /ruta/local/btcusdt_1h.csv \
+  --episodes /ruta/local/btc_episodes.json \
+  --json-out /ruta/local/btc_episode_summary.json \
+  --csv-out /ruta/local/btc_episode_summary.csv \
+  --interval-seconds 3600
+```
+
+El CSV de entrada permanece local. El JSON/CSV de salida contiene métricas agregadas por episodio y no se debe publicar ni retener si las condiciones de la fuente no lo permiten.
+
+## Interpretación
+
+Este incremento es un estudio descriptivo de episodios seleccionados manualmente. No demuestra que una variable cause una subida o caída, no estima probabilidades predictivas y no valida una estrategia. Para inferencia se necesitarán hipótesis preregistradas, controles comparables, múltiples episodios, tratamiento de selección y pruebas fuera de muestra.
