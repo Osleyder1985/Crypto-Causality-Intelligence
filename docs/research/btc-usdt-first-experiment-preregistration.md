@@ -37,7 +37,7 @@ Reglas:
 5. Mantener todos los episodios elegibles, incluso si el resultado contradice la hipótesis.
 6. No usar episodios de entrenamiento y validación como si fueran muestras independientes cuando pertenecen a un mismo movimiento de mercado.
 
-La lista completa de fechas todavía requiere reconciliación. El contexto disponible confirma algunos límites aportados, pero contiene una discrepancia sobre el final del episodio que comienza el 5 de febrero de 2026 y el inicio de la caída de mayo de 2026. No completar ni inferir los límites faltantes. La tabla definitiva se congelará en un manifiesto versionado antes de ejecutar el experimento.
+El registro trazable de los límites comunicados y de sus discrepancias se mantiene en [btc-usdt-episode-candidates.md](btc-usdt-episode-candidates.md). La lista completa de fechas todavía requiere reconciliación. El contexto disponible confirma algunos límites aportados, pero contiene una discrepancia sobre el final del episodio que comienza el 5 de febrero de 2026 y el inicio de la caída de mayo de 2026. No completar ni inferir los límites faltantes. La tabla definitiva se congelará en un manifiesto versionado antes de ejecutar el experimento.
 
 ## 4. Métricas primarias y definiciones
 
