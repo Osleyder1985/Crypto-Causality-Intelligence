@@ -227,16 +227,16 @@ La política aplicable se resuelve considerando fuente, alcance y referencia est
 - CHECK: los dos destinos no pueden ser NOT NULL simultáneamente; una decisión `accepted` exige exactamente uno. Las revisiones `ambiguous` pueden conservar ambos destinos en una tabla de candidatos futura, pero no publican FK.
 - `resolution_status TEXT NOT NULL`: CHECK en `pending_review, accepted, rejected, ambiguous`.
 - `evidence_reference TEXT NULL`, `decision_reference TEXT NULL`.
-- `observed_at TIMESTAMPTZ NOT NULL`, `reviewed_at TIMESTAMPTZ NULL`, `recorded_at TIMESTAMPTZ NOT NULL`.
-- `valid_from TIMESTAMPTZ NULL`, `valid_until TIMESTAMPTZ NULL`.
-- `supersedes_review_id UUID NULL FK asset_identity_resolution_reviews(id)`.
+- `observed_at TIMESTAMPTZ NOT NULL`, `reviewed_at TIMESTAMPTZ NULL`, `recorded_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()` (tiempo de conocimiento asignado por PostgreSQL; inmutable).
+- `valid_from TIMESTAMPTZ NULL`, `valid_until TIMESTAMPTZ NULL` (valid time semiabierto; una decisión accepted exige inicio explícito).
+- `supersedes_review_id UUID NULL FK asset_identity_resolution_reviews(id)`; debe referir una revisión previa de la misma clave de identidad y no puede formar ciclos ni ramas competidoras.
 - CHECK `valid_until IS NULL OR (valid_from IS NOT NULL AND valid_until > valid_from)`.
 - CHECK: una decisión `accepted` requiere exactamente un destino, evidencia, `reviewed_at` y `valid_from`.
 - UNIQUE candidato `(id, candidate_asset_id, resolution_status, namespace, external_identifier)`, referenciado por `asset_identifiers`.
 - UNIQUE candidato `(id, candidate_asset_representation_id, resolution_status, namespace, external_identifier, network_id)`, referenciado por `asset_representation_identifiers`.
 - Las claves candidatas se definen aunque los campos de destino sean NULL en revisiones no aceptadas; los mappings solo pueden referenciar la variante no nula y `resolution_status = 'accepted'`.
 - Registro append-only; `recorded_at` se asigna al insertar. Correcciones mediante nueva revisión.
-- Las revisiones de activo y de representación son scopes distintos. Una revisión contractual exige `network_id` y el identificador debe corresponder exactamente al contrato/alias documentado.
+- Las revisiones de activo y de representación son scopes distintos. Una revisión contractual exige `network_id` y el identificador debe corresponder exactamente al contrato/alias documentado. Cada `namespace` tiene un único modo de alcance: global (red NULL) o por red (red NOT NULL); no se permite mezclarlos dentro del mismo namespace.
 - Empates máximos contradictorios para la misma clave exacta se resuelven como `ambiguous`, nunca como selección arbitraria.
 
 **`asset_identifiers`**
@@ -244,12 +244,13 @@ La política aplicable se resuelve considerando fuente, alcance y referencia est
 - `asset_id UUID NOT NULL FK assets(id)`
 - `namespace TEXT NOT NULL`, `external_identifier TEXT NOT NULL`.
 - `network_id UUID NULL FK networks(id)`: ámbito de red cuando el identificador sea específico de una red; NULL representa un identificador global dentro del namespace.
-- `valid_from TIMESTAMPTZ NOT NULL`, `valid_until TIMESTAMPTZ NULL`, `recorded_at TIMESTAMPTZ NOT NULL`.
+- `valid_from TIMESTAMPTZ NOT NULL`, `valid_until TIMESTAMPTZ NULL`, `recorded_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()` (transaction/knowledge time, inmutable).
 - `evidence_reference TEXT NOT NULL`, `resolution_review_id UUID NOT NULL`.
 - `resolution_status TEXT NOT NULL DEFAULT 'accepted'`: CHECK `resolution_status = 'accepted'`; columna constante para permitir FK compuesta que pruebe el estado aprobado.
 - FK compuesta `(resolution_review_id, asset_id, resolution_status, namespace, external_identifier) -> asset_identity_resolution_reviews(id, candidate_asset_id, resolution_status, namespace, external_identifier)`.
 - Trigger `validate_asset_identifier_review_scope`: comprueba que el `network_id` del mapping sea idéntico al `network_id` de la revisión, incluyendo la igualdad NULL/NULL. La FK compuesta anterior ya garantiza revisión accepted, destino, namespace e identificador exactos.
 - CHECK `valid_until IS NULL OR valid_until > valid_from`.
+- `recorded_at` se asigna al insertar y no se modifica; los mappings son eventos append-only cuya vigencia efectiva se reconstruye mediante la revisión y su cadena de sustitución.
 - Solo mappings aceptados a nivel de activo. La publicación del mapping y su revisión se realiza en una misma transacción.
 
 **`asset_representation_identifiers`**
@@ -264,6 +265,7 @@ La política aplicable se resuelve considerando fuente, alcance y referencia est
 - FK `(asset_representation_id, network_id) -> asset_representations(id, network_id)`.
 - FK compuesta `(resolution_review_id, asset_representation_id, resolution_status, namespace, external_identifier, network_id) -> asset_identity_resolution_reviews(id, candidate_asset_representation_id, resolution_status, namespace, external_identifier, network_id)`.
 - CHECK `valid_until IS NULL OR valid_until > valid_from`.
+- `recorded_at` se asigna al insertar y no se modifica; los mappings son eventos append-only cuya vigencia efectiva se reconstruye mediante la revisión y su cadena de sustitución.
 - La FK compuesta garantiza que la revisión accepted aprueba exactamente esa representación, identificador y red. La publicación se realiza en una misma transacción que inserta la revisión y el mapping.
 
 **`market_instruments`**
@@ -519,16 +521,42 @@ Se crearán índices explícitos para FKs usadas en joins y patrones de consulta
 
 No crear índices GIN sobre todos los JSONB ni índices parciales sin consulta concreta. No particionar tablas operativas antes de disponer de volúmenes medidos. No añadir índices duplicados que ya cubra una PK/UNIQUE.
 
-## 5.1 Tiempo bitemporal de resolución de activos y representaciones
+## 5.1 Semántica temporal de la resolución de identidades
 
-Para `asset_identity_resolution_reviews`, `asset_identifiers` y `asset_representation_identifiers` se aplican dos ejes independientes:
+### Dos ejes y reconstrucción histórica
 
-- Validez del proveedor: `[valid_from, valid_until)`.
-- Conocimiento de CCI: `recorded_at`, nunca retrodatado.
+Para `asset_identity_resolution_reviews`, `asset_identifiers` y `asset_representation_identifiers`:
 
-`observed_at` y `reviewed_at` son timestamps de procedencia y decisión; no sustituyen a ninguno de los dos ejes. La consulta histórica requiere `valid_at` y `known_at`, ambos con zona horaria. En una misma clave exacta (namespace, network_id, código y ámbito de destino), se selecciona la revisión más reciente registrada hasta `known_at`; si la revisión máxima contiene decisiones contradictorias, no se publica FK y el resultado es ambiguo. Una corrección se inserta como nueva fila con `supersedes_review_id`; nunca se reescribe la fila anterior.
+- **Valid time:** intervalo semiabierto `[valid_from, valid_until)`; indica cuándo el identificador corresponde al destino en el dominio representado por la evidencia.
+- **Transaction/knowledge time:** `recorded_at`; instante UTC, asignado por PostgreSQL al registrar la decisión y nunca retrodatado. `observed_at` y `reviewed_at` conservan cuándo se observó la evidencia y cuándo se revisó; no sustituyen a `recorded_at`.
 
-Una revisión aceptada necesita `valid_from` explícito. NULL no significa “desde siempre”. Los mappings publicados heredan el periodo y la referencia de la revisión aceptada. Las escrituras de revisión y publicación deben ejecutarse en una transacción; la lógica de aplicación/constraint trigger debe impedir que una revisión aceptada se publique sin su evidencia y sin que la revisión sea la decisión efectiva para el periodo consultado.
+El diseño usa un **historial bitemporal reconstruible por eventos append-only**, no intervalos físicos `recorded_from/recorded_until`. Cada revisión es inmutable y `supersedes_review_id` identifica la decisión que corrige o reemplaza. Así, una consulta con `valid_at` y `known_at` reconstruye qué decisión conocía CCI en ese instante, sin modificar ni cerrar filas históricas. No se debe describir `recorded_at` aislado como un intervalo bitemporal: la reconstrucción depende de conservar la cadena completa de revisiones y sus sustituciones.
+
+Regla de lectura:
+1. Filtrar revisiones con `recorded_at <= known_at` y cuya clave de identidad coincida exactamente.
+2. Resolver la cadena de sustitución y seleccionar la revisión efectiva más reciente conocida en `known_at`; no elegir simplemente el mayor timestamp si existen ramas o sustituciones contradictorias.
+3. Evaluar su estado y su intervalo de validez en `valid_at`.
+4. Si la revisión efectiva es `rejected`, `ambiguous`, no cubre `valid_at` o la cadena no tiene un único resultado, devolver sin mapping canónico y explicar el motivo.
+
+### Ámbito de la clave y no solapamiento
+
+`namespace` define un dominio de identidad y, por contrato, un único modo de alcance: **global** (`network_id IS NULL` en todas sus decisiones) o **por red** (`network_id IS NOT NULL` en todas sus decisiones). Los namespaces globales y los namespaces de direcciones/identificadores de red deben ser distintos; no se permite mezclar ambos modos dentro de un mismo namespace. Esto evita que NULL signifique unas veces “global” y otras “desconocido”.
+
+La clave de conflicto es:
+- Namespace global: `(namespace, external_identifier)`.
+- Namespace por red: `(namespace, network_id, external_identifier)`.
+
+Para una misma clave, en un mismo conocimiento de CCI, no pueden existir dos decisiones aceptadas efectivas con intervalos de valid time solapados y destinos distintos. Los intervalos contiguos sí se permiten: `[a,b)` y `[b,c)` no se solapan. Un cambio legítimo de destino requiere una revisión que sustituya explícitamente la decisión anterior y periodos coherentes; una corrección retroactiva crea una nueva revisión con su propio `recorded_at`, sin reescribir lo que CCI conocía antes.
+
+### Sustitución, concurrencia y publicación
+
+- `supersedes_review_id` debe apuntar a una revisión anterior de la misma clave (namespace, external_identifier y modo/ámbito de red). No puede apuntar a sí misma ni crear ciclos. Una sustitución de decisión accepted debe declarar el destino y periodo corregidos, y conservar evidencia y referencia de decisión.
+- La cadena debe ser lineal: una revisión no puede ser sustituida por dos revisiones competidoras para la misma rama de conocimiento. Si la evidencia produce alternativas no resolubles, se registra `ambiguous`, no dos mappings accepted.
+- La revisión y su mapping, cuando proceda, se publican en una única transacción. El mapping debe copiar exactamente destino, namespace, identificador, red y periodo de la revisión accepted.
+- Para evitar carreras, el servicio de escritura obtiene un bloqueo transaccional por clave de identidad antes de comprobar la cadena, validar intervalos y publicar. El diseño físico debe definir una clave de bloqueo determinista y probar dos sesiones concurrentes; `SERIALIZABLE` con reintentos es una alternativa válida. Un chequeo previo en Python sin bloqueo no es suficiente.
+- Las restricciones CHECK/FK actuales garantizan coherencia local y referencial, pero no garantizan no solapamiento, cadena lineal ni exclusión bajo concurrencia. Estas reglas requieren trigger/función transaccional o un mecanismo PostgreSQL equivalente, además de pruebas reales.
+
+No se exige `btree_gist` en esta etapa. Se prefiere el bloqueo por clave más validación transaccional porque el ámbito global frente a red requiere comparar claves de alcance distinto y no queda cubierto por una exclusión GiST simple.
 
 ## 6. Tiempo, estados e inmutabilidad
 
