@@ -605,7 +605,7 @@ class AssetRepresentationFixtureTests(unittest.TestCase):
 
     def test_invalid_or_timezone_naive_validity_interval_is_rejected(self):
         item = dict(self.fixture["representations"][1])
-        item["valid_until"] = "2021-01-01T00:00:00Z"
+        item["valid_until"] = "2019-01-01T00:00:00Z"
         with self.assertRaises(ValueError):
             validate_asset_representation(item)
         item["valid_from"] = "2020-01-01T00:00:00"
