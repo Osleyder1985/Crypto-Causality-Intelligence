@@ -163,7 +163,8 @@ Fuente normativa/técnica: CoinGecko Asset Platforms List, EIP-155 y Solana RPC 
 4. **Cadena lineal por identidad.** Una raíz y una única sucesora por revisión. UNIQUE parciales evitan bifurcaciones; FK compuesta asegura misma identidad; trigger impide ciclos.
 5. **Snapshots con timestamps iguales.** La unicidad no depende de `observed_at`. Cada lote tiene `capture_id`; UNIQUE `(provider_platform_id, capture_id)` distingue capturas y rechaza duplicados de una plataforma dentro del mismo lote.
 6. **Tiempo bitemporal.** `observed_at` es tiempo de observación; `recorded_at` es tiempo de conocimiento de CCI; `valid_from/valid_until` expresa vigencia real. Los intervalos son semiabiertos. El final efectivo de una decisión anterior puede derivarse del `valid_from` de su sucesora, sin UPDATE histórico.
-7. **Serialización.** Antes de insertar una revisión, la transacción bloquea la fila de `provider_platforms` con `SELECT ... FOR UPDATE`, lee la cabeza y crea la sucesora. El lock se aplica a la identidad estable, no al UUID del snapshot.
+7. **Inicio de vigencia obligatorio.** Toda revisión, incluso `pending_review`, `ambiguous` o `rejected`, exige `valid_from`. Sin ese instante, la vista no podría exponer correctamente estados no accepted ni calcular el intervalo efectivo. `valid_until`, cuando exista, debe ser posterior a `valid_from`.
+8. **Serialización.** Antes de insertar una revisión, la transacción bloquea la fila de `provider_platforms` con `SELECT ... FOR UPDATE`, lee la cabeza y crea la sucesora. El lock se aplica a la identidad estable, no al UUID del snapshot.
 8. **Cambio material.** Una diferencia descriptiva no cambia automáticamente la red. Si nueva evidencia altera la interpretación, contradice la resolución o activa revalidación, se crea una revisión sucesora.
 
 ### Cierre de NET-06
