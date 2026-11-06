@@ -74,7 +74,7 @@ Ventanas previas: 24, 72 y 168 horas antes del inicio. Si no hay cobertura compl
 ```bash
 python scripts/research/btc_episode_study.py \
   --input /ruta/local/btcusdt_1h.csv \
-  --episodes /ruta/local/btc_episodes.json \
+  --episodes /ruta/local/btc-usdt-episode-manifest.json \
   --json-out /ruta/local/btc_episode_summary.json \
   --csv-out /ruta/local/btc_episode_summary.csv \
   --interval-seconds 3600
@@ -111,7 +111,7 @@ Las pruebas crean archivos Parquet temporales con datos sintéticos y verifican 
 
 ## Prerregistro del experimento histórico
 
-La pregunta de investigación, hipótesis exploratorias, reglas de cohorte, definiciones de métricas, controles de calidad y condiciones para iniciar el primer run real se especifican en [btc-usdt-first-experiment-preregistration.md](btc-usdt-first-experiment-preregistration.md). Ese prerregistro es la referencia antes de inspeccionar resultados reales. La lista definitiva de episodios aún debe reconciliarse; no se deben completar límites por inferencia.
+La pregunta de investigación, hipótesis exploratorias, reglas de cohorte, definiciones de métricas, controles de calidad y condiciones para iniciar el primer run real se especifican en [btc-usdt-first-experiment-preregistration.md](btc-usdt-first-experiment-preregistration.md). Ese prerregistro es la referencia antes de inspeccionar resultados reales. La lista definitiva de episodios aún debe reconciliarse; el registro de candidatos está en [btc-usdt-episode-candidates.md](btc-usdt-episode-candidates.md). No se deben completar límites por inferencia.
 
 
 ## Manifiesto canónico versionado (preferido)
