@@ -1,4 +1,4 @@
--- CCI research run registry. Requires the canonical cci schema and research_experiments table.
+-- CCI research run registry. Apply 001_research_experiments.sql first for a clean installation.
 BEGIN;
 
 CREATE TABLE IF NOT EXISTS cci.research_experiment_runs (
