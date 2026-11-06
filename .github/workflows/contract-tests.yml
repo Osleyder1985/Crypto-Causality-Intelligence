@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - docs/issue-14-storage-architecture-decision
+      - architecture/issue-14-storage-resynced
     paths:
       - "scripts/validation/**"
       - "tests/test_market_contracts.py"
