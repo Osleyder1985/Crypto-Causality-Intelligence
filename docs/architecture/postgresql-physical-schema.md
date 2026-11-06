@@ -232,6 +232,9 @@ La política aplicable se resuelve considerando fuente, alcance y referencia est
 - `supersedes_review_id UUID NULL FK asset_identity_resolution_reviews(id)`.
 - CHECK `valid_until IS NULL OR (valid_from IS NOT NULL AND valid_until > valid_from)`.
 - CHECK: una decisión `accepted` requiere exactamente un destino, evidencia, `reviewed_at` y `valid_from`.
+- UNIQUE candidato `(id, candidate_asset_id, resolution_status, namespace, external_identifier)`, referenciado por `asset_identifiers`.
+- UNIQUE candidato `(id, candidate_asset_representation_id, resolution_status, namespace, external_identifier, network_id)`, referenciado por `asset_representation_identifiers`.
+- Las claves candidatas se definen aunque los campos de destino sean NULL en revisiones no aceptadas; los mappings solo pueden referenciar la variante no nula y `resolution_status = 'accepted'`.
 - Registro append-only; `recorded_at` se asigna al insertar. Correcciones mediante nueva revisión.
 - Las revisiones de activo y de representación son scopes distintos. Una revisión contractual exige `network_id` y el identificador debe corresponder exactamente al contrato/alias documentado.
 - Empates máximos contradictorios para la misma clave exacta se resuelven como `ambiguous`, nunca como selección arbitraria.
@@ -240,19 +243,28 @@ La política aplicable se resuelve considerando fuente, alcance y referencia est
 - `id UUID PK`
 - `asset_id UUID NOT NULL FK assets(id)`
 - `namespace TEXT NOT NULL`, `external_identifier TEXT NOT NULL`.
+- `network_id UUID NULL FK networks(id)`: ámbito de red cuando el identificador sea específico de una red; NULL representa un identificador global dentro del namespace.
 - `valid_from TIMESTAMPTZ NOT NULL`, `valid_until TIMESTAMPTZ NULL`, `recorded_at TIMESTAMPTZ NOT NULL`.
-- `evidence_reference TEXT NOT NULL`, `resolution_review_id UUID NOT NULL FK asset_identity_resolution_reviews(id)`.
+- `evidence_reference TEXT NOT NULL`, `resolution_review_id UUID NOT NULL`.
+- `resolution_status TEXT NOT NULL DEFAULT 'accepted'`: CHECK `resolution_status = 'accepted'`; columna constante para permitir FK compuesta que pruebe el estado aprobado.
+- FK compuesta `(resolution_review_id, asset_id, resolution_status, namespace, external_identifier) -> asset_identity_resolution_reviews(id, candidate_asset_id, resolution_status, namespace, external_identifier)`.
+- Trigger `validate_asset_identifier_review_scope`: comprueba que el `network_id` del mapping sea idéntico al `network_id` de la revisión, incluyendo la igualdad NULL/NULL. La FK compuesta anterior ya garantiza revisión accepted, destino, namespace e identificador exactos.
 - CHECK `valid_until IS NULL OR valid_until > valid_from`.
-- Solo mappings aceptados a nivel de activo. La referencia debe apuntar a una revisión accepted cuyo candidate_asset_id coincide exactamente.
+- Solo mappings aceptados a nivel de activo. La publicación del mapping y su revisión se realiza en una misma transacción.
 
 **`asset_representation_identifiers`**
 - `id UUID PK`
-- `asset_representation_id UUID NOT NULL FK asset_representations(id)`
+- `asset_representation_id UUID NOT NULL`
+- `network_id UUID NOT NULL`: red de la representación; no se admite NULL.
 - `namespace TEXT NOT NULL`, `external_identifier TEXT NOT NULL`.
 - `valid_from TIMESTAMPTZ NOT NULL`, `valid_until TIMESTAMPTZ NULL`, `recorded_at TIMESTAMPTZ NOT NULL`.
-- `evidence_reference TEXT NOT NULL`, `resolution_review_id UUID NOT NULL FK asset_identity_resolution_reviews(id)`.
+- `evidence_reference TEXT NOT NULL`, `resolution_review_id UUID NOT NULL`.
+- `resolution_status TEXT NOT NULL DEFAULT 'accepted'`: CHECK `resolution_status = 'accepted'`.
+- UNIQUE candidato en `asset_representations(id, network_id)`.
+- FK `(asset_representation_id, network_id) -> asset_representations(id, network_id)`.
+- FK compuesta `(resolution_review_id, asset_representation_id, resolution_status, namespace, external_identifier, network_id) -> asset_identity_resolution_reviews(id, candidate_asset_representation_id, resolution_status, namespace, external_identifier, network_id)`.
 - CHECK `valid_until IS NULL OR valid_until > valid_from`.
-- Solo mappings aceptados a nivel de representación. La referencia debe apuntar a una revisión accepted cuyo candidate_asset_representation_id coincide exactamente.
+- La FK compuesta garantiza que la revisión accepted aprueba exactamente esa representación, identificador y red. La publicación se realiza en una misma transacción que inserta la revisión y el mapping.
 
 **`market_instruments`**
 - `id UUID PK`
@@ -621,3 +633,30 @@ La evaluación de políticas queda modelada mediante `policy_evaluations`; sus r
 - `postgresql-logical-model-review.md`
 - `canonical-market-data-schemas.md`
 - `provider-validation-test-plan.md`
+
+
+## 8. Publicación consistente de mappings de identidad
+
+La publicación se define como una operación atómica de base de datos, no como dos escrituras independientes de la aplicación.
+
+### 8.1 Mapping a nivel de activo
+
+1. Insertar una fila en `asset_identity_resolution_reviews` con `resolution_status = 'accepted'`, `candidate_asset_id` no nulo, `candidate_asset_representation_id` NULL, namespace, identificador y ámbito de red.
+2. Insertar `asset_identifiers` con el mismo activo, namespace, identificador, revisión y estado constante `accepted`.
+3. La FK compuesta verifica estado, destino y clave externa exactos.
+4. Un trigger valida igualdad de ámbito de red con semántica NULL-safe (`IS NOT DISTINCT FROM`); esto evita que una revisión global respalde un mapping de red o viceversa.
+5. Confirmar ambas inserciones en una sola transacción. Si falla cualquier comprobación, se revierte la publicación completa.
+
+### 8.2 Mapping a nivel de representación
+
+1. Insertar revisión accepted con `candidate_asset_representation_id` y `network_id` no nulos.
+2. Insertar `asset_representation_identifiers` con la misma representación, red, namespace e identificador.
+3. La FK compuesta verifica conjuntamente revisión, destino, estado, namespace, identificador y red. Otra FK verifica que la red corresponda a la representación.
+4. Confirmar ambas inserciones en una sola transacción.
+
+### 8.3 Inmutabilidad y seguridad
+
+- Los roles de aplicación no reciben UPDATE/DELETE sobre revisiones ni mappings publicados; correcciones y revocaciones se expresan con nuevas filas/versiones y reglas temporales, no sobrescribiendo evidencia.
+- Los triggers son defensas de integridad de la base; la aplicación no debe duplicar la decisión como única garantía.
+- Una transacción que no consiga insertar revisión y mapping completos no deja una revisión accepted publicada parcialmente.
+- Estas reglas deben probarse en PostgreSQL real, incluidos intentos de mapping con revisión inexistente, pendiente, rechazada, destino distinto, namespace/identificador distinto y red incompatible.
