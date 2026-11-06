@@ -131,6 +131,12 @@ class EpisodeManifestTests(unittest.TestCase):
         with self.assertRaisesRegex(ManifestError, "no está autorizado"):
             validate_manifest(doc)
 
+    def test_only_binance_venue_is_allowed(self):
+        doc = approved_manifest()
+        doc["venue"] = "kraken"
+        with self.assertRaisesRegex(ManifestError, "Binance Spot"):
+            validate_manifest(doc)
+
     def test_non_spot_type_is_explicit_not_implicitly_assumed(self):
         doc = approved_manifest()
         doc["market_type"] = "perpetual"
