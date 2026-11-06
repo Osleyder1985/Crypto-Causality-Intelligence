@@ -49,9 +49,10 @@ La alineación de inventario y entidades está cerrada como propuesta. La compar
 1. **Inventario de entidades verificado:** comparación automatizada del inventario físico contra el modelo lógico: 28/28 tablas físicas están representadas en el modelo lógico, sin entidades ausentes. Esta comprobación confirma cobertura de nombres de tablas; no sustituye una revisión semántica de cada columna y restricción.
 2. Verificar que el vocabulario de `data_type` en endpoints, evaluaciones y contribuciones sea canónico y no se permita una discrepancia semántica.
 3. Definir la semántica operacional de `scope_reference` y documentar el formato de claves de producto/plan y de tipo de dato.
-4. Resolver la integridad entre `asset_identity_resolution_reviews` y los mappings publicados: las FKs simples no garantizan por sí solas que el mapping apunte a una revisión accepted del mismo destino. Debe decidirse FK compuesta, trigger o servicio transaccional con pruebas.
+4. **Integridad revisión→mapping especificada:** FKs compuestas que incorporan `resolution_status = 'accepted'`, destino, namespace e identificador; para mappings de representación también red y FK a `(asset_representation_id, network_id)`. Para mappings de activo, un trigger compara `network_id` con semántica NULL-safe. La publicación se ejecuta en una única transacción. Falta implementar y probar estas reglas en PostgreSQL real.
 5. Definir reglas de no solapamiento y selección bitemporal de mappings; CHECK no puede imponerlas por sí solo.
 6. Revisar las restricciones de estado terminal y las invariantes de contadores antes del DDL.
+7. Implementar el trigger de ámbito de red para `asset_identifiers`, permisos de escritura append-only y pruebas de rollback atómico para ambos tipos de mapping.
 
 ## 5. Plan de validación real PostgreSQL
 
@@ -63,6 +64,7 @@ Una vez cerrados los pendientes anteriores:
 - Insertar fixtures sintéticos válidos y comprobar rechazo de FK cruzadas, CHECKs y UNIQUE.
 - Probar intervalos temporales, solapamientos y casos límite UTC.
 - Probar transacciones de publicación de mappings y procedencia.
+- Verificar en PostgreSQL que las FKs compuestas rechacen mapping con revisión pending/rejected, destino distinto, namespace/identificador distinto y red incompatible; verificar trigger NULL-safe para mappings de activo.
 - Probar concurrencia para evitar ciclos de linaje, doble publicación y transiciones terminales incompatibles.
 - Separar resultados de pytest/contratos Python de resultados ejecutados por el servidor PostgreSQL.
 
