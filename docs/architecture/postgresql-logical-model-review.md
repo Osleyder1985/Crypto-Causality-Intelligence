@@ -1,8 +1,8 @@
 # Revisión técnica del modelo lógico de PostgreSQL
 
-- **Estado:** reconciliación documental v0.3 completada; pendiente de validación automatizada y PostgreSQL real. No autoriza todavía migraciones.
+- **Estado:** reconciliación documental v0.4 parcial; pendiente de validación automatizada y PostgreSQL real. No autoriza todavía migraciones.
 - **Fecha:** 2026-11-06.
-- **Documentos:** `postgresql-logical-data-model.md` v0.3 y `postgresql-physical-schema.md` v0.2.
+- **Documentos:** `postgresql-logical-data-model.md` v0.4 y `postgresql-physical-schema.md` v0.3.
 - **Decisión relacionada:** ADR-001.
 - **PR de trabajo:** #16.
 
@@ -87,7 +87,7 @@ Decisiones:
 6. La revisión y el mapping accepted se publican atómicamente. El mapping replica exactamente destino, namespace, identificador, red y periodo de la revisión.
 7. La escritura toma un bloqueo transaccional determinista por clave de identidad antes de validar sustituciones y solapamientos. Se probarán carreras con dos sesiones PostgreSQL; un prechequeo de aplicación sin bloqueo no es suficiente.
 
-La especificación física debe concretar la función/trigger, la clave de bloqueo, los permisos append-only y el procedimiento de reintento transaccional. Las FKs y CHECK actuales no prueban estas invariantes. El modo de alcance por namespace debe quedar fijado en el catálogo controlado de namespaces del proyecto y validarse al publicar; no se acepta que el mismo namespace se utilice unas veces con red NULL y otras con red concreta.
+La especificación física debe concretar la función/trigger, la clave de bloqueo, los permisos append-only y el procedimiento de reintento transaccional. Las FKs y CHECK actuales no prueban estas invariantes. El modo de alcance por namespace debe quedar fijado en un registro canónico. Ese registro todavía no existe como entidad relacional; definirlo y añadir su integridad referencial es un pendiente previo a migraciones.
 
 ## 6. Pendientes técnicos actualizados
 
