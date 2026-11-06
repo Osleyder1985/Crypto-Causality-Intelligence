@@ -20,11 +20,14 @@ class PostgreSQLProviderPlatformLabTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.dsn = os.environ["CCI_TEST_DATABASE_URL"]
-        ddl = DDL_PATH.read_text(encoding="utf-8")
-        with psycopg.connect(cls.dsn, autocommit=True) as conn:
-            conn.execute(ddl, prepare=False)
 
     def setUp(self):
+        # Each test receives a fresh disposable schema. This is essential because
+        # concurrency tests commit transactions on independent connections.
+        ddl = DDL_PATH.read_text(encoding="utf-8")
+        with psycopg.connect(self.dsn, autocommit=True) as reset_conn:
+            reset_conn.execute("DROP SCHEMA IF EXISTS cci_lab CASCADE")
+            reset_conn.execute(ddl, prepare=False)
         self.conn = psycopg.connect(self.dsn)
         self.source_id = uuid.uuid4()
         self.network_id = uuid.uuid4()
