@@ -101,6 +101,24 @@ class EpisodeStudyTests(unittest.TestCase):
             with self.assertRaisesRegex(StudyError, "direction"):
                 load_episodes(path)
 
+    def test_drawdown_is_explicitly_close_based(self):
+        result = study(self.candles, self.episodes)
+        episode = result["episodes"][0]
+        self.assertIn("max_close_drawdown_pct", episode)
+        self.assertNotIn("max_drawdown_pct", episode)
+
+    def test_timestamps_must_align_to_interval(self):
+        shifted = self.candles[:]
+        first = shifted[0]
+        shifted[0] = Candle(
+            timestamp=first.timestamp + timedelta(minutes=30),
+            open=first.open, high=first.high, low=first.low,
+            close=first.close, volume=first.volume,
+            quote_volume=first.quote_volume,
+        )
+        with self.assertRaisesRegex(StudyError, "no alineado"):
+            study(shifted, [])
+
 
 if __name__ == "__main__":
     unittest.main()
