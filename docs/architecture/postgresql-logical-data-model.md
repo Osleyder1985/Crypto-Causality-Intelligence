@@ -37,6 +37,8 @@ PostgreSQL mantiene catálogo, identidades, metadata, operaciones, autorizacione
 
 ### 3.2 Activos, redes e instrumentos
 
+**`identity_namespaces`** — catálogo inmutable de namespaces usados exclusivamente para resolver identidades de activos y representaciones. Atributos: `namespace_key`, `scope_mode` (`global|network`), `target_level` (`asset|representation|both`), `description`, `created_at`. La clave define una autoridad y un dominio de identificadores inequívocos. Cambiar alcance o semántica requiere una nueva clave; no se confunde con los namespaces de identificadores de red o de instrumentos.
+
 **`assets`** — identidad canónica del activo económico/técnico, no de una representación concreta. Atributos: `id`, `canonical_code`, `display_name`, `asset_type`, `issuer_key`, `issuer_name`, `external_identifiers`, `created_at`. No contiene `network`.
 
 **`networks`** — identidad canónica de una red. Atributos: `id`, `network_key`, `display_name`, `network_family`, `environment`, `created_at`.
@@ -47,7 +49,7 @@ PostgreSQL mantiene catálogo, identidades, metadata, operaciones, autorizacione
 
 **`asset_relationships`** — relación dirigida y evidenciada entre activos distintos. Atributos: `id`, `subject_asset_id`, `object_asset_id`, `relationship_type`, `directionality`, `valid_from`, `valid_until`, `evidence_reference`, `observed_at`, `recorded_at`. No establece equivalencia ni transitividad automática.
 
-**`asset_identity_resolution_reviews`** — historial de decisiones de identidad. Atributos: `id`, `namespace`, `network_id`, `external_identifier`, `candidate_asset_id`, `candidate_asset_representation_id`, `resolution_status`, `evidence_reference`, `decision_reference`, `observed_at`, `reviewed_at`, `recorded_at`, `valid_from`, `valid_until`, `supersedes_review_id`. Una decisión aceptada apunta exactamente a un activo o representación, nunca a ambos; una ambigüedad no se publica como mapping aceptado. Expone claves candidatas compuestas para que las tablas de mappings solo puedan referenciar revisiones accepted del mismo destino y clave externa. Las revisiones son append-only: `recorded_at` conserva el instante de conocimiento y `supersedes_review_id` permite reconstruir qué decisión conocía CCI en cada `known_at`; el periodo de aplicación se expresa con `[valid_from, valid_until)`. Cada namespace tiene alcance global o por red, nunca ambos.
+**`asset_identity_resolution_reviews`** — historial de decisiones de identidad. Atributos: `id`, `namespace` (FK a `identity_namespaces.namespace_key`), `network_id`, `external_identifier`, `candidate_asset_id`, `candidate_asset_representation_id`, `resolution_status`, `evidence_reference`, `decision_reference`, `observed_at`, `reviewed_at`, `recorded_at`, `valid_from`, `valid_until`, `supersedes_review_id`. Una decisión aceptada apunta exactamente a un activo o representación, nunca a ambos; una ambigüedad no se publica como mapping aceptado. Expone claves candidatas compuestas para que las tablas de mappings solo puedan referenciar revisiones accepted del mismo destino y clave externa. Las revisiones son append-only: `recorded_at` conserva el instante de conocimiento y `supersedes_review_id` permite reconstruir qué decisión conocía CCI en cada `known_at`; el periodo de aplicación se expresa con `[valid_from, valid_until)`. El registro asociado fija el alcance global o por red y el nivel de destino permitido; la revisión debe cumplir ambos.
 
 **`asset_identifiers`** — mapping externo aceptado a nivel de activo. Atributos: `id`, `asset_id`, `namespace`, `external_identifier`, `network_id` nullable, `valid_from`, `valid_until`, `recorded_at`, `evidence_reference`, `resolution_review_id`, `resolution_status`. La FK compuesta exige que la revisión esté accepted y coincidan exactamente activo, namespace e identificador; un trigger compara el ámbito de red con igualdad NULL-safe.
 
@@ -118,6 +120,7 @@ erDiagram
     ASSETS ||--o{ ASSET_REPRESENTATIONS : represented_by
     NETWORKS ||--o{ ASSET_REPRESENTATIONS : hosts
     NETWORKS ||--o{ NETWORK_IDENTIFIERS : identified_by
+    IDENTITY_NAMESPACES ||--o{ ASSET_IDENTITY_RESOLUTION_REVIEWS : governs
     ASSETS ||--o{ ASSET_IDENTIFIERS : identified_by
     ASSET_REPRESENTATIONS ||--o{ ASSET_REPRESENTATION_IDENTIFIERS : identified_by
     ASSETS ||--o{ ASSET_RELATIONSHIPS : related
@@ -143,7 +146,7 @@ El diagrama muestra relaciones conceptuales; nulabilidad, claves compuestas y re
 
 ## 6. Criterios de aceptación previos a migraciones
 
-- El inventario de entidades de este documento coincide exactamente con el inventario físico.
+- El inventario de entidades de este documento coincide exactamente con el inventario físico, incluida `identity_namespaces`.
 - Cada atributo lógico tiene correspondencia física; no quedan atributos obsoletos como `assets.network` ni `dataset_sources.source_usage_policy_id`.
 - `dataset_sources.data_type` forma parte de la FK compuesta a `policy_evaluations`.
 - El alcance de producto/plan y de tipo de dato en `source_usage_policies` tiene referencia estructurada y CHECKs coherentes.
