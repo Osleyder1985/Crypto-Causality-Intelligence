@@ -178,8 +178,8 @@ La brecha prioritaria ya no es conseguir por primera vez datos reales de ambos e
 
 En la rama del PR #15 se añadieron parsers puros y pruebas sintéticas, independientes de la red:
 
-- `scripts/validation/market_contracts.py`: parsers para Binance REST Klines y Kraken REST OHLC, más mapeo inicial de metadata Binance `exchangeInfo` y Kraken `AssetPairs`.
-- `tests/test_market_contracts.py`: fixtures sintéticos que cubren decimales exactos, volumen base/cotizado, VWAP, conteo de operaciones, timestamps en ms/us/s, cierre exclusivo, estado provisional, filtros y aliases de instrumentos.
+- `scripts/validation/market_contracts.py`: parsers para Binance REST Klines y Kraken REST OHLC, más mapeadores de metadata Binance `exchangeInfo` y Kraken `AssetPairs`.
+- `tests/test_market_contracts.py`: casos sintéticos en el propio módulo de pruebas; cubren decimales exactos, volumen base/cotizado, VWAP, conteo de operaciones, timestamps en ms/us/s, cierre exclusivo, estado provisional, filtros y aliases de instrumentos.
 - `.github/workflows/contract-tests.yml`: workflow aislado que ejecuta únicamente las pruebas de contrato; no realiza solicitudes a exchanges ni publica datasets.
 
 Decisiones implementadas:
@@ -189,9 +189,12 @@ Decisiones implementadas:
 - Kraken calcula el límite exclusivo desde apertura + intervalo y marca la última fila recibida como provisional, conforme a la semántica documentada del endpoint.
 - Los números financieros se convierten desde texto a `Decimal`; no se utiliza `float` en los parsers.
 - En Kraken no se infiere `quantity_step` a partir de `lot_decimals`.
-- Los filtros específicos de Binance se preservan como extensiones del proveedor.
+- Los filtros Binance se conservan individualmente en `trading_rules`, incluidos los tipos aún no reconocidos; `LOT_SIZE` y `MARKET_LOT_SIZE` se mapean por separado.
+- Los campos no reconocidos de ambos proveedores se conservan en `provider_extensions`; el parser no los descarta silenciosamente.
+- Los filtros Binance duplicados o malformados se rechazan explícitamente.
+- Kraken conserva `tick_size`, mínimos y precisiones en `trading_rules`, sin inferir un incremento de cantidad.
 
-**Estado de CI:** la primera ejecución encontró un error en el fixture sintético de microsegundos (el valor de cierre del fixture no representaba el mismo instante que el caso en milisegundos). Se corrigió el fixture y se agregó una aserción de zona UTC. La ejecución posterior a esa corrección está pendiente de confirmación; no declarar las pruebas aprobadas hasta revisar el resultado de GitHub Actions.
+**Ampliación de esta iteración:** se añadieron cinco pruebas de metadata para `MARKET_LOT_SIZE`, filtros desconocidos, campos de proveedor no reconocidos, filtros duplicados/malformados y ausencia de campos opcionales. El total esperado de la suite pasa de 13 a 18 pruebas. La ejecución de CI de este nuevo commit debe verificarse antes de declarar el resultado aprobado.
 
 ## 10. Secuencia de implementación
 
