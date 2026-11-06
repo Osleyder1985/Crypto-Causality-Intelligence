@@ -1,0 +1,31 @@
+name: Research data validation
+
+on:
+  pull_request:
+    paths:
+      - "scripts/research/**"
+      - "tests/**"
+      - ".github/workflows/research-data-validation.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "scripts/research/**"
+      - "tests/**"
+      - ".github/workflows/research-data-validation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  binance-coverage-unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run Binance coverage tests
+        run: python -m unittest discover -s tests -p "test_binance_coverage_downloader.py" -v
