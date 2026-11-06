@@ -45,17 +45,20 @@ def validate_manifest(document: Any, *, require_approved: bool = True) -> list[d
         raise ManifestError("manifest_status debe ser pending_confirmation o approved")
     if require_approved and document["manifest_status"] != "approved":
         raise ManifestError("El manifiesto está pendiente; no se permite ejecutar el estudio")
+    if not isinstance(document["experiment_key"], str) or not document["experiment_key"].strip():
+        raise ManifestError("experiment_key debe ser texto no vacío")
     if document["market"] != "BTC/USDT":
         raise ManifestError("El mercado debe ser BTC/USDT")
-    if document["market_type"] not in ("spot", "perpetual", "future"):
-        raise ManifestError("market_type debe identificar explícitamente el tipo de mercado")
+    if document["market_type"] != "spot":
+        raise ManifestError("El experimento preregistrado exige BTC/USDT spot")
+
     if not isinstance(document["venue"], str) or not document["venue"].strip():
         raise ManifestError("venue debe identificar un exchange único")
     if document["input_timezone"] != "UTC-05:00":
         raise ManifestError("input_timezone debe coincidir con la zona declarada UTC-05:00")
     interval = document["interval_seconds"]
-    if not isinstance(interval, int) or isinstance(interval, bool) or interval <= 0:
-        raise ManifestError("interval_seconds debe ser un entero positivo")
+    if not isinstance(interval, int) or isinstance(interval, bool) or interval != 3600:
+        raise ManifestError("El experimento preregistrado exige velas de 3600 segundos (1 hora)")
     source = document["data_source"]
     if not isinstance(source, dict) or not all(
         isinstance(source.get(k), str) and source[k].strip()
@@ -113,6 +116,8 @@ def validate_manifest(document: Any, *, require_approved: bool = True) -> list[d
             "start": start_utc.astimezone(timezone.utc),
             "end": end_utc.astimezone(timezone.utc),
         })
+    if {episode["direction"] for episode in normalized} != {"bullish", "bearish"}:
+        raise ManifestError("La cohorte debe incluir episodios bullish y bearish")
     ordered = sorted(normalized, key=lambda e: e["start"])
     for previous, current in zip(ordered, ordered[1:]):
         if current["start"] < previous["end"]:
