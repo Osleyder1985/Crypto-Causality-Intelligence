@@ -32,8 +32,9 @@ Esta política es independiente del proveedor. CoinGecko aporta metadatos y refe
 |---|---|---|
 | `networks` | Identidad canónica interna de una red y su familia/entorno | Un proveedor o su catálogo |
 | `network_identifiers` | Identificadores namespaced de una red, con evidencia | La clave canónica de CCI |
-| `provider_platforms` | Registro de una plataforma tal como la publica un proveedor y sus snapshots | Una red canónica aprobada |
-| `provider_platform_resolution_reviews` | Historial de candidatos, evidencia y decisión plataforma → red | Una aprobación automática |
+| `provider_platforms` | Identidad estable de plataforma, única por proveedor + ID externo | Un snapshot o una red canónica |
+| `provider_platform_observations` | Snapshot inmutable de metadata | Una decisión de correspondencia |
+| `provider_platform_resolution_reviews` | Cadena append-only de decisiones sobre identidad estable | Un evento de ingestión o aprobación automática |
 | `asset_representations` | Representación nativa o contractual de un activo en una red ya resuelta | Un alias de plataforma |
 
 El modelo lógico/físico debe mantener la relación entre proveedor y red como un proceso revisable. Un `provider_platform_id` puede aparecer como identificador externo de la red solo después de que la revisión correspondiente haya sido aceptada y siempre bajo un namespace del proveedor.
@@ -94,9 +95,49 @@ Solo después de aceptar la revisión se publica la relación plataforma → red
 
 Solo una plataforma resuelta a una única red puede habilitar la resolución de `coingecko:contract_address` hacia `asset_representations`. La clave de resolución debe incluir la red canónica y la dirección literal normalizada mediante una regla específica de familia, preservando siempre el valor original.
 
-## 6. Evidencia por familia de red
+## 6. Semántica temporal de capturas y decisiones
 
-### 6.1 Redes EVM
+### 6.1 Identidad estable y snapshots
+
+`provider_platforms` representa la identidad estable de una plataforma externa dentro de un proveedor. Su clave de negocio es `(data_source_id, provider_platform_key)`; el mismo literal en dos proveedores no es la misma identidad.
+
+`provider_platform_observations` conserva cada captura como evento inmutable:
+- `capture_id` identifica el lote/snapshot de ingestión.
+- `observed_at` conserva el tiempo de observación.
+- `recorded_at` conserva cuándo CCI incorporó el dato.
+- UNIQUE `(provider_platform_id, capture_id)` impide duplicar una plataforma dentro del mismo lote.
+- No se impone UNIQUE sobre `observed_at`: dos capturas pueden compartir timestamp.
+- La ausencia de una plataforma en una captura no demuestra que la red haya dejado de existir.
+
+Para CoinGecko, `chain_identifier` se conserva como literal escalar y tipo JSON, incluido NULL, hasta confirmar el contrato y su representación exacta. No se convierte silenciosamente a NUMERIC.
+
+### 6.2 Revisiones independientes de las observaciones
+
+`provider_platform_resolution_reviews` se asocia a la identidad estable, no a un snapshot específico. Puede incluir `based_on_observation_id` para identificar la observación que sustentó la decisión; la FK compuesta obliga a que pertenezca a la misma plataforma y fuente.
+
+Una captura nueva agrega una observación, no crea una revisión automáticamente, no cambia la cabeza de la cadena y no revoca una correspondencia accepted. Una revisión nueva se crea si la evidencia cambia materialmente la interpretación, contradice la resolución vigente, requiere corregir/revocar la decisión o una política explícita exige revalidación.
+
+### 6.3 Significado estricto de la sucesión
+
+`supersedes_review_id` significa únicamente que la decisión nueva sustituye, corrige o revoca la decisión anterior. No enlaza snapshots. Se impone una cadena lineal por identidad: una raíz, una sucesora por revisión, misma identidad/proveedor y trigger transaccional contra ciclos.
+
+Los estados `pending_review` y `ambiguous` en la cabeza no autorizan mappings. Una cabeza `rejected` revoca la autorización anterior sin publicar otra red. Solo una cabeza `accepted` con vigencia aplicable habilita mappings.
+
+### 6.4 Tiempo bitemporal
+
+- `observed_at`: tiempo de observación del proveedor.
+- `recorded_at`: tiempo de conocimiento de CCI.
+- `valid_from/valid_until`: vigencia real de la decisión, intervalo semiabierto `[valid_from, valid_until)`.
+
+El final efectivo de una revisión se deriva del límite explícito `valid_until` y, si existe, del `valid_from` de la decisión sucesora, tomando el más temprano. Las filas históricas no se actualizan para cerrar intervalos.
+
+### 6.5 Concurrencia
+
+La transacción que crea una revisión bloquea la fila de identidad de `provider_platforms` mediante `SELECT ... FOR UPDATE`, lee la cabeza y agrega la sucesora. El bloqueo por identidad estable serializa revisiones concurrentes de la misma plataforma.
+
+## 7. Evidencia por familia de red
+
+### 7.1 Redes EVM
 
 - El Chain ID debe registrarse namespaced como identificador EVM (por ejemplo, namespace `eip155`, tipo `chain_id`), conservando su representación numérica exacta.
 - EIP-155 define el uso del Chain ID en la protección contra replay de transacciones; no establece por sí mismo un registro universal que garantice que ningún operador reutilizará un valor.
@@ -105,7 +146,7 @@ Solo una plataforma resuelta a una única red puede habilitar la resolución de 
 - No asumir que todos los EVM tienen un Chain ID válido, único o disponible. Si falta o hay colisión, la resolución permanece pendiente hasta obtener evidencia discriminante.
 - No confundir `network_id` de protocolos/clientes con EIP-155 Chain ID.
 
-### 6.2 Solana
+### 7.2 Solana
 
 - No inventar ni asignar un Chain ID numérico a Solana.
 - Utilizar `getGenesisHash` como identificador técnico del clúster observado, namespaced como Solana genesis hash.
@@ -113,11 +154,11 @@ Solo una plataforma resuelta a una única red puede habilitar la resolución de 
 - El nombre `mainnet-beta`, `devnet` o `testnet` es descriptivo y no sustituye el hash ni la evidencia de origen.
 - Un hash inesperado, discordante o no verificable bloquea la aceptación automática.
 
-### 6.3 Otras familias
+### 7.3 Otras familias
 
 No reutilizar las reglas EVM o Solana por conveniencia. Cada familia requiere identificar su mecanismo nativo de identidad, el namespace que define su semántica, la autoridad que lo publica y la evidencia necesaria para distinguir redes, entornos y forks. Hasta documentar esa regla, la plataforma permanece pendiente.
 
-## 7. Estados y comportamiento de resolución
+## 8. Estados y comportamiento de resolución
 
 | Estado | Significado | Efecto |
 |---|---|---|
@@ -128,7 +169,7 @@ No reutilizar las reglas EVM o Solana por conveniencia. Cada familia requiere id
 
 La ausencia de `chain_identifier` no es un estado de error ni un motivo automático de rechazo: obliga a utilizar evidencia apropiada de la familia. La presencia del valor tampoco cambia automáticamente el estado a accepted.
 
-## 8. Reglas de integridad que deberán reflejarse en PostgreSQL
+## 9. Reglas de integridad que deberán reflejarse en PostgreSQL
 
 La especificación física deberá garantizar, mediante FKs, UNIQUE, CHECK y lógica transaccional:
 
@@ -138,12 +179,12 @@ La especificación física deberá garantizar, mediante FKs, UNIQUE, CHECK y ló
 4. Un mapping aceptado referencia una revisión accepted y la misma plataforma, proveedor y `network_id`.
 5. Una revisión no accepted no puede publicar una relación activa que habilite resolución de contratos.
 6. La publicación de revisión, identificador externo y mapping se realiza atómicamente.
-7. Las decisiones y observaciones son append-only; las correcciones se representan mediante nuevas revisiones.
+7. Las identidades son estables; las observaciones y decisiones son append-only. Las correcciones se representan mediante revisiones sucesoras, no mediante snapshots nuevos.
 8. La resolución de una representación contractual exige `network_id` no nulo y una plataforma aceptada cuando el origen del contrato depende de dicha plataforma.
 9. Los conflictos y solapamientos temporales se validan por clave bajo bloqueo transaccional; un prechequeo en Python no es suficiente.
 10. Las restricciones relacionales no sustituyen la revisión de autoridad/calidad de la evidencia.
 
-## 9. Reglas de no inferencia
+## 10. Reglas de no inferencia
 
 Está prohibido:
 - convertir `platform_id` en `network_key`;
@@ -155,7 +196,7 @@ Está prohibido:
 - resolver una dirección contractual sin red canónica confirmada;
 - trasladar mappings de un proveedor a otro sin evidencia y revisión independientes.
 
-## 10. Criterios de aceptación de esta política
+## 11. Criterios de aceptación de esta política
 
 - [ ] Se documenta la separación entre identidad canónica, identificadores de red y plataformas de proveedor.
 - [ ] Se define el tratamiento de los campos CoinGecko y de valores NULL.
@@ -165,7 +206,7 @@ Está prohibido:
 - [ ] No se han insertado redes, plataformas ni mappings reales.
 - [ ] No se han creado migraciones ni se afirma validación del motor PostgreSQL.
 
-## 11. Fuentes técnicas
+## 12. Fuentes técnicas
 
 - CoinGecko, **Asset Platforms List (ID Map)**: https://docs.coingecko.com/reference/asset-platforms-list
 - Ethereum Improvement Proposals, **EIP-155: Simple replay attack protection**: https://github.com/ethereum/EIPs/blob/master/EIPS/eip-155.md
@@ -173,6 +214,6 @@ Está prohibido:
 
 Las fuentes describen campos o mecanismos técnicos; no reemplazan la evaluación de evidencia de cada plataforma/red concreta.
 
-## 12. Estado de implementación
+## 13. Estado de implementación
 
-Esta entrega cierra el procedimiento documental, no el catálogo. No se han consultado ni guardado filas reales del endpoint, no se han creado registros en `networks`, `network_identifiers` o `provider_platforms`, no se han aceptado correspondencias, no se han creado migraciones SQL y no se ha ejecutado PostgreSQL real.
+Esta entrega cierra el procedimiento documental, no el catálogo. No se han consultado ni guardado filas reales del endpoint, no se han creado registros en `networks`, `network_identifiers`, `provider_platforms` o `provider_platform_observations`, no se han aceptado correspondencias, no se han creado migraciones SQL y no se ha ejecutado PostgreSQL real.
