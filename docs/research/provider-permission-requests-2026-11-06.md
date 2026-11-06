@@ -29,13 +29,19 @@ No se debe interpretar el carácter no comercial de la investigación como una a
 
 ### 3.1 Binance Spot
 
+**Decisión de fuente para el primer experimento (2026-11-06)**
+
+Se seleccionó Binance Spot, símbolo `BTCUSDT`, velas de una hora, usando como interfaz prevista el endpoint `GET /api/v3/klines` del host de datos públicos `data-api.binance.vision`. Kraken y CoinGecko quedan fuera de esta cohorte inicial. La decisión se refleja en el prerregistro y en la plantilla del manifiesto.
+
 **Lo que la documentación oficial confirma**
 
-La página oficial *Market Data Only URLs* indica que `data-api.binance.vision` ofrece endpoints REST públicos que no requieren autenticación y enumera expresamente `GET /api/v3/klines` y `GET /api/v3/exchangeInfo`. Esto confirma que el host y los endpoints usados en la prueba corresponden al servicio oficial de datos públicos.
+La página oficial *Market Data Only URLs* indica que `data-api.binance.vision` ofrece endpoints REST públicos que no requieren autenticación y enumera expresamente `GET /api/v3/klines` y `GET /api/v3/exchangeInfo`. La referencia general de Spot REST API recomienda ese host para endpoints que solo sirven datos públicos.
 
-**Lo que no queda resuelto por esa página**
+La página oficial *SPOT Exchange Terms of Use*, revisada el 2026-11-06 (última modificación indicada: 2026-10-30), remite a los Product Terms of Use de Binance. Esa página de términos del producto no resuelve por sí sola los derechos concretos de almacenamiento histórico, retención de respuestas, publicación de datos ni publicación de artefactos derivados.
 
-La documentación de acceso técnico no concede por sí misma derechos específicos de almacenamiento histórico, retención de respuestas, publicación de datos o publicación de artefactos derivados. Tampoco debe suponerse que los términos de los datasets descargables de Binance Vision (`data.binance.vision`) se aplican automáticamente al host REST `data-api.binance.vision`.
+**Lo que no queda resuelto por esa documentación**
+
+El acceso técnico público y sin autenticación no equivale a una licencia de almacenamiento, retención o redistribución. Tampoco debe suponerse que los términos de los datasets descargables de Binance Vision (`data.binance.vision`) se aplican automáticamente a las respuestas REST del host `data-api.binance.vision`. La selección de Binance Spot no modifica la política metadata-only ni habilita una captura.
 
 **Decisión operativa provisional**
 
@@ -51,6 +57,8 @@ Si se considera necesario conservar o publicar el artefacto histórico Run #13, 
 Fuentes:
 - Market Data Only URLs: https://developers.binance.com/en/docs/products/spot/faqs/market_data_only
 - Spot REST API: https://developers.binance.com/en/docs/products/spot/rest-api
+- SPOT Exchange Terms of Use (last modified 2026-10-30): https://developers.binance.com/en/docs/products/spot/PROD-TERMS-OF-USE
+- Binance Product Terms of Use: https://www.binance.com/en/terms
 - Binance Vision Terms: https://github.com/binance/binance-public-data/blob/master/TERMS_AND_CONDITIONS.md
 
 ### 3.2 Kraken Spot
