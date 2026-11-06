@@ -30,11 +30,7 @@ class ResearchRunRegistryPostgresTests(unittest.TestCase):
                          (cls.experiment_id, "test-"+str(cls.experiment_id)))
         migration = Path("migrations/postgresql/002_research_run_registry.sql").read_text(encoding="utf-8")
         cls.conn.execute(migration)
-        cls.conn.execute("""DO $ BEGIN
-            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='cci_research_runner') THEN
-                CREATE ROLE cci_research_runner NOLOGIN;
-            END IF;
-        END $""")
+        cls.conn.execute("CREATE ROLE cci_research_runner NOLOGIN")
         cls.conn.execute("GRANT USAGE ON SCHEMA cci TO cci_research_runner")
         cls.conn.execute("GRANT SELECT, INSERT, UPDATE ON cci.research_experiment_runs TO cci_research_runner")
         cls.conn.execute("GRANT SELECT, INSERT ON cci.research_run_artifacts TO cci_research_runner")
