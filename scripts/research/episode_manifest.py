@@ -53,8 +53,8 @@ def validate_manifest(document: Any, *, require_approved: bool = True) -> list[d
     if document["market_type"] != "spot":
         raise ManifestError("El experimento preregistrado exige BTC/USDT spot")
 
-    if not isinstance(document["venue"], str) or not document["venue"].strip():
-        raise ManifestError("venue debe identificar un exchange único")
+    if document["venue"] != "binance":
+        raise ManifestError("El primer experimento está congelado en Binance Spot; venue debe ser 'binance'")
     if document["input_timezone"] != "UTC-05:00":
         raise ManifestError("input_timezone debe coincidir con la zona declarada UTC-05:00")
     interval = document["interval_seconds"]
