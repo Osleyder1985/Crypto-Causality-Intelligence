@@ -1,0 +1,29 @@
+{
+  "schema_version": "cci.episode-manifest.v1",
+  "manifest_status": "pending_confirmation",
+  "experiment_key": "btc-usdt-directional-episodes-v1",
+  "market": "BTC/USDT",
+  "venue": null,
+  "market_type": null,
+  "interval_seconds": 3600,
+  "input_timezone": "UTC-05:00",
+  "data_source": {
+    "provider": null,
+    "dataset_id": null,
+    "acquisition_method": null
+  },
+  "data_usage_authorization": {
+    "status": "pending",
+    "evidence_ref": null
+  },
+  "episodes": [],
+  "pending_boundary_notes": [
+    "Los episodios candidatos aportados deben transcribirse como registros separados y confirmarse antes de aprobar el manifiesto.",
+    "Subida comunicada: 2026-08-16 16:00 UTC-05:00 a 2026-09-21 16:00 UTC-05:00.",
+    "Subida comunicada: 2026-02-05 19:00 UTC-05:00 a 2026-05-06; la hora final aparece contradictoria en el historial (04:00 frente a 19:00).",
+    "Caída comunicada: 2026-01-14 15:00 UTC-05:00 a 2026-02-05 19:00 UTC-05:00.",
+    "Caída comunicada: 2025-10-06 12:00 UTC-05:00 a 2025-11-21 07:00 UTC-05:00.",
+    "Caída comunicada desde 2026-05-06 04:00 UTC-05:00; falta recuperar y confirmar el límite final.",
+    "No deducir ni completar automáticamente límites contradictorios o ausentes."
+  ]
+}
