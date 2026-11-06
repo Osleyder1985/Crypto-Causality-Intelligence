@@ -176,7 +176,7 @@ La brecha prioritaria ya no es conseguir por primera vez datos reales de ambos e
 
 ## 9. Implementación inicial de pruebas de contrato
 
-En la rama del PR #15 se añadieron parsers puros y pruebas sintéticas, independientes de la red:
+En la rama del PR #16 se añadieron parsers puros y pruebas sintéticas, independientes de la red:
 
 - `scripts/validation/market_contracts.py`: parsers para Binance REST Klines y Kraken REST OHLC, más mapeadores de metadata Binance `exchangeInfo` y Kraken `AssetPairs`.
 - `tests/test_market_contracts.py`: casos sintéticos en el propio módulo de pruebas; cubren decimales exactos, volumen base/cotizado, VWAP, conteo de operaciones, timestamps en ms/us/s, cierre exclusivo, estado provisional, filtros y aliases de instrumentos.
