@@ -158,7 +158,7 @@ CREATE TABLE network_identifiers (
                 AND provider_platform_resolution_status = 'accepted'
                 AND identifier_type = 'asset_platform_id'
             )
-        ),
+        )
 );
 
 CREATE UNIQUE INDEX network_identifiers_uq_review
