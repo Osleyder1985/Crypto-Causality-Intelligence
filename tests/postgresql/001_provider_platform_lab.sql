@@ -327,13 +327,12 @@ WHERE r.valid_from <= statement_timestamp()
 
 CREATE VIEW provider_platform_mappings_current AS
 SELECT
-    m.id AS network_identifier_id,
+    m.provider_platform_id,
+    m.provider_data_source_id AS data_source_id,
     m.network_id,
     m.namespace,
     m.identifier_type,
     m.identifier_value,
-    m.provider_platform_id,
-    m.provider_data_source_id,
     m.provider_platform_resolution_review_id AS resolution_review_id
 FROM network_identifiers AS m
 JOIN provider_platform_resolution_current AS r
