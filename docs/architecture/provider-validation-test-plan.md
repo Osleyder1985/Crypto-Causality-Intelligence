@@ -196,7 +196,7 @@ Decisiones implementadas:
 - Los filtros Binance duplicados o malformados se rechazan explícitamente.
 - Kraken conserva `tick_size`, mínimos y precisiones en `trading_rules`, sin inferir un incremento de cantidad.
 
-**Ampliación de esta iteración:** se añadieron cinco pruebas de metadata para `MARKET_LOT_SIZE`, filtros desconocidos, campos de proveedor no reconocidos, filtros duplicados/malformados y ausencia de campos opcionales. Se añadieron seis pruebas de resolución de activos: no equivalencia implícita BTC/XBT/XXBT, aceptación explícita con evidencia, aislamiento por namespace/red, estado pendiente, conflicto de destinos y evidencia obligatoria. La suite pasa de 13 a 24 pruebas; la CI del commit más reciente debe verificarse antes de declarar el resultado aprobado.
+**Ampliación de esta iteración:** se añadieron cinco pruebas de metadata para `MARKET_LOT_SIZE`, filtros desconocidos, campos de proveedor no reconocidos, filtros duplicados/malformados y ausencia de campos opcionales. Se añadieron seis pruebas de resolución de activos: no equivalencia implícita BTC/XBT/XXBT, aceptación explícita con evidencia, aislamiento por namespace/red, estado pendiente, conflicto de destinos, evidencia obligatoria y bloqueo ante una revisión ambigua. La suite pasa de 13 a 25 pruebas; la CI del commit más reciente debe verificarse antes de declarar el resultado aprobado.
 
 ## 10. Secuencia de implementación
 
