@@ -4,7 +4,7 @@
 - **Versión:** 0.1.0-draft.
 - **Fecha:** 2026-11-06.
 - **Alcance:** preparación del catálogo para Binance Spot y Kraken Spot.
-- **Documento rector:** `asset-identity-resolution-policy.md`.
+- **Documentos rectores:** `asset-identity-resolution-policy.md` y `asset-representation-domain-model.md`.
 - **PR:** #15.
 
 ## 1. Objetivo
@@ -124,7 +124,17 @@ La evidencia de que dos códigos se usan para el mismo mercado o que sus nombres
 - [ ] La política de uso de datos se evalúa independientemente de la identidad.
 - [ ] La implementación futura prueba que solo mappings aceptados y vigentes generan FKs canónicas.
 
-## 8. Próximas decisiones técnicas
+## 8. Integración con el modelo de representaciones
+
+La separación entre activo y despliegue se define en `docs/architecture/asset-representation-domain-model.md` y se refleja como propuesta en `postgresql-physical-schema.md`.
+
+- Bitcoin nativo requiere una representación `native` en una red verificada; no requiere contrato.
+- WBTC, si se incorpora, será un activo distinto de Bitcoin y su despliegue contractual será una representación de ese activo.
+- Los despliegues de USDT en redes distintas requieren representaciones separadas con contratos documentados. No se añaden direcciones por conocimiento informal ni se considera que cualquier token USDT sea oficial.
+- Los cinco identificadores externos de esta matriz siguen en `pending_review`; el nuevo modelo no los aprueba ni modifica su estado.
+- Ninguna relación `wrapped`, `bridged`, `backed_by` o `tracks_price_of` autoriza a fusionar activos o series de mercado.
+
+## 9. Próximas decisiones técnicas
 
 Antes de DDL definitivo:
 
