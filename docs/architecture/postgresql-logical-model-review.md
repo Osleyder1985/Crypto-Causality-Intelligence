@@ -50,7 +50,7 @@ La alineación de inventario y entidades está cerrada como propuesta. La compar
 2. Verificar que el vocabulario de `data_type` en endpoints, evaluaciones y contribuciones sea canónico y no se permita una discrepancia semántica.
 3. Definir la semántica operacional de `scope_reference` y documentar el formato de claves de producto/plan y de tipo de dato.
 4. **Integridad revisión→mapping especificada:** FKs compuestas que incorporan `resolution_status = 'accepted'`, destino, namespace e identificador; para mappings de representación también red y FK a `(asset_representation_id, network_id)`. Para mappings de activo, un trigger compara `network_id` con semántica NULL-safe. La publicación se ejecuta en una única transacción. Falta implementar y probar estas reglas en PostgreSQL real.
-5. Definir reglas de no solapamiento y selección bitemporal de mappings; CHECK no puede imponerlas por sí solo.
+5. Definir reglas de no solapamiento y selección histórica de mappings bajo concurrencia; CHECK no puede imponerlas por sí solo.
 6. Revisar las restricciones de estado terminal y las invariantes de contadores antes del DDL.
 7. Implementar el trigger de ámbito de red para `asset_identifiers`, permisos de escritura append-only y pruebas de rollback atómico para ambos tipos de mapping.
 
@@ -74,7 +74,7 @@ PR #16 permanece Draft hasta que la comparación documental no encuentre diverge
 
 No se han creado migraciones ni se ha desplegado PostgreSQL en esta revisión.
 
-## 5. Integridad temporal de identidades: decisión de diseño
+## 7. Integridad temporal de identidades: decisión de diseño
 
 Se corrige una imprecisión de la versión anterior: `recorded_at` no es por sí solo un intervalo bitemporal. El diseño adoptado conserva eventos/revisiones append-only con `recorded_at` inmutable y reconstruye el estado conocido en `known_at` mediante la cadena lineal de `supersedes_review_id`. La validez en el dominio se consulta por separado con `valid_at` dentro de `[valid_from, valid_until)`. No se añaden columnas `recorded_from/recorded_until`, porque cerrar intervalos de conocimiento exigiría actualizar filas históricas y rompería el contrato append-only.
 
@@ -89,10 +89,10 @@ Decisiones:
 
 La especificación física debe concretar la función/trigger, la clave de bloqueo, los permisos append-only y el procedimiento de reintento transaccional. Las FKs y CHECK actuales no prueban estas invariantes. El modo de alcance por namespace debe quedar fijado en un registro canónico. Ese registro todavía no existe como entidad relacional; definirlo y añadir su integridad referencial es un pendiente previo a migraciones.
 
-## 6. Pendientes técnicos actualizados
+## 8. Pendientes técnicos actualizados
 
-- Definir e implementar la validación de cadena lineal de sustitución y misma clave.
-- Implementar exclusión temporal por clave bajo bloqueo transaccional, incluida la prevención de mezcla de scopes.
+- Definir la semántica completa de sucesión de intervalos (nueva vigencia frente a corrección retroactiva), el desempate determinista de revisiones registradas en el mismo instante y la validación de sucesión por clave.
+- Diseñar el registro persistente de namespaces y su modo de alcance; después implementar exclusión temporal por clave bajo bloqueo transaccional, incluida la prevención de mezcla de scopes.
 - Garantizar que los mappings reproduzcan el intervalo exacto de la revisión aceptada.
 - Probar consultas `valid_at/known_at`, correcciones retroactivas, cierre y reapertura de vigencia, solapamientos, sustituciones inválidas y carreras concurrentes en PostgreSQL real.
-- Mantener los eventos/revisiones append-only mediante roles y triggers; comprobar rollback atómico de revisión y mapping.
+- Definir una secuencia monotónica por clave si se necesita desempate total además de `recorded_at`; mantener eventos/revisiones append-only mediante roles y triggers; comprobar rollback atómico de revisión y mapping.
