@@ -34,10 +34,7 @@
       "const": "BTC/USDT"
     },
     "venue": {
-      "type": [
-        "string",
-        "null"
-      ]
+      "const": "binance"
     },
     "market_type": {
       "enum": [
@@ -189,10 +186,6 @@
       },
       "then": {
         "properties": {
-          "venue": {
-            "type": "string",
-            "minLength": 1
-          },
           "market_type": {
             "const": "spot"
           },
@@ -259,7 +252,6 @@
               ]
             },
             "minContains": 1,
-            "additionalItems": true,
             "allOf": [
               {
                 "contains": {
