@@ -115,9 +115,10 @@ def load_parquet_candles(path: str | Path) -> list[Candle]:
         columns = list(REQUIRED_COLUMNS)
         if "quote_volume" in available:
             columns.append("quote_volume")
+        connection.execute("SET preserve_insertion_order = true")
         projection = ", ".join('"' + name + '"' for name in columns)
         rows = connection.execute(
-            f"SELECT {projection} FROM read_parquet(?) ORDER BY open_time_utc",
+            f"SELECT {projection} FROM read_parquet(?)",
             [str(file_path)],
         ).fetchall()
         candles: list[Candle] = []
