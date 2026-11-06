@@ -143,51 +143,59 @@ Decisiones:
 Fuente normativa/técnica: CoinGecko Asset Platforms List, EIP-155 y Solana RPC `getGenesisHash`; referencias y procedimiento completos en `network-identity-resolution-policy.md`.
 
 
-## 11. Auditoría de integridad: plataformas de proveedor → redes canónicas
+## 11. Cierre de semántica temporal: identidad, snapshots y decisiones
 
-**Resultado:** se detectaron brechas en la especificación anterior y se corrigió el contrato lógico/físico. La auditoría no equivale a pruebas ejecutadas en PostgreSQL.
+**Decisión arquitectónica:** separar identidad estable de plataforma, observaciones del proveedor y decisiones de resolución. La versión previa mezclaba identidad y snapshot dentro de `provider_platforms`; ese acoplamiento ligaba una revisión a una captura arbitraria y confundía ingestión con cambio de decisión.
 
-### Hallazgos
+### Modelo aprobado a nivel documental
 
-| ID | Riesgo detectado | Corrección documental | Estado |
-|---|---|---|---|
-| NET-01 | Un `network_identifiers` podía declarar un ID de proveedor sin FK hacia la revisión accepted que lo autorizó. | Se añadieron referencias opcionales a observación, fuente, revisión y estado; FKs compuestas para exigir misma observación, valor literal, destino y estado accepted. | Corregido en diseño; DDL pendiente |
-| NET-02 | La revisión podía referir una plataforma por UUID sin hacer explícita la coherencia de proveedor. | Se añadió `data_source_id` a la revisión y FK compuesta hacia la observación de `provider_platforms`. | Corregido en diseño; DDL pendiente |
-| NET-03 | La revisión no expresaba el intervalo de validez de la correspondencia. | Se añadieron `valid_from/valid_until` y CHECK de intervalo semiabierto. | Corregido en diseño; DDL pendiente |
-| NET-04 | La sucesión histórica podía enlazar revisiones de plataformas distintas o admitir dos sucesoras concurrentes. | Se exige sucesión de la misma clave de proveedor/plataforma, unicidad de sucesora y trigger transaccional para ciclo y coherencia. | Especificado parcialmente; requiere diseño detallado y pruebas |
-| NET-05 | La unicidad por timestamp exacto y la semántica de snapshots frente a correcciones no estaban resueltas. | Se registró como decisión bloqueante antes del DDL. | Pendiente |
-| NET-06 | El tipo `NUMERIC` para `chain_identifier` se eligió sin cerrar si el contrato oficial garantiza forma numérica canónica. | Se exige verificar el tipo y preservar literal reportado; no se convierte a número por conveniencia. | Pendiente de contrato endpoint |
+| Entidad | Semántica | Regla de identidad |
+|---|---|---|
+| `provider_platforms` | Identidad estable de plataforma dentro de un proveedor | UNIQUE `(data_source_id, provider_platform_key)` |
+| `provider_platform_observations` | Snapshot inmutable de metadata | UNIQUE `(provider_platform_id, capture_id)` |
+| `provider_platform_resolution_reviews` | Decisión append-only sobre identidad estable | Cadena lineal mediante `supersedes_review_id` |
+
+### Decisiones NET-04 y NET-05
+
+1. **Nueva captura ≠ nueva decisión.** Insertar una observación no crea una revisión ni modifica la cabeza de la cadena. La resolución accepted anterior permanece vigente mientras no exista una decisión sucesora y su intervalo cubra el instante consultado.
+2. **La revisión se asocia a la identidad estable.** `provider_platform_id` es la FK principal. `based_on_observation_id` es opcional y, cuando existe, una FK compuesta obliga a que la observación pertenezca a la misma identidad y fuente.
+3. **La sucesión solo expresa una decisión.** `supersedes_review_id` significa corrección, revocación o sustitución explícita. Nunca enlaza snapshots.
+4. **Cadena lineal por identidad.** Una raíz y una única sucesora por revisión. UNIQUE parciales evitan bifurcaciones; FK compuesta asegura misma identidad; trigger impide ciclos.
+5. **Snapshots con timestamps iguales.** La unicidad no depende de `observed_at`. Cada lote tiene `capture_id`; UNIQUE `(provider_platform_id, capture_id)` distingue capturas y rechaza duplicados de una plataforma dentro del mismo lote.
+6. **Tiempo bitemporal.** `observed_at` es tiempo de observación; `recorded_at` es tiempo de conocimiento de CCI; `valid_from/valid_until` expresa vigencia real. Los intervalos son semiabiertos. El final efectivo de una decisión anterior puede derivarse del `valid_from` de su sucesora, sin UPDATE histórico.
+7. **Serialización.** Antes de insertar una revisión, la transacción bloquea la fila de `provider_platforms` con `SELECT ... FOR UPDATE`, lee la cabeza y crea la sucesora. El lock se aplica a la identidad estable, no al UUID del snapshot.
+8. **Cambio material.** Una diferencia descriptiva no cambia automáticamente la red. Si nueva evidencia altera la interpretación, contradice la resolución o activa revalidación, se crea una revisión sucesora.
+
+### Corrección de NET-06
+
+No se fija `reported_chain_identifier` como NUMERIC sin evidencia contractual. Se conserva `reported_chain_identifier_raw TEXT` junto con `reported_chain_identifier_json_type TEXT`, incluido NULL. El tipo canónico definitivo queda pendiente de confirmar contra el contrato oficial del endpoint.
 
 ### Invariantes relacionales obligatorias
 
-1. Una fila de `network_identifiers` que represente una plataforma de proveedor debe contener conjuntamente observación, fuente, revisión y estado accepted; para identificadores nativos esos campos serán todos NULL.
-2. La FK de la observación debe hacer coincidir exactamente `provider_platform_id` con `identifier_value` y `data_source_id` con la fuente de la observación.
-3. La FK de revisión debe hacer coincidir exactamente revisión, observación, red destino y `resolution_status = 'accepted'`.
-4. CHECK adicional debe vincular los campos de procedencia con el namespace/tipo de identificador esperado para plataforma; no se permite una fila parcialmente poblada.
-5. Una revisión accepted exige una red destino, evidencia, decisión/revisor y `valid_from`; una revisión no accepted no puede publicarse como identificador.
-6. La publicación de revisión e identificador externo se hace en una sola transacción. Las FKs impiden combinaciones incompatibles, pero no demuestran calidad ni autoridad de la evidencia.
-7. La sucesión debe operar sobre `(data_source_id, provider_platform_id)`, no sobre el UUID aislado del snapshot. Debe distinguir corrección de una decisión de la mera llegada de un snapshot nuevo.
+- Identidad única por proveedor + literal externo.
+- Cada observación pertenece a una identidad y fuente.
+- Cada revisión pertenece a una identidad estable; la observación de soporte, si existe, pertenece a esa misma identidad.
+- La cadena no puede cruzar plataformas/proveedores, ramificarse ni contener ciclos.
+- Un snapshot nuevo no invalida por sí solo una revisión accepted.
+- Solo la cabeza accepted y temporalmente vigente autoriza un mapping.
+- `network_identifiers` conserva identidad de plataforma y revisión accepted exacta; el literal debe coincidir con `provider_platform_key`.
+- Dos transacciones concurrentes para la misma identidad se serializan mediante bloqueo de fila.
 
-### Decisiones que bloquean la implementación SQL
+### Matriz de pruebas PostgreSQL pendiente
 
-- Definir si una nueva observación de la misma plataforma requiere revisión nueva sin sustituir la revisión anterior, o si la sucesión representa exclusivamente correcciones/revocaciones de decisiones. No mezclar ambas dimensiones.
-- Definir la regla para dos capturas con el mismo `observed_at`: rechazar duplicado, usar un `snapshot_id` determinista o conservar una secuencia de captura. No depender de timestamps de precisión finita como orden total.
-- Definir las columnas de sucesión necesarias para una FK compuesta y el índice parcial UNIQUE de sucesora; completar el trigger para validar que no haya ciclos y que toda la cadena mantenga la misma clave de proveedor/plataforma.
-- Definir bloqueo transaccional estable por proveedor + platform ID y pruebas de dos sesiones concurrentes.
-- Confirmar en documentación oficial el tipo JSON de `chain_identifier`; preservar NULL y el literal sin inferir valores.
+| Caso | Resultado esperado |
+|---|---|
+| Dos snapshots con mismo `observed_at`, distinto `capture_id` | Ambos aceptados |
+| Misma plataforma repetida en un `capture_id` | Rechazo por UNIQUE |
+| Observación de otra identidad/proveedor | Rechazo por FK compuesta |
+| Revisión con observación de otra plataforma | Rechazo por FK compuesta |
+| Dos raíces o dos sucesoras | Rechazo por UNIQUE parcial |
+| Ciclo en la cadena | Rechazo por trigger |
+| Nueva observación sin revisión | La resolución accepted anterior permanece |
+| Mapping con revisión no accepted, destino/literal distinto | Rechazo |
+| Dos revisiones incompatibles concurrentes | Serialización; una sola sucesora confirma |
+| Publicación parcial de revisión/mapping | Rollback atómico |
 
-### Pruebas negativas requeridas en PostgreSQL real
+### Estado
 
-- Insertar identificador de plataforma sin revisión: debe fallar.
-- Insertar identificador con revisión `pending_review`, `rejected` o `ambiguous`: debe fallar.
-- Insertar identificador con revisión accepted pero red distinta: debe fallar.
-- Insertar identificador cuyo literal no coincide con el `provider_platform_id` observado: debe fallar.
-- Cruzar observación de proveedor A con fuente/proveedor B: debe fallar.
-- Insertar una revisión accepted sin candidato, evidencia o `valid_from`: debe fallar.
-- Insertar dos sucesoras de una revisión o crear un ciclo: debe fallar.
-- Publicar revisión sin mapping o mapping sin revisión dentro de una transacción: rollback atómico según el contrato de servicio.
-- Ejecutar dos resoluciones concurrentes para la misma plataforma con redes distintas: como máximo una puede publicarse como vigente.
-
-### Estado del trabajo
-
-Se actualizaron `postgresql-physical-schema.md` y `postgresql-logical-data-model.md` con las FKs compuestas y la temporalidad de las revisiones. No se han creado migraciones, no se ha ejecutado DDL y no se afirma que estas restricciones hayan sido probadas por el motor PostgreSQL. PR #16 continúa Draft.
+Se cierra documentalmente NET-04 y NET-05 en cuanto a semántica y estructura propuesta. NET-06 queda acotado: se conserva literal y tipo JSON hasta confirmar el contrato. No se han generado migraciones, DDL ni pruebas PostgreSQL; las pruebas Python de contratos no validan el motor.
