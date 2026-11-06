@@ -1,8 +1,14 @@
 """Integration tests; run only against a disposable PostgreSQL database."""
+import contextlib
+import csv
+import io
+import json
 import os
+import tempfile
 import unittest
 import uuid
 from pathlib import Path
+from datetime import datetime, timedelta, timezone
 
 DSN = os.environ.get("CCI_TEST_DATABASE_URL")
 
@@ -97,6 +103,48 @@ class ResearchRunRegistryPostgresTests(unittest.TestCase):
                 raise RuntimeError("synthetic failure after insert")
         self.assertIsNone(self.conn.execute(
             "SELECT id FROM cci.research_experiment_runs WHERE id=%s",(rid,)).fetchone())
+
+    def test_btc_episode_cli_registers_successful_run_and_artifacts(self):
+        from scripts.research.btc_episode_study import main
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            input_path=root/"candles.csv"
+            episodes_path=root/"episodes.json"
+            json_out=root/"summary.json"
+            csv_out=root/"summary.csv"
+            start=datetime(2026,1,1,tzinfo=timezone.utc)
+            with input_path.open("w",encoding="utf-8",newline="") as handle:
+                writer=csv.writer(handle)
+                writer.writerow(["open_time_utc","open","high","low","close","volume"])
+                for i in range(192):
+                    price=100.0+i*0.1
+                    stamp=(start+timedelta(hours=i)).isoformat().replace("+00:00","Z")
+                    writer.writerow([stamp,price,price+1,price-1,price+0.5,10+i])
+            episodes_path.write_text(json.dumps([{
+                "episode_id":"synthetic-rise","direction":"bullish",
+                "start_utc":(start+timedelta(hours=168)).isoformat().replace("+00:00","Z"),
+                "end_utc":(start+timedelta(hours=192)).isoformat().replace("+00:00","Z")
+            }]),encoding="utf-8")
+            output=io.StringIO()
+            with unittest.mock.patch.dict(os.environ,{"CCI_DATABASE_URL":DSN}), contextlib.redirect_stdout(output):
+                result=main([
+                    "--input",str(input_path),"--episodes",str(episodes_path),
+                    "--json-out",str(json_out),"--csv-out",str(csv_out),
+                    "--experiment-id",str(self.experiment_id),
+                    "--run-key","cli-e2e-"+str(uuid.uuid4()),
+                    "--code-commit","abcdef1234567890",
+                ])
+            self.assertEqual(result,0,output.getvalue())
+            run_id=output.getvalue().split("Run PostgreSQL: ")[1].splitlines()[0]
+            row=self.conn.execute(
+                "SELECT status,metrics->>'episode_count' FROM cci.research_experiment_runs WHERE id=%s",
+                (run_id,)).fetchone()
+            self.assertEqual(row,("succeeded","1"))
+            artifacts=self.conn.execute(
+                "SELECT artifact_role,sha256,byte_size FROM cci.research_run_artifacts WHERE run_id=%s ORDER BY artifact_role",
+                (run_id,)).fetchall()
+            self.assertEqual([a[0] for a in artifacts],["report","summary"])
+            self.assertTrue(all(len(a[1])==64 and a[2]>0 for a in artifacts))
 
 if __name__ == "__main__":
     unittest.main()
