@@ -120,3 +120,34 @@ No se incorporará una variable solo porque esté disponible. Se registrarán pr
 ## 8. Restricciones de publicación
 
 Este caso es parte de investigación privada. El repositorio GitHub es público, por lo que no se deben añadir payloads, series descargadas, datos licenciados ni derivados cuya publicación no esté autorizada. El repositorio puede contener metodología, hashes, metadatos técnicos no sensibles y conclusiones cuya publicación esté permitida. Los artefactos de análisis deberán permanecer en almacenamiento privado conforme a las condiciones de cada proveedor.
+
+
+## 9. Primera comprobación empírica con el artefacto Run #13
+
+Se inspeccionó el artefacto histórico de la PoC, que contiene OHLCV diario BTC de Binance Spot (BTCUSDT) y Kraken Spot (XBT/USD). La ventana diaria cubre el episodio de febrero; la ventana horaria de ese artefacto comienza el 7 de octubre de 2026, por lo que **no contiene velas horarias del episodio de febrero**.
+
+La primera lectura confirma que ambos venues registran el mismo patrón general: deterioro antes del episodio, una sesión UTC de venta extrema y una sesión UTC posterior de rebote violento. El volumen diario del día de caída es varias veces superior a la mediana de las sesiones de contexto anteriores en ambos venues. Esto confirma que el episodio fue excepcional en actividad y volatilidad, pero no identifica por sí solo el catalizador.
+
+### Precaución crítica de zona horaria
+
+La cobertura de velas está alineada a días UTC. Los titulares periodísticos etiquetados como 5 de febrero en Estados Unidos describen también movimientos ocurridos durante la tarde/noche de Nueva York, que pueden caer ya en la vela del **6 de febrero UTC**. Por tanto, no se debe comparar la fecha del titular con la fecha de la vela sin normalizar ambos timestamps a UTC.
+
+Esta diferencia explica por qué un artículo puede reportar el mínimo cercano a 60.000 USD en el episodio del 5 de febrero local, mientras que la vela diaria UTC que contiene ese mínimo corresponde al 6 de febrero. Para el análisis causal se conservarán por separado:
+- timestamp original y zona horaria del artículo;
+- hora de publicación y, si es distinta, hora del acontecimiento;
+- apertura/cierre UTC de la vela;
+- venue y par de negociación.
+
+### Resultado de esta fase
+
+- [x] Contrastar la forma general del episodio en Binance y Kraken con datos OHLCV diarios.
+- [x] Confirmar que la actividad y el rango del episodio fueron extraordinarios respecto a las sesiones de contexto.
+- [x] Detectar la desalineación potencial entre fechas locales de los titulares y días UTC de las velas.
+- [ ] Recuperar granularidad de 1m/5m/1h para 2026-02-04 a 2026-02-07 en ambos venues.
+- [ ] Construir cronología intradía con liquidaciones, open interest, flujos y acontecimientos macro.
+
+**Conclusión empírica limitada:** la caída no es un artefacto de un único exchange: Binance y Kraken reflejan un episodio concordante. El OHLCV diario no permite determinar el orden intradía entre noticias, presión spot y liquidaciones. Hasta obtener esa resolución, no se asignará causalidad ni se jerarquizarán H1–H4.
+
+### Restricción de datos
+
+Los valores OHLCV y las métricas calculadas a partir de ellos no se reproducen en este documento público. El artefacto histórico se utilizó para análisis interno; la política de publicación del proyecto exige mantener fuera del repositorio público los valores de mercado cuya redistribución no esté autorizada.
