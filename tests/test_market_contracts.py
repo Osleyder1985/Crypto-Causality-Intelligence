@@ -566,6 +566,10 @@ class AssetRepresentationFixtureTests(unittest.TestCase):
             {assets_by_key[item["asset_key"]]["symbol"] for item in abc},
             {"ABC"},
         )
+        self.assertEqual(
+            assets_by_key["token_abc_alpha"]["symbol"],
+            assets_by_key["token_abc_beta"]["symbol"],
+        )
         self.assertEqual(len({item["contract_address"] for item in abc}), 2)
 
     def test_duplicate_contract_on_same_network_is_rejected(self):
