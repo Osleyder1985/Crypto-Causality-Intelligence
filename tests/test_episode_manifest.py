@@ -29,6 +29,14 @@ def approved_manifest():
             "end_local": "2026-01-02T00:00:00-05:00",
             "start_utc": "2026-01-01T05:00:00Z",
             "end_utc": "2026-01-02T05:00:00Z",
+        }, {
+            "episode_id": "bear-001",
+            "direction": "bearish",
+            "status": "confirmed",
+            "start_local": "2026-01-03T00:00:00-05:00",
+            "end_local": "2026-01-04T00:00:00-05:00",
+            "start_utc": "2026-01-03T05:00:00Z",
+            "end_utc": "2026-01-04T05:00:00Z",
         }],
     }
 
@@ -84,6 +92,18 @@ class EpisodeManifestTests(unittest.TestCase):
         with self.assertRaisesRegex(ManifestError, "solapados"):
             validate_manifest(doc)
 
+    def test_cohort_requires_both_directions(self):
+        doc = approved_manifest()
+        doc["episodes"] = doc["episodes"][:1]
+        with self.assertRaisesRegex(ManifestError, "bullish y bearish"):
+            validate_manifest(doc)
+
+    def test_only_hourly_interval_is_allowed(self):
+        doc = approved_manifest()
+        doc["interval_seconds"] = 900
+        with self.assertRaisesRegex(ManifestError, "3600 segundos"):
+            validate_manifest(doc)
+
     def test_unauthorized_dataset_is_rejected(self):
         doc = approved_manifest()
         doc["data_usage_authorization"]["status"] = "pending"
@@ -92,8 +112,8 @@ class EpisodeManifestTests(unittest.TestCase):
 
     def test_non_spot_type_is_explicit_not_implicitly_assumed(self):
         doc = approved_manifest()
-        doc["market_type"] = "unknown"
-        with self.assertRaisesRegex(ManifestError, "market_type"):
+        doc["market_type"] = "perpetual"
+        with self.assertRaisesRegex(ManifestError, "spot"):
             validate_manifest(doc)
 
 
