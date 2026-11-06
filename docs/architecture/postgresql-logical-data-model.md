@@ -43,7 +43,7 @@ PostgreSQL mantiene catálogo, identidades, metadata, operaciones, autorizacione
 
 **`networks`** — identidad canónica de una red. Atributos: `id`, `network_key`, `display_name`, `network_family`, `environment`, `created_at`.
 
-**`network_identifiers`** — identificadores técnicos y externos namespaced de una red. Atributos: `id`, `network_id`, `namespace`, `identifier_type`, `identifier_value`, `observed_at`, `evidence_reference`, `provider_platform_entity_id`, `provider_data_source_id`, `provider_platform_resolution_review_id`, `provider_platform_resolution_status`. Para identificadores de plataforma, FKs compuestas exigen coincidencia exacta de identidad de plataforma, proveedor, valor literal, revisión accepted y red de destino; los campos de procedencia son todos NULL para identificadores técnicos no originados en proveedor.
+**`network_identifiers`** — identificadores técnicos y externos namespaced de una red. Atributos: `id`, `network_id`, `namespace`, `identifier_type`, `identifier_value`, `observed_at`, `evidence_reference`, `provider_platform_id`, `provider_data_source_id`, `provider_platform_resolution_review_id`, `provider_platform_resolution_status`. Para identificadores de plataforma, FKs compuestas exigen coincidencia exacta de identidad de plataforma, proveedor, valor literal, revisión accepted y red de destino; los campos de procedencia son todos NULL para identificadores técnicos no originados en proveedor.
 
 **`provider_platforms`** — identidad estable de una plataforma dentro de un proveedor. Atributos: `id`, `data_source_id`, `provider_platform_key`, `created_at`; UNIQUE por fuente + clave literal externa. No almacena snapshots ni metadata mutable.
 
