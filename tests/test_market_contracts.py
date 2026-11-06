@@ -641,5 +641,97 @@ class AssetRepresentationFixtureTests(unittest.TestCase):
         self.assertEqual(result["contract_address"], "0xAbCd_SYNTHETIC")
 
 
+    def test_catalog_returns_normalized_relationships(self):
+        result = validate_asset_representation_catalog(self.fixture)
+        relation = result["relationships"][0]
+        self.assertEqual(relation["directionality"], "directed")
+        self.assertEqual(relation["subject_asset_key"], "wbtc_synthetic")
+        self.assertEqual(
+            relation["observed_at"], datetime(2026, 11, 6, tzinfo=timezone.utc)
+        )
+
+    def test_catalog_rejects_non_mapping_catalog_and_items(self):
+        with self.assertRaises(ValueError):
+            validate_asset_representation_catalog([])
+        catalog = json.loads(json.dumps(self.fixture))
+        catalog["assets"][0] = "bitcoin"
+        with self.assertRaises(ValueError):
+            validate_asset_representation_catalog(catalog)
+        catalog = json.loads(json.dumps(self.fixture))
+        catalog["relationships"][0] = None
+        with self.assertRaises(ValueError):
+            validate_asset_representation_catalog(catalog)
+
+    def test_representation_rejects_empty_and_non_text_identity_fields(self):
+        item = dict(self.fixture["representations"][0])
+        item["asset_key"] = "  "
+        with self.assertRaises(ValueError):
+            validate_asset_representation(item)
+        item["asset_key"] = 42
+        with self.assertRaises(ValueError):
+            validate_asset_representation(item)
+
+    def test_representation_requires_timezone_aware_observation_time(self):
+        item = dict(self.fixture["representations"][0])
+        item.pop("observed_at")
+        with self.assertRaises(ValueError):
+            validate_asset_representation(item)
+        item["observed_at"] = "2026-11-06T00:00:00"
+        with self.assertRaises(ValueError):
+            validate_asset_representation(item)
+
+    def test_representation_rejects_boolean_decimals(self):
+        item = dict(self.fixture["representations"][0])
+        item["decimals"] = True
+        with self.assertRaises(ValueError):
+            validate_asset_representation(item)
+
+    def test_other_representation_allows_documented_unclassified_shape(self):
+        item = dict(self.fixture["representations"][0])
+        item.update({
+            "representation_key": "other_synthetic",
+            "representation_kind": "other",
+            "native_asset_key": None,
+            "contract_address": None,
+        })
+        result = validate_asset_representation(item)
+        self.assertEqual(result["representation_kind"], "other")
+
+    def test_representation_preserves_physical_schema_metadata(self):
+        item = dict(self.fixture["representations"][1])
+        item.update({
+            "address_normalization": "evm:checksum-policy-pending",
+            "token_standard": "ERC-20",
+            "issuer_key": "issuer-synthetic",
+        })
+        result = validate_asset_representation(item)
+        self.assertEqual(result["contract_address"], item["contract_address"])
+        self.assertEqual(result["address_normalization"], item["address_normalization"])
+        self.assertEqual(result["token_standard"], "ERC-20")
+        self.assertEqual(result["issuer_key"], "issuer-synthetic")
+
+    def test_relationship_rejects_unsupported_directionality(self):
+        catalog = json.loads(json.dumps(self.fixture))
+        catalog["relationships"][0]["directionality"] = "undirected"
+        with self.assertRaises(ValueError):
+            validate_asset_representation_catalog(catalog)
+
+    def test_relationship_requires_observation_and_nonempty_evidence(self):
+        catalog = json.loads(json.dumps(self.fixture))
+        catalog["relationships"][0].pop("observed_at")
+        with self.assertRaises(ValueError):
+            validate_asset_representation_catalog(catalog)
+        catalog = json.loads(json.dumps(self.fixture))
+        catalog["relationships"][0]["evidence_reference"] = " "
+        with self.assertRaises(ValueError):
+            validate_asset_representation_catalog(catalog)
+
+    def test_recorded_at_is_not_a_python_input_or_output_field(self):
+        item = dict(self.fixture["representations"][0])
+        item["recorded_at"] = "2026-11-06T00:00:00Z"
+        result = validate_asset_representation(item)
+        self.assertNotIn("recorded_at", result)
+
+
 if __name__ == "__main__":
     unittest.main()
