@@ -95,3 +95,9 @@ La respuesta REST sin filtrar contiene 721 observaciones, desde 2026-10-07 14:00
 El tramo recibido es continuo: no presenta huecos internos. La reducción de 14 observaciones frente a las 720 esperadas se explica por el límite de observaciones recientes y el momento de la consulta, no por una evidencia de pérdida interna de datos. La comparación horaria entre exchanges debe restringirse a la intersección común de 706 velas en esta captura. La cobertura diaria sigue completa.
 
 Las latencias indicadas son mediciones de una sola ejecución y no constituyen un SLA. La captura demuestra que la nueva implementación funciona en este run; no demuestra estabilidad temporal ni disponibilidad histórica uniforme. Se requieren ejecuciones repetidas para evaluar esa dimensión.
+
+## Control de publicación de evidencia tras la revisión de condiciones de uso
+
+A partir del cambio posterior a Run #13, GitHub Actions conserva como artefacto únicamente el manifiesto técnico. Los JSON originales y CSV normalizados de Binance/Kraken ya no se adjuntan a los nuevos artefactos públicos. Los valores se procesan durante la ejecución en el runner efímero; el manifiesto conserva hashes, conteos, parámetros, estados y métricas de validación, sin publicar las series OHLCV.
+
+El artefacto de Run #13 es anterior a este control y contiene datos originales/normalizados. Sigue sujeto a una decisión específica de retención o eliminación; no se ha eliminado automáticamente. Véase la [revisión de condiciones de uso](source-licensing-review-2026-11-06.md).
