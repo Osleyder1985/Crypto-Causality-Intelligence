@@ -647,6 +647,15 @@ La publicación se define como una operación atómica de base de datos, no como
 4. Un trigger valida igualdad de ámbito de red con semántica NULL-safe (`IS NOT DISTINCT FROM`); esto evita que una revisión global respalde un mapping de red o viceversa.
 5. Confirmar ambas inserciones en una sola transacción. Si falla cualquier comprobación, se revierte la publicación completa.
 
+
+**Contrato del trigger `validate_asset_identifier_review_scope`:**
+
+- Se ejecuta `BEFORE INSERT` sobre `asset_identifiers`.
+- Lee la revisión referenciada y exige coincidencia con `NEW.asset_id`, `NEW.namespace`, `NEW.external_identifier` y `resolution_status = 'accepted'`. La FK compuesta vuelve a imponer estas condiciones como garantía declarativa.
+- Compara `review.network_id IS DISTINCT FROM NEW.network_id`; si la expresión es verdadera, aborta con excepción de integridad.
+- No transforma ni normaliza el identificador. La comparación es literal; cualquier normalización debe quedar definida por namespace y versionada antes de publicar el mapping.
+- La tabla de revisiones es append-only, por lo que el destino y el ámbito validados no pueden cambiar después de la inserción.
+
 ### 8.2 Mapping a nivel de representación
 
 1. Insertar revisión accepted con `candidate_asset_representation_id` y `network_id` no nulos.
