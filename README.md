@@ -15,6 +15,10 @@ El sistema estudiará los regímenes **alcistas, bajistas y laterales**, sus ini
   <img src="docs/images/strategic-objective.svg" alt="Objetivo estratégico: transformar la investigación histórica del mercado y la evidencia causal en escenarios predictivos explicables, manteniendo la toma de decisiones bajo control humano." width="100%" />
 </p>
 
+<p align="center">
+  <img src="docs/images/Crypto%20Causality%20Intelligence%20v1.png" alt="Crypto-Causality Intelligence: visión general de la identidad visual, el propósito y la arquitectura conceptual del proyecto." width="100%" />
+</p>
+
 ### Capacidades que se buscan desarrollar
 
 - Reconstruir episodios históricos del mercado y sus cronologías.
@@ -30,6 +34,10 @@ La hoja de ruta avanza desde la comprensión histórica hasta la inteligencia pr
 
 <p align="center">
   <img src="docs/images/project-phases.svg" alt="Cinco fases del proyecto: Historical Market Intelligence, Causality Research Methodology, Market Regime Intelligence, Predictive Intelligence y Autonomous Market Intelligence." width="100%" />
+</p>
+
+<p align="center">
+  <img src="docs/images/Crypto%20Causality%20Intelligence%20v2.png" alt="Crypto-Causality Intelligence: representación visual de las fases, capacidades y gobernanza del proyecto." width="100%" />
 </p>
 
 1. **Historical Market Intelligence** — construir una base de conocimiento fiable sobre episodios del mercado, regímenes de precios, acontecimientos y evidencias de las fuentes.
