@@ -1,5 +1,7 @@
 # Anexo de validación y trazabilidad — 2026-11-06
 
+Revisión de condiciones de uso: [source-licensing-review-2026-11-06.md](source-licensing-review-2026-11-06.md).
+
 ## Ejecución reproducible
 
 Run #8 de GitHub Actions:
