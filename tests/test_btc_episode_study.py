@@ -135,7 +135,7 @@ class EpisodeStudyTests(unittest.TestCase):
                 [(c.timestamp, c.open, c.high, c.low, c.close, c.volume, c.quote_volume)
                  for c in self.candles],
             )
-            connection.execute("COPY candles TO ? (FORMAT PARQUET)", [str(path)])
+            connection.execute("COPY candles TO '" + str(path).replace("'", "''") + "' (FORMAT PARQUET)")
         finally:
             connection.close()
 
@@ -164,7 +164,7 @@ class EpisodeStudyTests(unittest.TestCase):
                     "INSERT INTO candles VALUES "
                     "(TIMESTAMP '2026-01-01 00:00:00', 10, 11, 9, 10, 1)"
                 )
-                connection.execute("COPY candles TO ? (FORMAT PARQUET)", [str(parquet_path)])
+                connection.execute("COPY candles TO '" + str(parquet_path).replace("'", "''") + "' (FORMAT PARQUET)")
             finally:
                 connection.close()
             with self.assertRaisesRegex(StudyError, "UTC"):
