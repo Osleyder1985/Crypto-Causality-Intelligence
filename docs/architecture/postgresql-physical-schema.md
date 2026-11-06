@@ -586,8 +586,12 @@ La implementación física no se considerará aceptada hasta que las pruebas aut
 10. Prevención transaccional de ciclos en el linaje.
 11. Reversión de migraciones sin dejar objetos huérfanos.
 12. Pruebas con fixtures sintéticos únicamente; ningún test debe consultar Binance, Kraken o CoinGecko.
+13. Una representación `native` requiere clave nativa y prohíbe contrato; `token_contract` requiere contrato y prohíbe clave nativa.
+14. Una red no puede contener dos filas para el mismo identificador de despliegue; la unicidad se evalúa con la política de comparación específica de esa familia de red, no mediante normalización global.
+15. Un activo puede tener representaciones en varias redes; una relación wrapper/bridge no fusiona el activo con su subyacente.
+16. Dos contratos distintos con el mismo ticker pueden pertenecer a activos diferentes; el ticker no participa en la clave de unicidad.
 
-Las pruebas unitarias existentes de parsers (13/13 en la ejecución CI documentada en el PR) no prueban este esquema físico. Son suites diferentes y deberán reportarse por separado.
+Las pruebas unitarias de parsers y de contratos de representación no prueban todavía el esquema físico PostgreSQL. La suite Python actual incluye 47 métodos `test_*`, de los cuales 12 cubren representaciones con fixtures sintéticos. Son pruebas de contrato de aplicación, no pruebas de restricciones ejecutadas por el motor PostgreSQL; ambas capas deberán reportarse por separado.
 
 ## 10. Decisiones pendientes que bloquean el DDL
 
