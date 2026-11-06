@@ -8,6 +8,7 @@ import tempfile
 import unittest
 import uuid
 from pathlib import Path
+from unittest.mock import patch
 from datetime import datetime, timedelta, timezone
 
 DSN = os.environ.get("CCI_TEST_DATABASE_URL")
@@ -126,7 +127,7 @@ class ResearchRunRegistryPostgresTests(unittest.TestCase):
                 "end_utc":(start+timedelta(hours=192)).isoformat().replace("+00:00","Z")
             }]),encoding="utf-8")
             output=io.StringIO()
-            with unittest.mock.patch.dict(os.environ,{"CCI_DATABASE_URL":DSN}), contextlib.redirect_stdout(output):
+            with patch.dict(os.environ,{"CCI_DATABASE_URL":DSN}), contextlib.redirect_stdout(output):
                 result=main([
                     "--input",str(input_path),"--episodes",str(episodes_path),
                     "--json-out",str(json_out),"--csv-out",str(csv_out),
