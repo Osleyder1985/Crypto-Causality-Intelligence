@@ -1,6 +1,6 @@
 # Plan de laboratorio para validación real de PostgreSQL
 
-- **Estado:** primer incremento ejecutado correctamente; matriz PG-NET-01–PG-NET-25 pendiente.
+- **Estado:** subsistema reducido validado en PostgreSQL real (29/29 pruebas); integración productiva en `cci` pendiente.
 - **Fecha de actualización:** 2026-11-06.
 - **Ámbito:** validación del subsistema de identidad de plataformas y redes (NET-04/NET-05/NET-06).
 - **PR:** #16 (permanece Draft).
