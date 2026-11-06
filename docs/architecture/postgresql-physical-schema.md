@@ -210,7 +210,7 @@ La política aplicable se resuelve considerando fuente, endpoint, tipo de dato, 
 - `relationship_type TEXT NOT NULL`: CHECK inicial `wrapped_representation_of, bridged_representation_of, redeemable_for, backed_by, tracks_price_of, migrated_to`.
 - `directionality TEXT NOT NULL DEFAULT 'directed'`: CHECK `directed`.
 - `valid_from TIMESTAMPTZ NULL`, `valid_until TIMESTAMPTZ NULL`.
-- `evidence_reference TEXT NOT NULL`, `observed_at TIMESTAMPTZ NOT NULL`.
+- `evidence_reference TEXT NOT NULL`, `observed_at TIMESTAMPTZ NOT NULL`, `recorded_at TIMESTAMPTZ NOT NULL` (registro inmutable en CCI).
 - CHECK `subject_asset_id <> object_asset_id`.
 - CHECK `valid_until IS NULL OR (valid_from IS NOT NULL AND valid_until > valid_from)`.
 - Las relaciones no crean equivalencia de identidad, fungibilidad, paridad ni propagación automática de FKs. No asumir transitividad.
@@ -222,7 +222,7 @@ La política aplicable se resuelve considerando fuente, endpoint, tipo de dato, 
 - `external_identifier TEXT NOT NULL` (código/dirección nativa exacta).
 - `candidate_asset_id UUID NULL FK assets(id)`
 - `candidate_asset_representation_id UUID NULL FK asset_representations(id)`
-- CHECK: exactamente uno de `candidate_asset_id` y `candidate_asset_representation_id` debe ser NOT NULL para decisiones candidatas/aceptadas.
+- CHECK: los dos destinos no pueden ser NOT NULL simultáneamente; una decisión `accepted` exige exactamente uno. Las revisiones `ambiguous` pueden conservar ambos destinos en una tabla de candidatos futura, pero no publican FK.
 - `resolution_status TEXT NOT NULL`: CHECK en `pending_review, accepted, rejected, ambiguous`.
 - `evidence_reference TEXT NULL`, `decision_reference TEXT NULL`.
 - `observed_at TIMESTAMPTZ NOT NULL`, `reviewed_at TIMESTAMPTZ NULL`, `recorded_at TIMESTAMPTZ NOT NULL`.
