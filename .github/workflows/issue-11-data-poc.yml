@@ -34,11 +34,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: issue-11-exchange-evidence
-          path: |
-            artifacts/issue-11/manifest.json
-            artifacts/issue-11/raw/binance_*.json
-            artifacts/issue-11/raw/kraken_*.json
-            artifacts/issue-11/normalized/binance_*.csv
-            artifacts/issue-11/normalized/kraken_*.csv
+          # Solo se publica el manifiesto técnico; nunca los valores de mercado.
+          path: artifacts/issue-11/manifest.json
           if-no-files-found: warn
           retention-days: 90
