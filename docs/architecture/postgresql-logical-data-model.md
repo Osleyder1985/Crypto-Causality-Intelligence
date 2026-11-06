@@ -1,10 +1,10 @@
 # Modelo lógico de PostgreSQL — Crypto Causality Intelligence
 
-- **Estado:** contrato lógico reconciliado v0.7; propuesta, no implementada.
+- **Estado:** contrato lógico reconciliado v0.8; propuesta, no implementada.
 - **Fecha:** 2026-11-06.
 - **Decisión relacionada:** ADR-001.
 - **Issue / PR:** #14 / #16.
-- **Especificación física vinculada:** `postgresql-physical-schema.md` v0.6.
+- **Especificación física vinculada:** `postgresql-physical-schema.md` v0.7.
 
 ## 1. Propósito y límites
 
@@ -43,11 +43,13 @@ PostgreSQL mantiene catálogo, identidades, metadata, operaciones, autorizacione
 
 **`networks`** — identidad canónica de una red. Atributos: `id`, `network_key`, `display_name`, `network_family`, `environment`, `created_at`.
 
-**`network_identifiers`** — identificadores técnicos y externos namespaced de una red. Atributos: `id`, `network_id`, `namespace`, `identifier_type`, `identifier_value`, `observed_at`, `evidence_reference`, `provider_platform_observation_id`, `provider_data_source_id`, `provider_platform_resolution_review_id`, `provider_platform_resolution_status`. Para identificadores de plataforma, FKs compuestas exigen coincidencia exacta de observación, proveedor, valor literal, revisión accepted y red de destino; los campos de procedencia son todos NULL para identificadores técnicos no originados en proveedor.
+**`network_identifiers`** — identificadores técnicos y externos namespaced de una red. Atributos: `id`, `network_id`, `namespace`, `identifier_type`, `identifier_value`, `observed_at`, `evidence_reference`, `provider_platform_entity_id`, `provider_data_source_id`, `provider_platform_resolution_review_id`, `provider_platform_resolution_status`. Para identificadores de plataforma, FKs compuestas exigen coincidencia exacta de identidad de plataforma, proveedor, valor literal, revisión accepted y red de destino; los campos de procedencia son todos NULL para identificadores técnicos no originados en proveedor.
 
-**`provider_platforms`** — observaciones versionadas de entradas de catálogo de plataformas de proveedores. Atributos: `id`, `data_source_id`, `provider_platform_id`, `provider_name`, `provider_shortname`, `provider_native_coin_id`, `reported_chain_identifier` nullable, `observed_at`, `evidence_reference`, `evidence_sha256`. El identificador de plataforma conserva el namespace del proveedor y nunca se trata como `network_key`; los campos descriptivos no son claves canónicas.
+**`provider_platforms`** — identidad estable de una plataforma dentro de un proveedor. Atributos: `id`, `data_source_id`, `provider_platform_key`, `created_at`; UNIQUE por fuente + clave literal externa. No almacena snapshots ni metadata mutable.
 
-**`provider_platform_resolution_reviews`** — historial append-only de la correspondencia de una observación de plataforma con una red CCI. Atributos: `id`, `provider_platform_observation_id`, `data_source_id`, `candidate_network_id`, `resolution_status`, `evidence_reference`, `decision_reference`, `reviewed_at`, `recorded_at`, `valid_from`, `valid_until`, `supersedes_review_id`. FKs compuestas atan la revisión a la observación/proveedor; solo una revisión accepted, con vigencia explícita, puede habilitar el mapping. `network_identifiers` referencia la revisión accepted exacta y el mismo destino mediante FK compuesta.
+**`provider_platform_observations`** — capturas inmutables de metadata. Atributos: `id`, `provider_platform_id`, `data_source_id`, `capture_id`, `observed_at`, `recorded_at`, `provider_name`, `provider_shortname`, `provider_native_coin_id`, `reported_chain_identifier_raw`, `reported_chain_identifier_json_type`, `evidence_reference`, `evidence_sha256`. UNIQUE por identidad + `capture_id`; timestamps iguales no colisionan.
+
+**`provider_platform_resolution_reviews`** — cadena append-only de decisiones sobre la identidad estable. Atributos: `id`, `provider_platform_id`, `data_source_id`, `based_on_observation_id` nullable, `candidate_network_id`, `resolution_status`, `evidence_reference`, `decision_reference`, `reviewed_at`, `recorded_at`, `valid_from`, `valid_until`, `supersedes_review_id`. La revisión apunta a la identidad estable y opcionalmente a la observación que sustentó la decisión. `supersedes_review_id` solo representa corrección/revocación/sucesión de una decisión, nunca una captura nueva.
 
 **`asset_representations`** — unidad nativa o despliegue contractual de un activo en una red. Atributos: `id`, `asset_id`, `network_id`, `representation_kind`, `native_asset_key`, `contract_address`, `address_normalization`, `token_standard`, `decimals`, `issuer_key`, `valid_from`, `valid_until`, `observed_at`, `evidence_reference`. Una representación pertenece a un activo y una red; los datos nativos y contractuales son mutuamente excluyentes.
 
@@ -103,7 +105,7 @@ PostgreSQL mantiene catálogo, identidades, metadata, operaciones, autorizacione
 2. Política → evaluaciones; cada evaluación referencia la política de la misma fuente y el endpoint de esa fuente.
 3. Evaluación → contribución de dataset mediante coincidencia exacta de fuente, endpoint, tipo de dato y uso previsto.
 4. Run → solicitudes y, mediante `run_datasets`, datasets producidos/registrados.
-5. Activo → representaciones; representación → red; red → identificadores namespaced. Proveedor → observaciones de plataformas → revisiones de correspondencia → red; solo revisiones accepted pueden publicar identificadores de proveedor en `network_identifiers`.
+5. Activo → representaciones; representación → red; red → identificadores namespaced. Proveedor → identidad estable de plataforma → observaciones inmutables y revisiones append-only → red; solo revisiones accepted pueden publicar identificadores de proveedor en `network_identifiers`.
 6. Instrumento → versiones de metadata → reglas de negociación.
 7. Dataset → procedencias, validaciones, linaje y asociaciones con experimentos.
 8. Transformación → ejecuciones; cada arista de linaje referencia una ejecución concreta.
@@ -150,7 +152,7 @@ El diagrama muestra relaciones conceptuales; nulabilidad, claves compuestas y re
 
 ## 6. Criterios de aceptación previos a migraciones
 
-- El inventario de entidades de este documento coincide exactamente con el inventario físico, incluidas `identity_namespaces`, `provider_platforms` y `provider_platform_resolution_reviews`.
+- El inventario de entidades de este documento coincide exactamente con el inventario físico, incluidas `identity_namespaces`, `provider_platforms`, `provider_platform_observations` y `provider_platform_resolution_reviews`.
 - Cada atributo lógico tiene correspondencia física; no quedan atributos obsoletos como `assets.network` ni `dataset_sources.source_usage_policy_id`.
 - `dataset_sources.data_type` forma parte de la FK compuesta a `policy_evaluations`.
 - El alcance de producto/plan y de tipo de dato en `source_usage_policies` tiene referencia estructurada y CHECKs coherentes.
@@ -175,8 +177,10 @@ La aprobación de los namespaces CoinGecko es documental y no equivale a poblar 
 
 ### 3.2.2 Resolución de plataformas de proveedores y redes
 
-La identidad de red canónica pertenece a `networks.network_key`. Los identificadores publicados por proveedores se conservan en `provider_platforms` como observaciones versionadas y requieren una revisión explícita antes de relacionarse con una red. `provider_platform_resolution_reviews` registra candidatos y decisiones; únicamente una revisión accepted habilita la publicación del identificador del proveedor en `network_identifiers`.
+La identidad de red canónica pertenece a `networks.network_key`. El modelo separa tres hechos: `provider_platforms` identifica de forma estable la plataforma externa dentro de un proveedor; `provider_platform_observations` conserva snapshots inmutables; `provider_platform_resolution_reviews` registra decisiones sobre la identidad estable.
 
-Para CoinGecko, `asset_platforms[].id` es un `provider_platform_id`, no una clave canónica. `chain_identifier` es nullable y, aun cuando exista, se conserva como valor reportado por CoinGecko, no como prueba suficiente de identidad. `name`, `shortname` y `native_coin_id` son metadata descriptiva. La correspondencia plataforma → red y las reglas EVM/Solana se rigen por `network-identity-resolution-policy.md`.
+Para CoinGecko, `asset_platforms[].id` se conserva como `provider_platform_key`, no como clave canónica. `chain_identifier` puede ser NULL y, aun cuando exista, es un valor reportado, no prueba suficiente de identidad. Hasta confirmar su contrato JSON y representación exacta, se conserva como literal escalar más tipo JSON, sin conversión numérica destructiva.
+
+Una observación nueva no crea ni sustituye automáticamente una revisión. La revisión apunta a la identidad estable y puede señalar `based_on_observation_id` como evidencia. `supersedes_review_id` se reserva exclusivamente para corregir, revocar o sustituir una decisión anterior. `observed_at`, `recorded_at` y `valid_from/valid_until` conservan semánticas independientes. La política EVM/Solana se rige por `network-identity-resolution-policy.md`.
 
 La ampliación del contrato lógico es documental. No se ha poblado el catálogo ni se han aprobado correspondencias reales.
