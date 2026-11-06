@@ -5,6 +5,8 @@ import io
 import json
 import os
 import tempfile
+import threading
+import time
 import unittest
 import uuid
 from pathlib import Path
@@ -28,6 +30,14 @@ class ResearchRunRegistryPostgresTests(unittest.TestCase):
                          (cls.experiment_id, "test-"+str(cls.experiment_id)))
         migration = Path("migrations/postgresql/002_research_run_registry.sql").read_text(encoding="utf-8")
         cls.conn.execute(migration)
+        cls.conn.execute("""DO $ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='cci_research_runner') THEN
+                CREATE ROLE cci_research_runner NOLOGIN;
+            END IF;
+        END $""")
+        cls.conn.execute("GRANT USAGE ON SCHEMA cci TO cci_research_runner")
+        cls.conn.execute("GRANT SELECT, INSERT, UPDATE ON cci.research_experiment_runs TO cci_research_runner")
+        cls.conn.execute("GRANT SELECT, INSERT ON cci.research_run_artifacts TO cci_research_runner")
 
     @classmethod
     def tearDownClass(cls):
@@ -146,6 +156,50 @@ class ResearchRunRegistryPostgresTests(unittest.TestCase):
                 (run_id,)).fetchall()
             self.assertEqual([a[0] for a in artifacts],["report","summary"])
             self.assertTrue(all(len(a[1])==64 and a[2]>0 for a in artifacts))
+
+    def test_minimum_runtime_role_can_run_without_delete_privilege(self):
+        rid=uuid.uuid4()
+        self.conn.execute("SET ROLE cci_research_runner")
+        try:
+            self.conn.execute("""INSERT INTO cci.research_experiment_runs
+                (id,experiment_id,run_key,status,code_commit,protocol_version)
+                VALUES (%s,%s,%s,'queued','abcdef1234567','v1')""",
+                (rid,self.experiment_id,str(rid)))
+            self.conn.execute("UPDATE cci.research_experiment_runs SET status='running',started_at=now() WHERE id=%s",(rid,))
+            self.conn.execute("UPDATE cci.research_experiment_runs SET status='succeeded',finished_at=now() WHERE id=%s",(rid,))
+            self.conn.execute("""INSERT INTO cci.research_run_artifacts
+                (id,run_id,artifact_role,logical_uri,media_type,format,sha256,byte_size,retention_class)
+                VALUES (%s,%s,'summary','cci://least-privilege','application/json','json',%s,10,'research')""",
+                (uuid.uuid4(),rid,'b'*64))
+            with self.assertRaises(self.psycopg.errors.InsufficientPrivilege):
+                self.conn.execute("DELETE FROM cci.research_experiment_runs WHERE id=%s",(rid,))
+        finally:
+            self.conn.execute("RESET ROLE")
+
+    def test_concurrent_transition_waits_for_row_lock(self):
+        from scripts.research.postgres_run_registry import PostgresRunRegistry
+        rid=self.make_run()
+        started=threading.Event()
+        errors=[]
+        with self.conn.transaction():
+            self.conn.execute("SELECT id FROM cci.research_experiment_runs WHERE id=%s FOR UPDATE",(rid,))
+            def transition_in_second_session():
+                try:
+                    with patch.dict(os.environ,{"CCI_DATABASE_URL":DSN}):
+                        started.set()
+                        PostgresRunRegistry().transition(str(rid),"running")
+                except Exception as exc:
+                    errors.append(exc)
+            worker=threading.Thread(target=transition_in_second_session,daemon=True)
+            worker.start()
+            self.assertTrue(started.wait(timeout=2))
+            time.sleep(0.15)
+            self.assertTrue(worker.is_alive(),"second session should wait for the first session row lock")
+        worker.join(timeout=3)
+        self.assertFalse(worker.is_alive(),"second session did not finish after row lock release")
+        self.assertEqual(errors,[])
+        self.assertEqual(self.conn.execute(
+            "SELECT status FROM cci.research_experiment_runs WHERE id=%s",(rid,)).fetchone()[0],"running")
 
 if __name__ == "__main__":
     unittest.main()
