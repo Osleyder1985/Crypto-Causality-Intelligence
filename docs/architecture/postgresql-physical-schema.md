@@ -482,14 +482,14 @@ El diseño de estados intermedios exactos y el mecanismo de publicación atómic
 Las migraciones serán versionadas, secuenciales, revisables y ejecutables desde una base vacía. Orden propuesto:
 
 1. Crear esquema `cci` y convenciones mínimas.
-2. Crear `data_sources`, `assets`, `ingestion_runs`, `transformations`, `research_experiments`.
-3. Crear `data_endpoints`, `source_usage_policies`, `assets` y `asset_identity_resolution_reviews`.\n4. Crear `asset_identifiers` (solo correspondencias aceptadas), `market_instruments` e `instrument_identifiers`.
-4. Crear `instrument_identifiers` y `policy_evaluations` con sus FKs compuestas.
-5. Crear `datasets` antes de las tablas que lo referencian.
-6. Crear `ingestion_requests`, `run_datasets` y `dataset_sources` con FK compuestas.
-7. Crear `instrument_metadata_versions`, `instrument_trading_rules`, `data_validations` y `transformation_runs`.
-8. Crear `dataset_lineage` y `experiment_datasets`.
-9. Crear `research_hypotheses`.
+2. Crear `data_sources`, `assets`, `ingestion_runs`, `transformations` y `research_experiments`.
+3. Crear `data_endpoints`, `source_usage_policies` y `policy_evaluations`.
+4. Crear `asset_identity_resolution_reviews` y `asset_identifiers` (estas últimas solo contienen correspondencias aceptadas).
+5. Crear `market_instruments` e `instrument_identifiers`.
+6. Crear `datasets` antes de las tablas que los referencian.
+7. Crear `ingestion_requests`, `run_datasets` y `dataset_sources` con FKs compuestas.
+8. Crear `instrument_metadata_versions`, `instrument_trading_rules`, `data_validations` y `transformation_runs`.
+9. Crear `dataset_lineage`, `experiment_datasets` y `research_hypotheses`.
 10. Crear índices adicionales, triggers de inmutabilidad y funciones de transición solo después de probar su necesidad.
 11. Registrar versión de migración y probar migración desde cero, actualización desde versión previa y reversión controlada.
 
