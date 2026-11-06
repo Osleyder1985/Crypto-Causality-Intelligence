@@ -129,7 +129,19 @@ def resolve_asset_identity(
 
     accepted = [item for item in matches if item.get("status") == "accepted"]
     accepted_targets = {item.get("canonical_asset_key") for item in accepted}
-    if "ambiguous" in {item.get("status") for item in matches}:
+    latest_decisions_conflict = False
+    if temporal_mode and len(matches) > 1:
+        # Empates en recorded_at no tienen precedencia entre sí. Si las
+        # decisiones máximas discrepan (estado o destino), bloquear la FK.
+        signatures = {
+            (item.get("status"), item.get("canonical_asset_key"))
+            for item in matches
+        }
+        latest_decisions_conflict = len(signatures) > 1
+    if (
+        "ambiguous" in {item.get("status") for item in matches}
+        or latest_decisions_conflict
+    ):
         resolution_status = "ambiguous"
         canonical_asset_key = None
         evidence_reference = None
