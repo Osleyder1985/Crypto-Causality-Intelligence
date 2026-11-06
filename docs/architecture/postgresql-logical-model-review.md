@@ -97,3 +97,28 @@ La especificación física debe concretar la función/trigger, la clave de bloqu
 - Garantizar que los mappings reproduzcan el intervalo exacto de la revisión aceptada.
 - Probar consultas `valid_at/known_at`, correcciones retroactivas, cierre y reapertura de vigencia, solapamientos, sustituciones inválidas y carreras concurrentes en PostgreSQL real.
 - Definir una secuencia monotónica por clave si se necesita desempate total además de `recorded_at`; mantener eventos/revisiones append-only mediante roles y triggers; comprobar rollback atómico de revisión y mapping.
+
+
+## 9. Validación documental inicial de namespaces (2026-11-06)
+
+Se revisó documentación oficial de CoinGecko, Binance Spot y Kraken Spot. Resultado:
+
+| Campo | Decisión | Motivo |
+|---|---|---|
+| CoinGecko `/coins/list[].id` | Aprobar `coingecko:coin_id`, global / asset | Es el identificador del catálogo del proveedor; los nombres y símbolos no son identificadores inequívocos. No representa por sí solo una identidad universal. |
+| CoinGecko `platforms[platform_id]` | Aprobar `coingecko:contract_address`, network / representation, condicionado a resolver plataforma→red | La dirección es específica de una plataforma/red y representa un contrato, no el activo abstracto. |
+| Binance `baseAsset` / `quoteAsset` | No crear namespace de activo | Son campos de los componentes de un símbolo de mercado; la documentación consultada no prueba unicidad global. |
+| Kraken `base_asset` / `quote_asset` | No crear namespace de activo | Son códigos de los componentes de un par de mercado; no prueban identidad global. |
+| Binance/Kraken símbolos y alias de pares | Mantener en `market_instruments` / `instrument_identifiers` | Identifican instrumentos/listados o interfaces, no activos universales. |
+
+Fuentes oficiales: CoinGecko Coins List (ID Map), https://docs.coingecko.com/reference/coins-list; CoinGecko Asset Platforms List, https://docs.coingecko.com/reference/asset-platforms-list; Binance Spot Exchange Information y Spot Glossary, https://developers.binance.com/en/docs/products/spot/market-data/rest-api/exchange-information y https://developers.binance.com/en/docs/products/spot/faqs/spot_glossary; Kraken Spot Post-Trade Data, https://docs.kraken.com/api/docs/rest-api/get-post-trade.
+
+### Condiciones pendientes antes de poblar el catálogo
+
+1. Obtener y revisar una captura documental/versionada de los metadatos CoinGecko usados, sin almacenar datos cuya licencia o política no lo permita.
+2. Definir la tabla de correspondencia CoinGecko platform ID → `networks.network_key`, con fuente oficial de chain ID/genesis u otra evidencia adecuada; no equiparar IDs por coincidencia textual.
+3. Confirmar el tratamiento de redes sin chain ID numérico y de plataformas que representan redes/entornos distintos.
+4. Verificar semántica y normalización de direcciones por familia de red sin modificar el literal original.
+5. Mantener los códigos Binance/Kraken en contexto de instrumento hasta que una evidencia independiente permita una resolución revisada a `assets`.
+
+La documentación no autoriza todavía insertar filas en `identity_namespaces`, crear mappings aceptados, generar migraciones ni declarar pruebas PostgreSQL. El próximo paso es cerrar el catálogo de redes/plataformas y las reglas de normalización de direcciones; después se podrá fijar el conjunto inicial de filas del registro.
