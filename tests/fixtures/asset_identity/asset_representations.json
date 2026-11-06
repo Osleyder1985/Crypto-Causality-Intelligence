@@ -1,0 +1,105 @@
+{
+  "schema_version": "1.0.0",
+  "status": "synthetic_test_fixture",
+  "notes": [
+    "All contract_address values are deliberately invalid synthetic placeholders, not deployed contracts.",
+    "No real asset, issuer, network deployment, or provider mapping is asserted.",
+    "The fixture tests structural identity rules only; it does not define address normalization."
+  ],
+  "assets": [
+    {"asset_key": "bitcoin", "asset_type": "crypto"},
+    {"asset_key": "wbtc_synthetic", "asset_type": "tokenized_asset"},
+    {"asset_key": "tether_usd_synthetic", "asset_type": "stablecoin"},
+    {"asset_key": "token_abc_alpha", "asset_type": "crypto"},
+    {"asset_key": "token_abc_beta", "asset_type": "crypto"}
+  ],
+  "networks": [
+    {"network_key": "bitcoin_mainnet_synthetic", "network_family": "bitcoin"},
+    {"network_key": "ethereum_mainnet_synthetic", "network_family": "evm"},
+    {"network_key": "tron_mainnet_synthetic", "network_family": "other"}
+  ],
+  "representations": [
+    {
+      "representation_key": "bitcoin_native",
+      "asset_key": "bitcoin",
+      "network_key": "bitcoin_mainnet_synthetic",
+      "representation_kind": "native",
+      "native_asset_key": "BTC_NATIVE_SYNTHETIC",
+      "contract_address": null,
+      "decimals": 8,
+      "valid_from": "2009-01-03T00:00:00Z",
+      "valid_until": null,
+      "evidence_reference": "fixture:synthetic-bitcoin-native"
+    },
+    {
+      "representation_key": "wbtc_ethereum_synthetic",
+      "asset_key": "wbtc_synthetic",
+      "network_key": "ethereum_mainnet_synthetic",
+      "representation_kind": "token_contract",
+      "native_asset_key": null,
+      "contract_address": "0xSYNTHETIC_NOT_A_REAL_WBTC_CONTRACT",
+      "decimals": 8,
+      "valid_from": "2020-01-01T00:00:00Z",
+      "valid_until": null,
+      "evidence_reference": "fixture:synthetic-wbtc-deployment"
+    },
+    {
+      "representation_key": "tether_ethereum_synthetic",
+      "asset_key": "tether_usd_synthetic",
+      "network_key": "ethereum_mainnet_synthetic",
+      "representation_kind": "token_contract",
+      "native_asset_key": null,
+      "contract_address": "0xSYNTHETIC_NOT_A_REAL_USDT_ETH_CONTRACT",
+      "decimals": 6,
+      "valid_from": "2020-01-01T00:00:00Z",
+      "valid_until": null,
+      "evidence_reference": "fixture:synthetic-usdt-ethereum-deployment"
+    },
+    {
+      "representation_key": "tether_tron_synthetic",
+      "asset_key": "tether_usd_synthetic",
+      "network_key": "tron_mainnet_synthetic",
+      "representation_kind": "token_contract",
+      "native_asset_key": null,
+      "contract_address": "T_SYNTHETIC_NOT_A_REAL_USDT_TRON_CONTRACT",
+      "decimals": 6,
+      "valid_from": "2020-01-01T00:00:00Z",
+      "valid_until": null,
+      "evidence_reference": "fixture:synthetic-usdt-tron-deployment"
+    },
+    {
+      "representation_key": "abc_alpha_ethereum",
+      "asset_key": "token_abc_alpha",
+      "network_key": "ethereum_mainnet_synthetic",
+      "representation_kind": "token_contract",
+      "native_asset_key": null,
+      "contract_address": "0xSYNTHETIC_ABC_ALPHA",
+      "decimals": 18,
+      "valid_from": "2022-01-01T00:00:00Z",
+      "valid_until": null,
+      "evidence_reference": "fixture:synthetic-abc-alpha"
+    },
+    {
+      "representation_key": "abc_beta_ethereum",
+      "asset_key": "token_abc_beta",
+      "network_key": "ethereum_mainnet_synthetic",
+      "representation_kind": "token_contract",
+      "native_asset_key": null,
+      "contract_address": "0xSYNTHETIC_ABC_BETA",
+      "decimals": 18,
+      "valid_from": "2022-01-01T00:00:00Z",
+      "valid_until": null,
+      "evidence_reference": "fixture:synthetic-abc-beta"
+    }
+  ],
+  "relationships": [
+    {
+      "subject_asset_key": "wbtc_synthetic",
+      "object_asset_key": "bitcoin",
+      "relationship_type": "wrapped_representation_of",
+      "valid_from": "2020-01-01T00:00:00Z",
+      "valid_until": null,
+      "evidence_reference": "fixture:synthetic-wrapper-relationship"
+    }
+  ]
+}
