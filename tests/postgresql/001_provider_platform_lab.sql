@@ -50,7 +50,7 @@ CREATE TABLE provider_platform_observations (
     CONSTRAINT provider_platform_observations_ck_chain_identifier_json
         CHECK (jsonb_typeof(reported_chain_identifier_json) IN ('number', 'null')),
     CONSTRAINT provider_platform_observations_ck_evidence_sha256
-        CHECK (evidence_sha256 IS NULL OR evidence_sha256 ~ '^[0-9a-f]{64}
+        CHECK (evidence_sha256 IS NULL OR evidence_sha256 ~ '^[0-9a-f]{64}$'),
     CONSTRAINT provider_platform_observations_uq_capture
         UNIQUE (provider_platform_id, capture_id),
     CONSTRAINT provider_platform_observations_uq_id_platform
