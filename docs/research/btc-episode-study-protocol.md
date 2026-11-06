@@ -124,4 +124,4 @@ El manifiesto conserva los límites originales en `start_local` y `end_local` co
 
 El manifiesto solo puede pasar a `approved` cuando se identifiquen un venue y tipo de mercado únicos, la procedencia del dataset, la autorización de uso/retención y todos los episodios confirmados. El CLI rechaza manifiestos `pending_confirmation`, datasets sin autorización y episodios no confirmados. El esquema JSON documenta la estructura; el validador Python aplica además las invariantes temporales y de ejecución.
 
-Las listas JSON heredadas siguen admitidas por compatibilidad, pero no ofrecen los controles de procedencia, zona horaria local y autorización del manifiesto canónico. Para el primer run real debe utilizarse el manifiesto versionado.
+Las listas JSON heredadas siguen admitidas únicamente por compatibilidad en la función de lectura y en pruebas históricas. El CLI de investigación las rechaza: toda ejecución operativa exige el manifiesto versionado y sus controles de procedencia, zona horaria local y autorización.
