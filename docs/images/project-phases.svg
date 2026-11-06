@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1440" height="600" viewBox="0 0 1440 600" role="img" aria-labelledby="title desc">
-<title id="title">Cinco fases de CryptoCausality Intelligence</title>
+<title id="title">Cinco fases de Crypto-Causality Intelligence</title>
 <desc id="desc">Cinco etapas: Historical Market Intelligence, Causality Research Methodology, Market Regime Intelligence, Predictive Intelligence y Autonomous Market Intelligence.</desc>
 <defs>
  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#061326"/><stop offset="1" stop-color="#020814"/></linearGradient>
@@ -11,7 +11,7 @@
  </style>
 </defs>
 <rect width="1440" height="600" rx="26" fill="url(#bg)"/>
-<text x="70" y="78" class="tag">ROADMAP / EVOLUCIÓN METODOLÓGICA</text>
+<text x="70" y="78" class="tag">HOJA DE RUTA / EVOLUCIÓN METODOLÓGICA</text>
 <text x="70" y="130" class="head">Cinco fases hacia la inteligencia predictiva</text>
 <path d="M140 270H1300" stroke="url(#line)" stroke-width="5" stroke-linecap="round"/>
 <g transform="translate(48 190)">
@@ -25,7 +25,7 @@
  <rect width="250" height="300" rx="18" fill="#0b1b31" stroke="#10b981" stroke-width="2"/>
  <circle cx="42" cy="44" r="25" fill="#059669"/><text x="42" y="53" text-anchor="middle" class="num">2</text>
  <text x="28" y="105" class="title">Causality Research</text><text x="28" y="132" class="title">Methodology</text>
- <text x="28" y="190" class="body">Formular y contrastar</text><text x="28" y="216" class="body">hipótesis con evidencia,</text><text x="28" y="242" class="body">alternativas y refutación.</text>
+ <text x="28" y="190" class="body">Formular y contrastar</text><text x="28" y="216" class="body">hipótesis con evidencias,</text><text x="28" y="242" class="body">alternativas y refutación.</text>
  <text x="28" y="278" class="tag">MÉTODO CIENTÍFICO</text>
 </g>
 <g transform="translate(624 190)">
@@ -49,5 +49,5 @@
  <text x="25" y="205" class="body">Monitorear, alertar</text><text x="25" y="231" class="body">y recomendar.</text>
  <text x="25" y="278" class="tag">SUPERVISIÓN HUMANA</text>
 </g>
-<text x="720" y="550" text-anchor="middle" font="600 15px Inter,Segoe UI,sans-serif" fill="#94a3b8">Las fases avanzan por criterios de aceptación verificables, no por calendario.</text>
+<text x="720" y="550" text-anchor="middle" font="600 15px Inter,Segoe UI,sans-serif" fill="#94a3b8">Las fases avanzan según criterios de aceptación verificables, no por calendario.</text>
 </svg>
