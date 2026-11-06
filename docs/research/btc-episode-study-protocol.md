@@ -2,6 +2,8 @@
 
 - Issue: #17
 - Estado: implementación inicial; pendiente de ejecutar con un dataset cuyo tratamiento esté autorizado.
+- Fuente seleccionada: Binance Spot, símbolo `BTCUSDT`.
+- Endpoint previsto: `GET /api/v3/klines` en `data-api.binance.vision`.
 - Granularidad inicial: velas de 1 hora.
 - Ventanas de episodio: intervalos UTC semiabiertos [inicio, fin).
 
@@ -120,7 +122,7 @@ Para el primer experimento se prefiere el manifiesto versionado frente a la list
 - [Plantilla pendiente de confirmación](btc-usdt-episode-manifest.template.json).
 - Validador ejecutable: `scripts/research/episode_manifest.py`.
 
-El manifiesto conserva los límites originales en `start_local` y `end_local` con offset explícito `-05:00), junto con sus equivalentes `start_utc` y `end_utc`. El validador exige que ambos pares representen exactamente los mismos instantes, que los límites estén alineados al intervalo, que los IDs sean únicos y que no existan solapamientos.
+El manifiesto conserva los límites originales en `start_local` y `end_local` con offset explícito `-05:00`, junto con sus equivalentes `start_utc` y `end_utc`. El validador exige que ambos pares representen exactamente los mismos instantes, que los límites estén alineados al intervalo, que los IDs sean únicos y que no existan solapamientos.
 
 El manifiesto solo puede pasar a `approved` cuando se identifiquen un venue y tipo de mercado únicos, la procedencia del dataset, la autorización de uso/retención y todos los episodios confirmados. El CLI rechaza manifiestos `pending_confirmation`, datasets sin autorización y episodios no confirmados. El esquema JSON documenta la estructura; el validador Python aplica además las invariantes temporales y de ejecución.
 
