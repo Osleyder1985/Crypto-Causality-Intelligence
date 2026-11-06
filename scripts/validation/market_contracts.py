@@ -42,59 +42,105 @@ def _epoch_datetime(value: Any, unit: str) -> datetime:
 
 
 
+def _identity_timestamp(value: Any, field: str) -> datetime:
+    """Valida timestamps ISO-8601 con zona horaria para resolución temporal."""
+    if isinstance(value, datetime):
+        parsed = value
+    elif isinstance(value, str):
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise ValueError(f"Timestamp inválido: {field}") from exc
+    else:
+        raise ValueError(f"Timestamp obligatorio: {field}")
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError(f"Timestamp debe incluir zona horaria: {field}")
+    return parsed.astimezone(timezone.utc)
+
+
 def resolve_asset_identity(
     namespace: str,
     native_code: str,
     mappings: Sequence[Mapping[str, Any]],
     *,
     network: str | None = None,
+    valid_at: datetime | str | None = None,
+    known_at: datetime | str | None = None,
 ) -> dict[str, Any]:
-    """Resuelve solo correspondencias explícitas, exactas y respaldadas.
+    """Resuelve correspondencias exactas, con consulta bitemporal opcional.
 
-    No aplica equivalencias por ticker, similitud textual, prefijos ni
-    conocimiento implícito. Una correspondencia accepted exige evidencia.
+    valid_at selecciona el periodo de validez en el dominio del proveedor.
+    known_at limita la decisión a lo que CCI ya había registrado en ese instante.
+    En modo temporal, solo se consideran filas con valid_from y recorded_at
+    explícitos; valid_until es exclusivo y puede ser NULL (sin fin conocido).
     """
     if not namespace or not native_code:
         raise ValueError("namespace y native_code son obligatorios")
-    matches = [
-        item for item in mappings
-        if item.get("namespace") == namespace
-        and item.get("native_code") == native_code
-        and item.get("network") == network
-    ]
+    temporal_mode = valid_at is not None or known_at is not None
+    if temporal_mode and (valid_at is None or known_at is None):
+        raise ValueError("valid_at y known_at deben proporcionarse juntos")
+    query_valid_at = (
+        _identity_timestamp(valid_at, "valid_at") if temporal_mode else None
+    )
+    query_known_at = (
+        _identity_timestamp(known_at, "known_at") if temporal_mode else None
+    )
+
+    matches = []
+    for item in mappings:
+        if not (
+            item.get("namespace") == namespace
+            and item.get("native_code") == native_code
+            and item.get("network") == network
+        ):
+            continue
+        if temporal_mode:
+            # Sin inicio de validez o tiempo de registro no hay base para
+            # afirmar que la decisión aplicaba y era conocida en la consulta.
+            if item.get("valid_from") is None or item.get("recorded_at") is None:
+                continue
+            valid_from = _identity_timestamp(item["valid_from"], "valid_from")
+            recorded_at = _identity_timestamp(item["recorded_at"], "recorded_at")
+            valid_until = (
+                _identity_timestamp(item["valid_until"], "valid_until")
+                if item.get("valid_until") is not None else None
+            )
+            if valid_until is not None and valid_until <= valid_from:
+                raise ValueError("valid_until debe ser posterior a valid_from")
+            if not (valid_from <= query_valid_at and
+                    (valid_until is None or query_valid_at < valid_until)):
+                continue
+            if recorded_at > query_known_at:
+                continue
+        matches.append(item)
+
     accepted = [item for item in matches if item.get("status") == "accepted"]
     accepted_targets = {item.get("canonical_asset_key") for item in accepted}
     if "ambiguous" in {item.get("status") for item in matches}:
-        return {
-            "resolution_status": "ambiguous",
-            "canonical_asset_key": None,
-            "evidence_reference": None,
-            "matched_namespace": namespace,
-            "matched_native_code": native_code,
-            "matched_network": network,
-        }
-    if len(accepted_targets) > 1:
+        resolution_status = "ambiguous"
+        canonical_asset_key = None
+        evidence_reference = None
+    elif len(accepted_targets) > 1:
         raise ValueError("Correspondencias aceptadas en conflicto para el mismo identificador")
-    if accepted:
+    elif accepted:
         item = accepted[0]
         if not item.get("canonical_asset_key") or not item.get("evidence_reference"):
             raise ValueError("Una correspondencia accepted requiere destino y evidencia")
-        return {
-            "resolution_status": "resolved",
-            "canonical_asset_key": item["canonical_asset_key"],
-            "evidence_reference": item["evidence_reference"],
-            "matched_namespace": namespace,
-            "matched_native_code": native_code,
-            "matched_network": network,
-        }
-    statuses = {item.get("status") for item in matches}
-    status = "ambiguous" if "ambiguous" in statuses else (
-        "pending_review" if matches else "unresolved"
-    )
+        resolution_status = "resolved"
+        canonical_asset_key = item["canonical_asset_key"]
+        evidence_reference = item["evidence_reference"]
+    else:
+        statuses = {item.get("status") for item in matches}
+        resolution_status = "ambiguous" if "ambiguous" in statuses else (
+            "pending_review" if matches else "unresolved"
+        )
+        canonical_asset_key = None
+        evidence_reference = None
+
     return {
-        "resolution_status": status,
-        "canonical_asset_key": None,
-        "evidence_reference": None,
+        "resolution_status": resolution_status,
+        "canonical_asset_key": canonical_asset_key,
+        "evidence_reference": evidence_reference,
         "matched_namespace": namespace,
         "matched_native_code": native_code,
         "matched_network": network,
