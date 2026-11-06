@@ -1,6 +1,6 @@
 # Revisión técnica del modelo lógico de PostgreSQL
 
-- **Estado:** revisión de diseño; cambios propuestos, pendientes de incorporar al modelo.
+- **Estado:** revisión de seguimiento v0.2; los hallazgos P0 originales tienen avances en la especificación física, pero persisten desalineaciones entre el modelo lógico y el físico. No autoriza todavía la generación de migraciones.
 - **Fecha:** 2026-11-06.
 - **Documento revisado:** `postgresql-logical-data-model.md`.
 - **Decisión relacionada:** ADR-001.
@@ -127,3 +127,43 @@ El modelo estará listo para migraciones cuando:
 - Las restricciones temporales, estados y reglas de borrado estén definidas.
 - El diagrama y el diccionario de datos representen las mismas relaciones.
 - Se pueda implementar el modelo desde cero y comprobarlo con pruebas de integridad usando datos sintéticos.
+
+
+## 7. Revisión de seguimiento sobre PR #16
+
+La especificación física avanzó respecto de la revisión inicial. No obstante, la comparación directa de los documentos lógicos y físicos revela que aún no constituyen un único contrato coherente.
+
+### 7.1 Estado de los hallazgos originales
+
+| Hallazgo | Estado actual | Evidencia / brecha |
+|---|---|---|
+| P0 — autorización por contribución de dataset | Parcialmente resuelto | El diseño físico incorpora `policy_evaluations` y `dataset_sources.policy_evaluation_id`, con snapshot y FKs compuestas. El modelo lógico aún usa `source_usage_policy_id` directamente y no describe `policy_evaluations`. |
+| P0 — relación Run/dataset | Resuelto en el diseño | `run_datasets` aparece en los modelos lógico y físico. El linaje de transformaciones permanece separado mediante `dataset_lineage`. |
+| P0 — coherencia fuente/endpoint/instrumento | Parcialmente resuelto | El diseño físico define FKs compuestas en `ingestion_requests` y `dataset_sources`. El modelo lógico no documenta esas claves ni las mismas columnas redundantes de integridad. |
+| P1 — versionado de metadata | Resuelto en el diseño | `instrument_metadata_versions` y `instrument_trading_rules` están descritas en la especificación física; el modelo lógico incluye el historial de metadata. |
+| P1 — identidad de activos y redes | No alineado | El diseño físico separa `assets`, `networks`, `asset_representations` y relaciones; el modelo lógico aún conserva `assets.network` y no incorpora todo el dominio de redes/representaciones. |
+
+### 7.2 Brechas adicionales detectadas
+
+1. **Alcance de políticas por producto/plan.** `source_usage_policies.policy_scope` permite `product`, pero no define una referencia estructurada que identifique el producto o plan al que aplica la evidencia.
+2. **Tipo de dato en la procedencia.** `policy_evaluations` registra `data_type`, pero la clave compuesta descrita para `dataset_sources` no incluye ese campo. La base podría asociar una contribución a una evaluación de la misma fuente/endpoint/uso, pero de otro tipo de dato. La aplicación debe comprobarlo; preferiblemente la integridad debe reforzarse con `data_type` en `dataset_sources` y en la clave compuesta de evaluación.
+3. **Snapshot lógico de autorización.** El modelo lógico debe describir la evaluación concreta, su instante, vigencia evaluada, evidencia y resultado, no solo la política fuente.
+4. **Diagrama entidad-relación.** Debe actualizarse para incluir redes, representaciones, revisiones de identidad, evaluaciones de política, versiones de metadata y `run_datasets`. El diagrama debe generarse desde las mismas relaciones documentadas, no mantenerse como ilustración independiente.
+
+### 7.3 Dictamen actualizado
+
+La rama de PR #16 está sincronizada con `main` y la CI de contratos sintéticos está aprobada con 48/48 pruebas. Esas pruebas validan parsers y contratos de aplicación; **no prueban las restricciones descritas en el diseño físico**, porque todavía no existe DDL ejecutable ni una instancia PostgreSQL en CI.
+
+Por tanto, PR #16 puede continuar como entrega de diseño, pero no debe salir de Draft ni convertirse todavía en migraciones SQL.
+
+### 7.4 Orden de cierre recomendado
+
+1. Actualizar el modelo lógico para que represente exactamente las entidades, columnas, claves y relaciones del diseño físico.
+2. Incorporar `policy_evaluations` al modelo lógico y reforzar la integridad de `data_type` en `dataset_sources`.
+3. Definir el identificador de alcance de políticas de producto/plan.
+4. Alinear el dominio de redes y representaciones blockchain en el modelo lógico y el diagrama.
+5. Resolver restricciones temporales, estados y borrado que todavía dependan solo de la aplicación.
+6. Generar migraciones SQL iniciales desde la especificación ya reconciliada.
+7. Ejecutar pruebas de integridad y migración desde cero en PostgreSQL real con fixtures sintéticos.
+
+No se han creado migraciones ni se ha desplegado PostgreSQL en esta revisión.
