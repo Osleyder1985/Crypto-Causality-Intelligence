@@ -110,3 +110,18 @@ Las pruebas crean archivos Parquet temporales con datos sintéticos y verifican 
 ## Prerregistro del experimento histórico
 
 La pregunta de investigación, hipótesis exploratorias, reglas de cohorte, definiciones de métricas, controles de calidad y condiciones para iniciar el primer run real se especifican en [btc-usdt-first-experiment-preregistration.md](btc-usdt-first-experiment-preregistration.md). Ese prerregistro es la referencia antes de inspeccionar resultados reales. La lista definitiva de episodios aún debe reconciliarse; no se deben completar límites por inferencia.
+
+
+## Manifiesto canónico versionado (preferido)
+
+Para el primer experimento se prefiere el manifiesto versionado frente a la lista JSON heredada. Los archivos de referencia son:
+
+- [Esquema JSON](btc-usdt-episode-manifest.schema.json).
+- [Plantilla pendiente de confirmación](btc-usdt-episode-manifest.template.json).
+- Validador ejecutable: `scripts/research/episode_manifest.py`.
+
+El manifiesto conserva los límites originales en `start_local` y `end_local` con offset explícito `-05:00), junto con sus equivalentes `start_utc` y `end_utc`. El validador exige que ambos pares representen exactamente los mismos instantes, que los límites estén alineados al intervalo, que los IDs sean únicos y que no existan solapamientos.
+
+El manifiesto solo puede pasar a `approved` cuando se identifiquen un venue y tipo de mercado únicos, la procedencia del dataset, la autorización de uso/retención y todos los episodios confirmados. El CLI rechaza manifiestos `pending_confirmation`, datasets sin autorización y episodios no confirmados. El esquema JSON documenta la estructura; el validador Python aplica además las invariantes temporales y de ejecución.
+
+Las listas JSON heredadas siguen admitidas por compatibilidad, pero no ofrecen los controles de procedencia, zona horaria local y autorización del manifiesto canónico. Para el primer run real debe utilizarse el manifiesto versionado.
