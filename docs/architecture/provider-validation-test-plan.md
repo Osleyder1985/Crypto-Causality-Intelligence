@@ -190,21 +190,23 @@ Decisiones implementadas:
 - Los números financieros se convierten desde texto a `Decimal`; no se utiliza `float` en los parsers.
 - En Kraken no se infiere `quantity_step` a partir de `lot_decimals`.
 - Los filtros Binance se conservan individualmente en `trading_rules`, incluidos los tipos aún no reconocidos; `LOT_SIZE` y `MARKET_LOT_SIZE` se mapean por separado.
+- La resolución de activos exige coincidencia exacta de namespace, código nativo y red; no aplica equivalencias automáticas por ticker ni similitud textual.
+- Solo una correspondencia `accepted` con evidencia puede devolver una clave canónica. Los casos sin mapeo permanecen `unresolved`; los pendientes y ambiguos no se resuelven.
 - Los campos no reconocidos de ambos proveedores se conservan en `provider_extensions`; el parser no los descarta silenciosamente.
 - Los filtros Binance duplicados o malformados se rechazan explícitamente.
 - Kraken conserva `tick_size`, mínimos y precisiones en `trading_rules`, sin inferir un incremento de cantidad.
 
-**Ampliación de esta iteración:** se añadieron cinco pruebas de metadata para `MARKET_LOT_SIZE`, filtros desconocidos, campos de proveedor no reconocidos, filtros duplicados/malformados y ausencia de campos opcionales. El total esperado de la suite pasa de 13 a 18 pruebas. La ejecución de CI de este nuevo commit debe verificarse antes de declarar el resultado aprobado.
+**Ampliación de esta iteración:** se añadieron cinco pruebas de metadata para `MARKET_LOT_SIZE`, filtros desconocidos, campos de proveedor no reconocidos, filtros duplicados/malformados y ausencia de campos opcionales. Se añadieron seis pruebas de resolución de activos: no equivalencia implícita BTC/XBT/XXBT, aceptación explícita con evidencia, aislamiento por namespace/red, estado pendiente, conflicto de destinos y evidencia obligatoria. La suite pasa de 13 a 24 pruebas; la CI del commit más reciente debe verificarse antes de declarar el resultado aprobado.
 
 ## 10. Secuencia de implementación
 
-1. Crear fixtures sintéticos mínimos.
-2. Implementar parsers puros y pruebas unitarias sin red.
-3. Revisar resultados y ajustar los contratos canónicos si hay discrepancias.
-4. Añadir un comando de captura pública opt-in, sin persistencia raw por defecto.
-5. Ejecutar capturas controladas de Binance y Kraken.
-6. Documentar resultados y limitaciones en el informe de validación.
-7. Solo después de la aceptación, diseñar adaptadores operativos y migraciones PostgreSQL.
+1. Definir la política de identidad canónica y los estados de resolución.
+2. Implementar resolución exacta y pruebas sintéticas sin red.
+3. Completar fixtures de metadata y validar parsers puros.
+4. Revisar resultados y ajustar los contratos canónicos si hay discrepancias.
+5. Evaluar si la evidencia histórica existente puede inspeccionarse legítimamente para validar los parsers.
+6. Ejecutar capturas controladas adicionales solo si están autorizadas y son necesarias.
+7. Diseñar migraciones PostgreSQL y pruebas de integridad en una instancia temporal; no cargar datos de mercado reales.
 
 ## 10. Regla de seguridad
 
