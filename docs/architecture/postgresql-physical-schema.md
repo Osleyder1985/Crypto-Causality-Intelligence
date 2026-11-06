@@ -169,14 +169,17 @@ La política aplicable se resuelve considerando fuente, endpoint, tipo de dato, 
 - `resolution_status TEXT NOT NULL`: CHECK en `pending_review, accepted, rejected, ambiguous`.
 - `evidence_reference TEXT NULL`
 - `decision_reference TEXT NULL` (identidad del proceso/revisor o acta de decisión; nunca credenciales).
-- `observed_at TIMESTAMPTZ NOT NULL`
-- `reviewed_at TIMESTAMPTZ NULL`
-- `valid_from TIMESTAMPTZ NULL`, `valid_until TIMESTAMPTZ NULL`
-- CHECK: `valid_until IS NULL OR valid_from IS NULL OR valid_until > valid_from`.
-- CHECK: `resolution_status <> 'accepted' OR (candidate_asset_id IS NOT NULL AND evidence_reference IS NOT NULL AND reviewed_at IS NOT NULL)`.
-- Registro append-only. Una nueva decisión crea otra fila; no sobrescribir decisiones históricas.
-- Índice `(namespace, network, external_identifier, observed_at DESC)`; índice parcial por `candidate_asset_id` cuando no sea NULL.
-- Esta tabla conserva estados pendientes, ambiguos y rechazados; no autoriza por sí misma la asociación canónica.
+- `observed_at TIMESTAMPTZ NOT NULL` (momento de observación de la fuente).
+- `reviewed_at TIMESTAMPTZ NULL` (momento de decisión humana/proceso).
+- `recorded_at TIMESTAMPTZ NOT NULL` (momento de registro inmutable en CCI; reloj de conocimiento).
+- `valid_from TIMESTAMPTZ NULL`, `valid_until TIMESTAMPTZ NULL` (intervalo de validez del proveedor, semiabierto `[valid_from, valid_until)`).
+- `supersedes_review_id UUID NULL FK asset_identity_resolution_reviews(id)` (revisión anterior corregida, si aplica).
+- CHECK `valid_until IS NULL OR (valid_from IS NOT NULL AND valid_until > valid_from)`.
+- CHECK `resolution_status <> 'accepted' OR (candidate_asset_id IS NOT NULL AND evidence_reference IS NOT NULL AND reviewed_at IS NOT NULL AND valid_from IS NOT NULL)`.
+- CHECK de no auto-referencia en `supersedes_review_id`.
+- Registro append-only; `recorded_at` se asigna al insertar y nunca se backdatea. Las revisiones correctivas apuntan a la anterior sin modificarla. Una nueva decisión crea otra fila; no sobrescribir decisiones históricas.
+- Índices `(namespace, network, external_identifier, recorded_at DESC)` y `(supersedes_review_id)`; índice parcial por `candidate_asset_id` cuando no sea NULL.
+- Esta tabla conserva estados pendientes, ambiguos y rechazados; no autoriza por sí misma la asociación canónica. La consulta bitemporal filtra por `valid_at` y `known_at`, y selecciona la revisión más reciente por `recorded_at` que era conocida en `known_at`; empates contradictorios se resuelven como `ambiguous`.
 
 **`asset_identifiers`**
 
@@ -185,13 +188,14 @@ La política aplicable se resuelve considerando fuente, endpoint, tipo de dato, 
 - `namespace TEXT NOT NULL`
 - `network TEXT NULL`
 - `external_identifier TEXT NOT NULL`
-- `valid_from TIMESTAMPTZ NULL`, `valid_until TIMESTAMPTZ NULL`
-- `evidence_reference TEXT NULL`
-- `created_at TIMESTAMPTZ NOT NULL`
-- CHECK `valid_until IS NULL OR valid_from IS NULL OR valid_until > valid_from`.
+- `valid_from TIMESTAMPTZ NOT NULL`, `valid_until TIMESTAMPTZ NULL` (vigencia semiabierta).
+- `recorded_at TIMESTAMPTZ NOT NULL` (cuándo CCI publicó el mapping).
+- `evidence_reference TEXT NOT NULL` y `resolution_review_id UUID NOT NULL FK asset_identity_resolution_reviews(id)`.
+- `created_at TIMESTAMPTZ NOT NULL`.
+- CHECK `valid_until IS NULL OR valid_until > valid_from`.
 - Índice de búsqueda `(namespace, network, external_identifier)`.
 - No se impone UNIQUE simple con `valid_from`: PostgreSQL permite múltiples NULL en una restricción UNIQUE convencional y los identificadores pueden tener periodos históricos. Se implementarán índices únicos parciales para identidades vigentes sin fecha inicial y para observaciones con fecha inicial, una vez definida la política de correcciones.
-- Esta tabla contiene solo correspondencias aceptadas. La evidencia y decisión aprobatoria deben existir en `asset_identity_resolution_reviews`; la aplicación impide solapamientos temporales del mismo identificador dentro de namespace/red bajo bloqueo transaccional.
+- Esta tabla contiene solo mappings aceptados derivados de una revisión aceptada. `recorded_at` permite reconstruir cuándo CCI conocía el mapping; `valid_from/valid_until` describen cuándo aplicaba en el proveedor. La publicación debe ser transaccional y referenciar la revisión aprobatoria exacta. No actualizar ni borrar mappings históricos.
 
 **`market_instruments`**
 - `id UUID PK`
@@ -439,6 +443,17 @@ Se crearán índices explícitos para FKs usadas en joins y patrones de consulta
 | `experiment_datasets` | PK compuesta; índice `(dataset_id)` | Consultas por experimento y dataset. |
 
 No crear índices GIN sobre todos los JSONB ni índices parciales sin consulta concreta. No particionar tablas operativas antes de disponer de volúmenes medidos. No añadir índices duplicados que ya cubra una PK/UNIQUE.
+
+## 5.1 Tiempo bitemporal de resolución de activos
+
+Para `asset_identity_resolution_reviews` y `asset_identifiers` se aplican dos ejes independientes:
+
+- Validez del proveedor: `[valid_from, valid_until)`.
+- Conocimiento de CCI: `recorded_at`, nunca retrodatado.
+
+`observed_at` y `reviewed_at` son timestamps de procedencia y decisión; no sustituyen a ninguno de los dos ejes. La consulta histórica requiere `valid_at` y `known_at`, ambos con zona horaria. En una misma clave exacta (namespace, red, código), se selecciona la revisión más reciente registrada hasta `known_at`; si la revisión máxima contiene decisiones contradictorias, no se publica FK y el resultado es ambiguo. Una corrección se inserta como nueva fila con `supersedes_review_id`; nunca se reescribe la fila anterior.
+
+Una revisión aceptada necesita `valid_from` explícito. NULL no significa “desde siempre”. Los mappings publicados heredan el periodo y la referencia de la revisión aceptada. Las escrituras de revisión y publicación deben ejecutarse en una transacción; la lógica de aplicación/constraint trigger debe impedir que una revisión aceptada se publique sin su evidencia y sin que la revisión sea la decisión efectiva para el periodo consultado.
 
 ## 6. Tiempo, estados e inmutabilidad
 
