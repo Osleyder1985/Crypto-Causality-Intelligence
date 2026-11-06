@@ -47,7 +47,7 @@ class CandleValidationTests(unittest.TestCase):
         report = validate_candles([candle(0), candle(7200)], 3600, 0, 10800)
         self.assertEqual(report["coverage_pct_if_continuous"], 66.6667)
         self.assertEqual(report["gaps"][0]["missing_intervals"], 1)
-        self.assertIn("no implica automáticamente pérdida", report["gap_interpretation"])
+        self.assertIn("no se clasifica automáticamente como pérdida", report["gap_interpretation"])
 
     def test_reports_duplicate_timestamp(self):
         report = validate_candles([candle(0), candle(0)], 3600, 0, 7200)
