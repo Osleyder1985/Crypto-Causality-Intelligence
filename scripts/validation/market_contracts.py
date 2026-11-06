@@ -41,6 +41,57 @@ def _epoch_datetime(value: Any, unit: str) -> datetime:
         raise ValueError("Timestamp fuera de rango") from exc
 
 
+
+def resolve_asset_identity(
+    namespace: str,
+    native_code: str,
+    mappings: Sequence[Mapping[str, Any]],
+    *,
+    network: str | None = None,
+) -> dict[str, Any]:
+    """Resuelve solo correspondencias explícitas, exactas y respaldadas.
+
+    No aplica equivalencias por ticker, similitud textual, prefijos ni
+    conocimiento implícito. Una correspondencia accepted exige evidencia.
+    """
+    if not namespace or not native_code:
+        raise ValueError("namespace y native_code son obligatorios")
+    matches = [
+        item for item in mappings
+        if item.get("namespace") == namespace
+        and item.get("native_code") == native_code
+        and item.get("network") == network
+    ]
+    accepted = [item for item in matches if item.get("status") == "accepted"]
+    accepted_targets = {item.get("canonical_asset_key") for item in accepted}
+    if len(accepted_targets) > 1:
+        raise ValueError("Correspondencias aceptadas en conflicto para el mismo identificador")
+    if accepted:
+        item = accepted[0]
+        if not item.get("canonical_asset_key") or not item.get("evidence_reference"):
+            raise ValueError("Una correspondencia accepted requiere destino y evidencia")
+        return {
+            "resolution_status": "resolved",
+            "canonical_asset_key": item["canonical_asset_key"],
+            "evidence_reference": item["evidence_reference"],
+            "matched_namespace": namespace,
+            "matched_native_code": native_code,
+            "matched_network": network,
+        }
+    statuses = {item.get("status") for item in matches}
+    status = "ambiguous" if "ambiguous" in statuses else (
+        "pending_review" if matches else "unresolved"
+    )
+    return {
+        "resolution_status": status,
+        "canonical_asset_key": None,
+        "evidence_reference": None,
+        "matched_namespace": namespace,
+        "matched_native_code": native_code,
+        "matched_network": network,
+    }
+
+
 def parse_binance_kline(
     row: Sequence[Any], *, timestamp_unit: str = "ms"
 ) -> dict[str, Any]:
