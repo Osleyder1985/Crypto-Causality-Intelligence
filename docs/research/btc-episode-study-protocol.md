@@ -111,7 +111,7 @@ Las pruebas crean archivos Parquet temporales con datos sintéticos y verifican 
 
 ## Prerregistro del experimento histórico
 
-La pregunta de investigación, hipótesis exploratorias, reglas de cohorte, definiciones de métricas, controles de calidad y condiciones para iniciar el primer run real se especifican en [btc-usdt-first-experiment-preregistration.md](btc-usdt-first-experiment-preregistration.md). Ese prerregistro es la referencia antes de inspeccionar resultados reales. La lista definitiva de episodios aún debe reconciliarse; el registro de candidatos está en [btc-usdt-episode-candidates.md](btc-usdt-episode-candidates.md). No se deben completar límites por inferencia.
+La pregunta de investigación, hipótesis exploratorias, reglas de cohorte, definiciones de métricas, controles de calidad y condiciones para iniciar el primer run real se especifican en [btc-usdt-first-experiment-preregistration.md](btc-usdt-first-experiment-preregistration.md). Ese prerregistro es la referencia antes de inspeccionar resultados reales. El final de la subida del 2026-05-06 fue confirmado por el operador a las 04:00 UTC-05:00, coincidiendo con el inicio de la caída siguiente. El registro de candidatos está en [btc-usdt-episode-candidates.md](btc-usdt-episode-candidates.md); solo falta el final de esa caída. No completar límites por inferencia.
 
 
 ## Manifiesto canónico versionado (preferido)
