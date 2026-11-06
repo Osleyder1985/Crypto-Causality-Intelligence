@@ -1,0 +1,40 @@
+name: Prueba empírica de datos BTC y ETH
+
+on:
+  push:
+    branches:
+      - research/issue-11-empirical-data-poc
+    paths:
+      - "scripts/research/download_validate_market_data.py"
+      - "tests/**"
+      - ".github/workflows/issue-11-data-poc.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  extract-and-validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Obtener el repositorio
+        uses: actions/checkout@v4
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Ejecutar pruebas unitarias
+        run: python -m unittest discover -s tests -v
+      - name: Ejecutar extracción y controles
+        run: |
+          python scripts/research/download_validate_market_data.py --out artifacts/issue-11
+      - name: Conservar evidencia de la ejecución
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue-11-exchange-evidence
+          # Solo se publica el manifiesto técnico; nunca los valores de mercado.
+          path: artifacts/issue-11/manifest.json
+          if-no-files-found: warn
+          retention-days: 90
