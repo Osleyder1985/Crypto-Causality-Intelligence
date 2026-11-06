@@ -108,53 +108,94 @@ def parse_kraken_ohlc_row(
 
 
 def map_binance_instrument_metadata(symbol: Mapping[str, Any]) -> dict[str, Any]:
-    """Mapea campos comunes y filtros relevantes de exchangeInfo."""
-    filters = {
-        item.get("filterType"): item
-        for item in symbol.get("filters", [])
-        if isinstance(item, Mapping) and item.get("filterType")
-    }
+    """Mapea exchangeInfo sin descartar filtros ni confundir sus ámbitos."""
+    raw_filters = symbol.get("filters", [])
+    if not isinstance(raw_filters, Sequence) or isinstance(raw_filters, (str, bytes)):
+        raise ValueError("Binance filters debe ser una secuencia")
+
+    filters: dict[str, Mapping[str, Any]] = {}
+    trading_rules: list[dict[str, Any]] = []
+    for item in raw_filters:
+        if not isinstance(item, Mapping) or not item.get("filterType"):
+            raise ValueError("Filtro Binance inválido o sin filterType")
+        filter_type = str(item["filterType"])
+        if filter_type in filters:
+            raise ValueError(f"Filtro Binance duplicado: {filter_type}")
+        filters[filter_type] = item
+        # Conservar el objeto nativo completo, incluso filtros aún no mapeados.
+        trading_rules.append({
+            "rule_namespace": "binance_spot",
+            "rule_scope": filter_type,
+            "parameters": dict(item),
+        })
+
     price = filters.get("PRICE_FILTER", {})
     lot = filters.get("LOT_SIZE", {})
+    market_lot = filters.get("MARKET_LOT_SIZE", {})
     notional = filters.get("NOTIONAL") or filters.get("MIN_NOTIONAL") or {}
-    result = {
+
+    def optional_decimal(container: Mapping[str, Any], key: str) -> Decimal | None:
+        value = container.get(key)
+        return _decimal(value, key) if value is not None and value != "" else None
+
+    known_symbol_fields = {
+        "symbol", "status", "baseAsset", "quoteAsset", "filters",
+        "baseAssetPrecision", "quoteAssetPrecision", "isSpotTradingAllowed",
+        "permissionSets",
+    }
+    return {
         "source_key": "binance_spot",
         "source_instrument_id": symbol.get("symbol"),
         "native_symbol": symbol.get("symbol"),
         "base_asset_code_native": symbol.get("baseAsset"),
         "quote_asset_code_native": symbol.get("quoteAsset"),
         "instrument_status": symbol.get("status"),
-        "price_tick": _decimal(price["tickSize"], "tickSize") if price.get("tickSize") else None,
-        "price_minimum": _decimal(price["minPrice"], "minPrice") if price.get("minPrice") else None,
-        "price_maximum": _decimal(price["maxPrice"], "maxPrice") if price.get("maxPrice") else None,
-        "quantity_step": _decimal(lot["stepSize"], "stepSize") if lot.get("stepSize") else None,
-        "min_quantity": _decimal(lot["minQty"], "minQty") if lot.get("minQty") else None,
-        "quantity_maximum": _decimal(lot["maxQty"], "maxQty") if lot.get("maxQty") else None,
-        "min_notional": None,
-        "max_notional": None,
+        "price_tick": optional_decimal(price, "tickSize"),
+        "price_minimum": optional_decimal(price, "minPrice"),
+        "price_maximum": optional_decimal(price, "maxPrice"),
+        "quantity_step": optional_decimal(lot, "stepSize"),
+        "min_quantity": optional_decimal(lot, "minQty"),
+        "quantity_maximum": optional_decimal(lot, "maxQty"),
+        "market_quantity_step": optional_decimal(market_lot, "stepSize"),
+        "market_min_quantity": optional_decimal(market_lot, "minQty"),
+        "market_quantity_maximum": optional_decimal(market_lot, "maxQty"),
+        "min_notional": optional_decimal(notional, "minNotional"),
+        "max_notional": optional_decimal(notional, "maxNotional"),
+        "trading_rules": trading_rules,
         "provider_extensions": {
+            **{key: value for key, value in symbol.items() if key not in known_symbol_fields},
             "baseAssetPrecision": symbol.get("baseAssetPrecision"),
             "quoteAssetPrecision": symbol.get("quoteAssetPrecision"),
             "isSpotTradingAllowed": symbol.get("isSpotTradingAllowed"),
             "permissionSets": symbol.get("permissionSets"),
-            "filters": list(symbol.get("filters", [])),
-            "notional_filter_type": notional.get("filterType"),
-            "applyMinToMarket": notional.get("applyMinToMarket", notional.get("applyToMarket")),
-            "applyMaxToMarket": notional.get("applyMaxToMarket"),
-            "avgPriceMins": notional.get("avgPriceMins"),
+            "unknown_filter_types": [
+                name for name in filters
+                if name not in {
+                    "PRICE_FILTER", "LOT_SIZE", "MARKET_LOT_SIZE",
+                    "MIN_NOTIONAL", "NOTIONAL",
+                }
+            ],
         },
     }
-    if notional.get("minNotional") is not None:
-        result["min_notional"] = _decimal(notional["minNotional"], "minNotional")
-    if notional.get("maxNotional") is not None:
-        result["max_notional"] = _decimal(notional["maxNotional"], "maxNotional")
-    return result
 
 
 def map_kraken_instrument_metadata(
     result_key: str, pair: Mapping[str, Any]
 ) -> dict[str, Any]:
-    """Mapea AssetPairs sin inferir quantity_step desde lot_decimals."""
+    """Mapea AssetPairs y conserva campos nativos no reconocidos."""
+    known_fields = {
+        "altname", "wsname", "base", "quote", "status", "tick_size",
+        "pair_decimals", "lot_decimals", "ordermin", "costmin",
+    }
+    def optional_decimal(key: str) -> Decimal | None:
+        value = pair.get(key)
+        return _decimal(value, key) if value is not None and value != "" else None
+
+    rule_parameters = {
+        key: pair[key]
+        for key in ("tick_size", "ordermin", "costmin", "pair_decimals", "lot_decimals")
+        if key in pair
+    }
     return {
         "source_key": "kraken_spot",
         "source_instrument_id": result_key,
@@ -167,15 +208,18 @@ def map_kraken_instrument_metadata(
         "base_asset_code_native": pair.get("base"),
         "quote_asset_code_native": pair.get("quote"),
         "instrument_status": pair.get("status"),
-        "price_tick": _decimal(pair["tick_size"], "tick_size") if pair.get("tick_size") else None,
+        "price_tick": optional_decimal("tick_size"),
         "price_precision": pair.get("pair_decimals"),
         "quantity_precision": pair.get("lot_decimals"),
-        "min_quantity": _decimal(pair["ordermin"], "ordermin") if pair.get("ordermin") else None,
-        "min_notional": _decimal(pair["costmin"], "costmin") if pair.get("costmin") else None,
+        "min_quantity": optional_decimal("ordermin"),
+        "min_notional": optional_decimal("costmin"),
         "quantity_step": None,
+        "trading_rules": [{
+            "rule_namespace": "kraken_spot",
+            "rule_scope": "asset_pair",
+            "parameters": rule_parameters,
+        }],
         "provider_extensions": {
-            key: pair.get(key)
-            for key in ("aclass_base", "aclass_quote", "lot_multiplier", "cost_decimals")
-            if key in pair
+            key: value for key, value in pair.items() if key not in known_fields
         },
     }
