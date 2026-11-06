@@ -114,6 +114,19 @@ def resolve_asset_identity(
                 continue
         matches.append(item)
 
+    if temporal_mode and matches:
+        latest_recorded_at = max(
+            _identity_timestamp(item["recorded_at"], "recorded_at")
+            for item in matches
+        )
+        # Una corrección posterior sustituye el conocimiento anterior para
+        # esa misma clave exacta, sin borrar lo que se conocía en known_at.
+        matches = [
+            item for item in matches
+            if _identity_timestamp(item["recorded_at"], "recorded_at")
+            == latest_recorded_at
+        ]
+
     accepted = [item for item in matches if item.get("status") == "accepted"]
     accepted_targets = {item.get("canonical_asset_key") for item in accepted}
     if "ambiguous" in {item.get("status") for item in matches}:
