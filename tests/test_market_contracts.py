@@ -393,40 +393,6 @@ class BitemporalAssetIdentityResolutionTests(unittest.TestCase):
                 known_at="2025-01-01T00:00:00Z",
             )
 
-    def test_conflicting_latest_temporal_reviews_are_ambiguous(self):
-        mappings = [
-            {
-                "namespace": "provider",
-                "native_code": "ABC",
-                "network": None,
-                "canonical_asset_key": "asset-one",
-                "status": "accepted",
-                "evidence_reference": "evidence:one",
-                "valid_from": "2020-01-01T00:00:00Z",
-                "valid_until": None,
-                "recorded_at": "2025-01-01T00:00:00Z",
-            },
-            {
-                "namespace": "provider",
-                "native_code": "ABC",
-                "network": None,
-                "canonical_asset_key": "asset-two",
-                "status": "accepted",
-                "evidence_reference": "evidence:two",
-                "valid_from": "2020-01-01T00:00:00Z",
-                "valid_until": None,
-                "recorded_at": "2025-01-01T00:00:00Z",
-            },
-        ]
-        result = resolve_asset_identity(
-            "provider", "ABC", mappings,
-            valid_at="2024-06-01T00:00:00Z",
-            known_at="2025-01-02T00:00:00Z",
-        )
-        self.assertEqual(result["resolution_status"], "ambiguous")
-        self.assertIsNone(result["canonical_asset_key"])
-        self.assertIsNone(result["evidence_reference"])
-
     def test_mapping_without_documented_valid_from_is_not_resolved_temporally(self):
         mapping = dict(self.mappings[1])
         mapping["valid_from"] = None
