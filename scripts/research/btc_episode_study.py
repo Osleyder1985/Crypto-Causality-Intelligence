@@ -123,12 +123,13 @@ def _volatility(candles: list[Candle]) -> float | None:
     return statistics.pstdev(values) if len(values) >= 2 else None
 
 
-def _drawdown(candles: list[Candle]) -> float:
+def _close_drawdown(candles: list[Candle]) -> float:
+    """Maximum drawdown measured only at observed candle closes."""
     peak = candles[0].open
     worst = 0.0
     for candle in candles:
-        peak = max(peak, candle.high)
-        worst = min(worst, candle.low / peak - 1.0)
+        peak = max(peak, candle.close)
+        worst = min(worst, candle.close / peak - 1.0)
     return worst
 
 
@@ -141,7 +142,7 @@ def _period_metrics(candles: list[Candle]) -> dict[str, float | int | None]:
         "candle_count": len(candles),
         "return_pct": (last.close / first.open - 1.0) * 100.0,
         "realized_volatility_hourly": _volatility(candles),
-        "max_drawdown_pct": _drawdown(candles) * 100.0,
+        "max_close_drawdown_pct": _close_drawdown(candles) * 100.0,
         "intraperiod_range_pct": (max(c.high for c in candles) / min(c.low for c in candles) - 1.0) * 100.0,
         "mean_base_volume": statistics.fmean(c.volume for c in candles),
         "mean_quote_volume": statistics.fmean(quote_values) if len(quote_values) == len(candles) else None,
@@ -169,13 +170,23 @@ def study(
     interval = timedelta(seconds=interval_seconds)
     if not candles:
         raise StudyError("No hay velas")
-    gaps = [
-        {"after_utc": a.timestamp.isoformat().replace("+00:00", "Z"),
-         "before_utc": b.timestamp.isoformat().replace("+00:00", "Z"),
-         "missing_intervals": int((b.timestamp - a.timestamp) / interval) - 1}
-        for a, b in zip(candles, candles[1:])
-        if b.timestamp - a.timestamp > interval
-    ]
+    epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
+    misaligned = [c.timestamp for c in candles
+                  if (c.timestamp - epoch).total_seconds() % interval_seconds != 0]
+    if misaligned:
+        raise StudyError(f"Timestamp no alineado al intervalo: {misaligned[0].isoformat()}")
+    gaps = []
+    for a, b in zip(candles, candles[1:]):
+        delta_seconds = (b.timestamp - a.timestamp).total_seconds()
+        if delta_seconds > interval_seconds:
+            exact_multiple = delta_seconds % interval_seconds == 0
+            gaps.append({
+                "after_utc": a.timestamp.isoformat().replace("+00:00", "Z"),
+                "before_utc": b.timestamp.isoformat().replace("+00:00", "Z"),
+                "gap_duration_seconds": int(delta_seconds),
+                "missing_intervals": int(delta_seconds / interval_seconds) - 1 if exact_multiple else None,
+                "irregular_spacing": not exact_multiple,
+            })
     results = []
     for episode in episodes:
         start, end = episode["start"], episode["end"]
