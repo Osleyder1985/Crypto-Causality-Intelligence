@@ -1,0 +1,51 @@
+name: Pruebas reales de PostgreSQL
+
+on:
+  pull_request:
+    paths:
+      - "tests/postgresql/**"
+      - "tests/test_postgresql_lab.py"
+      - ".github/workflows/postgresql-lab.yml"
+  push:
+    branches:
+      - architecture/issue-14-storage-resynced
+    paths:
+      - "tests/postgresql/**"
+      - "tests/test_postgresql_lab.py"
+      - ".github/workflows/postgresql-lab.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  postgresql-lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: cci_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d cci_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CCI_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/cci_test
+    steps:
+      - name: Obtener el repositorio
+        uses: actions/checkout@v4
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instalar driver PostgreSQL
+        run: python -m pip install "psycopg[binary]==3.2.9"
+      - name: Ejecutar DDL y pruebas en PostgreSQL 16
+        run: python -m unittest discover -s tests -p 'test_postgresql_lab.py' -v
