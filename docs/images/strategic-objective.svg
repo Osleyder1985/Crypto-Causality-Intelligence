@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="650" viewBox="0 0 1440 650" role="img" aria-labelledby="title desc">
+<title id="title">CryptoCausality Intelligence: Historical Intelligence to Predictive Intelligence</title>
+<desc id="desc">Strategic objective: transform historical market research and causal evidence into explainable, uncertainty-aware scenarios for bullish, bearish and sideways market regimes, with human decision-making retained.</desc>
+<defs>
+ <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#061326"/><stop offset="1" stop-color="#020814"/></linearGradient>
+ <linearGradient id="cyan" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#0ea5e9"/><stop offset="1" stop-color="#22d3ee"/></linearGradient>
+ <linearGradient id="gold" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#f59e0b"/><stop offset="1" stop-color="#facc15"/></linearGradient>
+ <radialGradient id="glow"><stop stop-color="#0e7490" stop-opacity=".42"/><stop offset="1" stop-color="#0e7490" stop-opacity="0"/></radialGradient>
+ <filter id="shadow"><feGaussianBlur stdDeviation="12"/></filter>
+ <style>
+ .h{font:700 42px Inter,Segoe UI,sans-serif;fill:#f8fafc}.sub{font:600 20px Inter,Segoe UI,sans-serif;fill:#a5f3fc;letter-spacing:2px}
+ .k{font:700 24px Inter,Segoe UI,sans-serif;fill:#f8fafc}.p{font:400 19px Inter,Segoe UI,sans-serif;fill:#cbd5e1}
+ .small{font:600 16px Inter,Segoe UI,sans-serif;fill:#94a3b8;letter-spacing:1px}.gold{fill:#facc15}.cyan{fill:#67e8f9}
+ </style>
+</defs>
+<rect width="1440" height="650" rx="26" fill="url(#bg)"/>
+<circle cx="1180" cy="160" r="290" fill="url(#glow)"/>
+<g opacity=".16" stroke="#38bdf8"><path d="M0 120H1440M0 240H1440M0 360H1440M0 480H1440M160 0V650M320 0V650M480 0V650M640 0V650M800 0V650M960 0V650M1120 0V650M1280 0V650"/></g>
+<text x="72" y="90" class="small">CRYPTO-CAUSALITY INTELLIGENCE</text>
+<text x="72" y="154" class="h">Historical Intelligence</text>
+<text x="72" y="205" class="h cyan">→ Predictive Intelligence</text>
+<text x="74" y="250" class="p">De investigar por qué se movió el mercado a evaluar qué podría ocurrir después.</text>
+<g transform="translate(70 300)">
+ <rect width="590" height="260" rx="22" fill="#0b1b31" stroke="#0ea5e9" stroke-width="2"/>
+ <text x="34" y="52" class="small cyan">01 / INVESTIGAR Y EXPLICAR</text>
+ <text x="34" y="96" class="k">Inteligencia histórica y causal</text>
+ <text x="34" y="140" class="p">• Reconstruir episodios alcistas, bajistas y laterales</text>
+ <text x="34" y="176" class="p">• Contrastar catalizadores, cronología y alternativas</text>
+ <text x="34" y="212" class="p">• Separar evidencia, hipótesis y causalidad no demostrada</text>
+</g>
+<g transform="translate(780 300)">
+ <rect width="590" height="260" rx="22" fill="#111b2b" stroke="#eab308" stroke-width="2"/>
+ <text x="34" y="52" class="small gold">02 / ANTICIPAR Y VIGILAR</text>
+ <text x="34" y="96" class="k">Inteligencia predictiva</text>
+ <text x="34" y="140" class="p">• Evaluar escenarios alcistas, bajistas y laterales</text>
+ <text x="34" y="176" class="p">• Explicar riesgos, incertidumbre e invalidaciones</text>
+ <text x="34" y="212" class="p">• Emitir alertas; la decisión sigue siendo humana</text>
+</g>
+<path d="M672 430H758" stroke="url(#cyan)" stroke-width="5" stroke-linecap="round"/>
+<path d="M742 414L760 430L742 446" fill="none" stroke="#67e8f9" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="720" y="610" text-anchor="middle" class="small">EVIDENCE-DRIVEN · CAUSALITY-AWARE · REPRODUCIBLE · HUMAN-IN-THE-LOOP</text>
+</svg>
