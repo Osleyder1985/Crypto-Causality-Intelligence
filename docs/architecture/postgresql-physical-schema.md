@@ -61,6 +61,7 @@ Todas las tablas siguientes pertenecen a `cci`.
 | `source_usage_policies` | `id` | Evidencia versionada de condiciones de uso. |
 | `policy_evaluations` | `id` | Decisión concreta de aplicabilidad de una política a endpoint, uso e instante. |
 | `assets` | `id` | Identidad económica/técnica del activo; no identifica un contrato concreto. |
+| `identity_namespaces` | `namespace_key` | Registro inmutable del significado, alcance y nivel de destino de los namespaces de resolución de activos. |
 | `networks` | `id` | Redes blockchain con clave interna estable. |
 | `network_identifiers` | `id` | Chain IDs y alias de red namespaced. |
 | `asset_representations` | `id` | Unidad nativa o despliegue contractual de un activo en una red. |
@@ -158,6 +159,16 @@ La política aplicable se resuelve considerando fuente, alcance y referencia est
 
 ### 4.2 Activos e instrumentos
 
+**`identity_namespaces`**
+- `namespace_key TEXT PK`: clave canónica, estable y namespaced; formato recomendado `<authority>:<identifier_domain>` (por ejemplo, `coingecko:asset_id` o `eip155:contract_address`). Los ejemplos ilustran dominios distintos, no afirman que un proveedor concreto haya sido validado para CCI.
+- `scope_mode TEXT NOT NULL`: CHECK `global, network`. `global` exige `network_id IS NULL` en las revisiones; `network` exige `network_id IS NOT NULL`.
+- `target_level TEXT NOT NULL`: CHECK `asset, representation, both`; indica qué destino puede aprobar una revisión del namespace.
+- `description TEXT NOT NULL`: definición inequívoca del emisor, dominio y semántica del identificador.
+- `created_at TIMESTAMPTZ NOT NULL DEFAULT now()`.
+- `namespace_key`, `scope_mode` y `target_level` son inmutables. Un cambio semántico requiere una nueva clave de namespace; no se recicla ni se cambia el significado de una clave ya utilizada.
+- La tabla es específica de `asset_identity_resolution_reviews.namespace`. No reemplaza ni unifica `network_identifiers.namespace` ni `instrument_identifiers.identifier_namespace`, cuyos dominios y contratos son distintos.
+- Cada fila debe describir un único modo de alcance. No se admite que un mismo namespace sea global en unas revisiones y por red en otras.
+
 **`assets`**
 - `id UUID PK`
 - `canonical_code TEXT NOT NULL UNIQUE` (clave interna estable; no se exige que sea ticker).
@@ -219,7 +230,7 @@ La política aplicable se resuelve considerando fuente, alcance y referencia est
 
 **`asset_identity_resolution_reviews`**
 - `id UUID PK`
-- `namespace TEXT NOT NULL`
+- `namespace TEXT NOT NULL FK identity_namespaces(namespace_key)`
 - `network_id UUID NULL FK networks(id)` (scope de red normalizado; NULL solo cuando la fuente no delimita una red).
 - `external_identifier TEXT NOT NULL` (código/dirección nativa exacta).
 - `candidate_asset_id UUID NULL FK assets(id)`
@@ -236,7 +247,7 @@ La política aplicable se resuelve considerando fuente, alcance y referencia est
 - UNIQUE candidato `(id, candidate_asset_representation_id, resolution_status, namespace, external_identifier, network_id)`, referenciado por `asset_representation_identifiers`.
 - Las claves candidatas se definen aunque los campos de destino sean NULL en revisiones no aceptadas; los mappings solo pueden referenciar la variante no nula y `resolution_status = 'accepted'`.
 - Registro append-only; `recorded_at` se asigna al insertar. Correcciones mediante nueva revisión.
-- Las revisiones de activo y de representación son scopes distintos. Una revisión contractual exige `network_id` y el identificador debe corresponder exactamente al contrato/alias documentado. Cada `namespace` tiene un único modo de alcance: global (red NULL) o por red (red NOT NULL); no se permite mezclarlos dentro del mismo namespace.
+- Las revisiones de activo y de representación son scopes distintos. Una revisión contractual exige `network_id` y el identificador debe corresponder exactamente al contrato/alias documentado. Cada `namespace` tiene un único modo de alcance: global (red NULL) o por red (red NOT NULL); no se permite mezclarlos dentro del mismo namespace. Un trigger valida `scope_mode` contra la nulabilidad de `network_id` y `target_level` contra el destino candidato. La FK impide usar namespaces no registrados.
 - Empates máximos contradictorios para la misma clave exacta se resuelven como `ambiguous`, nunca como selección arbitraria.
 
 **`asset_identifiers`**
@@ -602,9 +613,9 @@ El diseño de estados intermedios exactos y el mecanismo de publicación atómic
 Las migraciones serán versionadas, secuenciales, revisables y ejecutables desde una base vacía. Orden propuesto:
 
 1. Crear esquema `cci` y convenciones mínimas.
-2. Crear `data_sources`, `assets`, `ingestion_runs`, `transformations` y `research_experiments`.
+2. Crear `identity_namespaces` y los catálogos base `data_sources`, `assets`, `ingestion_runs`, `transformations` y `research_experiments`.
 3. Crear `data_endpoints`, `source_usage_policies` y `policy_evaluations`.
-4. Crear `networks`, `network_identifiers`, `asset_representations`, `asset_relationships`, `asset_identity_resolution_reviews`, `asset_identifiers` y `asset_representation_identifiers`.
+4. Crear `networks`, `network_identifiers`, `asset_representations`, `asset_relationships` y `asset_identity_resolution_reviews` (esta última con FK a `identity_namespaces`), `asset_identifiers` y `asset_representation_identifiers`.
 5. Crear `market_instruments` e `instrument_identifiers`.
 6. Crear `datasets` antes de las tablas que los referencian.
 7. Crear `ingestion_requests`, `run_datasets` y `dataset_sources` con FKs compuestas.
