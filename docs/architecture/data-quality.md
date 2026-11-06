@@ -1,78 +1,78 @@
-# Data Quality and Source Assessment
+# Calidad de datos y evaluación de fuentes
 
-## Purpose
+## Propósito
 
-This document defines initial quality controls for market observations, documents, events, and research evidence. Quality flags describe known properties and limitations; they do not turn uncertain data into certainty.
+Este documento define los controles iniciales de calidad para observaciones de mercado, documentos, eventos y evidencias de investigación. Las etiquetas de calidad describen propiedades y limitaciones conocidas; no convierten datos inciertos en datos ciertos.
 
-## Validation dimensions
+## Dimensiones de validación
 
-### Completeness
+### Completitud
 
-Check required fields, expected time coverage, missing intervals, and missing values. Distinguish values not provided by source, not applicable, unavailable due to retrieval failure, withheld/restricted, and unknown reason.
+Comprobar los campos obligatorios, la cobertura temporal esperada, los intervalos faltantes y los valores ausentes. Distinguir entre valores no proporcionados por la fuente, no aplicables, no disponibles por un fallo de recuperación, retenidos/restringidos y de motivo desconocido.
 
-Do not silently replace missing values with zero, forward-fill them, or interpolate them. Any imputation must be explicit, separately versioned, and appropriate to the research task.
+No sustituir silenciosamente los valores faltantes por cero, ni aplicar forward-fill o interpolación. Cualquier imputación debe ser explícita, contar con una versión independiente y ser adecuada para la tarea de investigación.
 
-### Integrity and validity
+### Integridad y validez
 
-Validate types, units, identifiers, timestamp parsing, numeric domains, and schema conformance. For OHLCV candles, check applicable invariants such as:
+Validar tipos, unidades, identificadores, interpretación de marcas de tiempo, dominios numéricos y conformidad con el esquema. Para velas OHLCV, comprobar invariantes aplicables como:
 
-- high is not below open, close, or low;
-- low is not above open, close, or high;
-- volume is non-negative when the metric definition requires it;
-- interval start precedes interval end;
-- values conform to declared precision and unit.
+- high no debe ser inferior a open, close o low;
+- low no debe ser superior a open, close o high;
+- volume debe ser no negativo cuando así lo requiera la definición de la métrica;
+- el inicio del intervalo debe preceder a su final;
+- los valores deben respetar la precisión y unidad declaradas.
 
-A failed check should create a validation result or quarantine state, not silently discard the source record.
+Una comprobación fallida debe generar un resultado de validación o un estado de cuarentena, no descartar silenciosamente el registro de origen.
 
-### Consistency
+### Consistencia
 
-Compare records across time, related fields, and sources where meaningful. Differences between exchanges, quote currencies, aggregation methods, or provider methodologies are not automatically errors. Comparisons require compatible definitions and units.
+Comparar registros a lo largo del tiempo, entre campos relacionados y entre fuentes cuando tenga sentido. Las diferencias entre exchanges, monedas de cotización, métodos de agregación o metodologías de proveedores no son automáticamente errores. Las comparaciones requieren definiciones y unidades compatibles.
 
-### Duplicates
+### Duplicados
 
-Use source-native IDs where reliable, supplemented by scoped logical keys and content hashes. Distinguish exact duplicate retrievals from legitimate repeated publications, revisions, and separate observations that happen to share values.
+Utilizar IDs nativos de la fuente cuando sean confiables, complementados con claves lógicas de alcance definido y hashes de contenido. Distinguir las recuperaciones duplicadas exactas de las republicaciones legítimas, revisiones y observaciones independientes que casualmente compartan valores.
 
-### Outliers and anomalies
+### Outliers y anomalías
 
-Flag unusual values using documented, context-appropriate rules. Preserve the original observation. A statistical outlier may be a real market event; automated deletion is prohibited by default. Review should consider venue, liquidity, market conditions, neighboring intervals, and independent sources.
+Marcar valores inusuales mediante reglas documentadas y adecuadas al contexto. Preservar la observación original. Un outlier estadístico puede corresponder a un evento real del mercado; por defecto, se prohíbe su eliminación automática. La revisión debe considerar la plataforma, liquidez, condiciones de mercado, intervalos cercanos y fuentes independientes.
 
-### Revisions and late arrivals
+### Revisiones y llegadas tardías
 
-Track corrected, superseded, provisional, and late-arriving records explicitly. Preserve prior versions and the time each version became available. Research datasets must declare which revision policy they use.
+Registrar explícitamente los registros corregidos, sustituidos, provisionales y recibidos con retraso. Conservar las versiones anteriores y el momento en que cada versión estuvo disponible. Los datasets de investigación deben declarar la política de revisión que utilizan.
 
-## Source assessment
+## Evaluación de fuentes
 
-Assess sources using documented evidence across dimensions such as publisher identity/accountability, primary versus secondary relationship to the event or measurement, methodology/transparency, historical coverage and timestamp precision, consistency and correction practices, independence from corroborating sources, access stability/rate limits/operational latency, and licensing/retention/redistribution permissions.
+Evaluar las fuentes mediante evidencias documentadas en dimensiones como identidad/responsabilidad del publicador, relación primaria o secundaria con el evento o medición, transparencia de la metodología, cobertura histórica y precisión temporal, consistencia y prácticas de corrección, independencia respecto de fuentes de corroboración, estabilidad de acceso/rate limits/latencia operativa y permisos de licencia/retención/redistribución.
 
-Do not collapse these dimensions into an unexplained universal trust score. If a later workflow uses ratings or rankings, it must disclose criteria, evidence, scope, reviewer, and limitations. A source can be reliable for one data type and unsuitable for another.
+No reducir estas dimensiones a una puntuación universal de confianza sin explicación. Si un flujo de trabajo posterior utiliza valoraciones o rankings, debe revelar los criterios, evidencias, alcance, revisor y limitaciones. Una fuente puede ser confiable para un tipo de dato e inadecuada para otro.
 
-## Evidence handling
+## Gestión de evidencias
 
-For each evidence item, record its origin, extraction context, availability time, and relationship to the relevant claim or hypothesis. Preserve supporting evidence, contradicting evidence, alternative explanations, unresolved disputes, and analyst interpretation separately from source content.
+Para cada elemento de evidencia, registrar su origen, contexto de extracción, hora de disponibilidad y relación con la afirmación o hipótesis correspondiente. Conservar por separado las evidencias de apoyo, contradicción, explicaciones alternativas, disputas no resueltas y la interpretación del analista respecto del contenido de la fuente.
 
-Independent corroboration must be assessed for actual independence. Multiple outlets repeating one original report do not necessarily constitute multiple independent sources.
+La corroboración independiente debe evaluarse para determinar si existe independencia real. Varios medios que reproducen un mismo informe original no constituyen necesariamente varias fuentes independientes.
 
-## Quality states
+## Estados de calidad
 
-A proposed vocabulary:
+Vocabulario propuesto:
 
-- `valid`: passed applicable automated checks;
-- `valid_with_warnings`: usable with documented limitations;
-- `quarantined`: requires review before normal use;
-- `rejected`: invalid for the specified use, with reason retained;
-- `unknown`: insufficient information to assess.
+- `valid`: superó las comprobaciones automatizadas aplicables;
+- `valid_with_warnings`: puede utilizarse con limitaciones documentadas;
+- `quarantined`: requiere revisión antes de su uso normal;
+- `rejected`: no es válido para el uso especificado; se conserva el motivo;
+- `unknown`: información insuficiente para evaluarlo.
 
-These states are contextual. A record rejected for one analytical use may remain useful as evidence of what a source published.
+Estos estados dependen del contexto. Un registro rechazado para un uso analítico puede seguir siendo útil como evidencia de lo que publicó una fuente.
 
-## Operational reporting
+## Informes operativos
 
-Every ingestion or transformation run should report counts for received, accepted, warned, quarantined, rejected, duplicated, and revised records, where applicable. Reports should include rule/version identifiers and representative failure reasons.
+Cada ejecución de ingesta o transformación debe informar, cuando corresponda, los recuentos de registros recibidos, aceptados, con advertencias, puestos en cuarentena, rechazados, duplicados y revisados. Los informes deben incluir los identificadores de reglas/versiones y ejemplos representativos de los motivos de fallo.
 
-## Research safeguards
+## Salvaguardas de investigación
 
-- Preserve original records and validation outcomes.
-- Do not equate missing data with zero activity.
-- Do not remove outliers without an auditable rule and rationale.
-- Do not treat repeated copies of one report as independent corroboration.
-- Do not infer causality from correlation, source reliability, or temporal proximity alone.
-- Exclude future or not-yet-available information from point-in-time analysis.
+- Preservar los registros originales y los resultados de validación.
+- No equiparar datos faltantes con actividad igual a cero.
+- No eliminar outliers sin una regla auditable y una justificación.
+- No tratar copias repetidas de un mismo informe como corroboraciones independientes.
+- No inferir causalidad únicamente a partir de correlación, confiabilidad de la fuente o proximidad temporal.
+- Excluir de los análisis point-in-time la información futura o todavía no disponible.
