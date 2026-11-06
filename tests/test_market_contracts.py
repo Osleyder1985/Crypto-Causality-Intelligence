@@ -36,6 +36,10 @@ class BinanceKlineContractTests(unittest.TestCase):
     def test_rest_does_not_invent_finality(self):
         self.assertIsNone(parse_binance_kline(self.row)["is_final"])
 
+    def test_normalized_timestamps_are_utc_aware(self):
+        result = parse_binance_kline(self.row)
+        self.assertEqual(result["open_time"].tzinfo, timezone.utc)
+
     def test_supports_explicit_microsecond_resolution(self):
         row = list(self.row)
         row[0] = 1_000_000
