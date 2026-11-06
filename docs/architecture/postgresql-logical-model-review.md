@@ -44,9 +44,9 @@ Se ha actualizado el modelo lógico para que represente el inventario, las entid
 
 ## 4. Pendientes antes de generar migraciones
 
-La alineación de documentos está cerrada como propuesta, pero todavía se requiere:
+La alineación de inventario y entidades está cerrada como propuesta. La comparación automatizada confirma 28/28 tablas representadas en el modelo lógico. Todavía se requiere:
 
-1. Ejecutar una comparación automatizada de inventario de tablas/columnas entre ambos documentos y corregir cualquier divergencia residual.
+1. **Inventario de entidades verificado:** comparación automatizada del inventario físico contra el modelo lógico: 28/28 tablas físicas están representadas en el modelo lógico, sin entidades ausentes. Esta comprobación confirma cobertura de nombres de tablas; no sustituye una revisión semántica de cada columna y restricción.
 2. Verificar que el vocabulario de `data_type` en endpoints, evaluaciones y contribuciones sea canónico y no se permita una discrepancia semántica.
 3. Definir la semántica operacional de `scope_reference` y documentar el formato de claves de producto/plan y de tipo de dato.
 4. Resolver la integridad entre `asset_identity_resolution_reviews` y los mappings publicados: las FKs simples no garantizan por sí solas que el mapping apunte a una revisión accepted del mismo destino. Debe decidirse FK compuesta, trigger o servicio transaccional con pruebas.
