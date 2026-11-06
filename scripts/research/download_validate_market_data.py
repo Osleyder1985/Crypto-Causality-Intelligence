@@ -17,7 +17,7 @@ import urllib.request
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
-BINANCE = "https://api.binance.com/api/v3/klines"
+BINANCE = "https://data-api.binance.vision/api/v3/klines"
 KRAKEN = "https://api.kraken.com/0/public/OHLC"
 COINGECKO = "https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart/range"
 ASSETS = {
