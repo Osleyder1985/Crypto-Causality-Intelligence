@@ -49,7 +49,7 @@ La fecha final es exclusiva: una vela cuya apertura coincide con `end_utc` no pe
 Por episodio:
 - retorno porcentual desde la apertura de la primera vela hasta el cierre de la última;
 - desviación estándar poblacional de retornos logarítmicos por vela, no anualizada;
-- máximo drawdown intraperiodo estimado con máximos y mínimos OHLC;
+- máximo drawdown medido sobre cierres de vela (no reconstruye el recorrido intravela);
 - rango entre máximo high y mínimo low;
 - volumen base medio y, si existe, volumen cotizado medio;
 - ratio del volumen base medio del episodio frente a las 168 horas previas.
