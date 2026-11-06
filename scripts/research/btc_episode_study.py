@@ -177,7 +177,7 @@ def load_parquet_candles(path: str | Path) -> list[Candle]:
         connection.close()
 
 
-def load_episodes(path: str | Path) -> list[dict[str, Any]]:
+def load_episodes(path: str | Path, *, require_manifest: bool = False) -> list[dict[str, Any]]:
     try:
         raw = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
@@ -189,6 +189,8 @@ def load_episodes(path: str | Path) -> list[dict[str, Any]]:
         except (ManifestError, ImportError) as exc:
             raise StudyError(f"Manifiesto de episodios inválido: {exc}") from exc
         return normalized
+    if require_manifest:
+        raise StudyError("La ejecución del estudio exige el manifiesto canónico versionado; las listas heredadas no son ejecutables")
     if not isinstance(raw, list) or not raw:
         raise StudyError("El archivo de episodios debe ser una lista JSON no vacía o un manifiesto versionado")
     episodes = []
@@ -389,7 +391,7 @@ def main(argv: list[str] | None = None) -> int:
             registry.transition(run_id, "running")
 
         candles = load_candles(args.input) if args.input_format == "csv" else load_parquet_candles(args.input)
-        result = study(candles, load_episodes(args.episodes), args.interval_seconds)
+        result = study(candles, load_episodes(args.episodes, require_manifest=True), args.interval_seconds)
         json_path, csv_path = Path(args.json_out), Path(args.csv_out)
         json_path.parent.mkdir(parents=True, exist_ok=True)
         csv_path.parent.mkdir(parents=True, exist_ok=True)
