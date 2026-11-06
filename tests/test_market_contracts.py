@@ -39,7 +39,7 @@ class BinanceKlineContractTests(unittest.TestCase):
     def test_supports_explicit_microsecond_resolution(self):
         row = list(self.row)
         row[0] = 1_000_000
-        row[6] = 59_999_000
+        row[6] = 59_999_999
         result = parse_binance_kline(row, timestamp_unit="us")
         self.assertEqual(result["open_time"], datetime.fromtimestamp(1, tz=timezone.utc))
         self.assertEqual(
