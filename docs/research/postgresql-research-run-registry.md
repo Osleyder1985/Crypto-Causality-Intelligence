@@ -22,4 +22,24 @@ La migración presupone que el esquema `cci` y `research_experiments` ya existen
 
 Un run se identifica por UUID y clave estable dentro del experimento. `input_manifest` debe contener referencias y hashes de entradas, no payloads OHLCV. `parameters` y `protocol_version` registran la configuración efectiva. `code_commit` debe identificar el commit exacto. Los artefactos deben registrar URI lógica, hash SHA-256 y política de retención.
 
-La primera integración end-to-end se probará con experimento, manifiesto y artefactos sintéticos en PostgreSQL 16; no constituye un resultado de mercado ni una autorización para capturar datos de proveedores.
+## Integración del CLI de episodios BTC/USDT
+
+El CLI mantiene su modo local por defecto. Para registrar una ejecución se proporcionan juntos `--experiment-id`, `--run-key` y `--code-commit`, y se configura `CCI_DATABASE_URL`. El experimento debe existir previamente en `cci.research_experiments` y la migración del registro debe estar aplicada.
+
+Ejemplo (el UUID, el commit y las rutas son valores que debe proporcionar el operador):
+
+```bash
+export CCI_DATABASE_URL="postgresql://..."
+python scripts/research/btc_episode_study.py \
+  --input /ruta/local/btcusdt_1h.parquet --input-format parquet \
+  --episodes /ruta/local/btc_episodes.json \
+  --json-out /ruta/local/summary.json --csv-out /ruta/local/summary.csv \
+  --experiment-id "$CCI_EXPERIMENT_ID" --run-key "btc-episodes-2026-01" \
+  --code-commit "$CCI_CODE_COMMIT"
+```
+
+El CLI crea el run en `queued`, lo pasa a `running`, ejecuta el estudio y registra dos artefactos (JSON agregado y CSV por episodio) con SHA-256 y tamaño. Termina en `succeeded`; si falla el análisis después de iniciar el run, intenta registrar `failed` con el tipo y resumen del error. Las URI de artefactos son identificadores lógicos configurables con `--artifact-uri-prefix`; los archivos permanecen en la ruta local indicada y no se transfieren a PostgreSQL ni al repositorio.
+
+El manifiesto guarda hashes y nombres base de los archivos de entrada, no rutas absolutas ni contenido OHLCV. Los parámetros efectivos guardan formato, intervalo y ventanas previas. El modo sin los tres argumentos de registro no requiere psycopg ni conexión PostgreSQL.
+
+La integración end-to-end se valida con un CSV y episodios sintéticos contra PostgreSQL 16; no constituye un resultado de mercado ni una autorización para capturar datos de proveedores.
