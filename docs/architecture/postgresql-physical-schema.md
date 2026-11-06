@@ -1,8 +1,8 @@
 # Diseño físico de PostgreSQL
 
-- **Estado:** especificación física propuesta v0.1; pendiente de revisión e implementación.
+- **Estado:** especificación física reconciliada v0.2; propuesta, no implementada.
 - **Fecha:** 2026-11-06.
-- **Modelo lógico:** `postgresql-logical-data-model.md`, propuesta v0.2.
+- **Modelo lógico:** `postgresql-logical-data-model.md`, contrato reconciliado v0.3.
 - **Revisión:** `postgresql-logical-model-review.md`.
 - **Decisión relacionada:** `ADR-001-storage-and-analytics-architecture.md`.
 - **Issue / PR:** #14 / #16.
@@ -118,6 +118,7 @@ La notación `NULL` indica nulabilidad. Los campos no listados como nullable son
 - `data_source_id UUID NOT NULL FK data_sources(id)`
 - `data_endpoint_id UUID NULL`
 - `policy_scope TEXT NOT NULL`: CHECK en `provider, product, endpoint, data_type`.
+- `scope_reference TEXT NULL`: clave estable del producto/plan cuando `policy_scope = 'product'`; valor canónico de `data_type` cuando `policy_scope = 'data_type'`; NULL para `provider` y `endpoint`.
 - `intended_use TEXT NOT NULL`: vocabulario controlado inicial `private_research, public_display, redistribution, commercial_use, internal_testing, other`.
 - `permission_status TEXT NOT NULL`: CHECK en `allowed, restricted, denied, unknown, pending_confirmation`.
 - `evidence_url TEXT NULL`, `evidence_reference TEXT NULL`
@@ -129,7 +130,8 @@ La notación `NULL` indica nulabilidad. Los campos no listados como nullable son
 - FK compuesta `(data_endpoint_id, data_source_id) -> data_endpoints(id, data_source_id)`; cuando `data_endpoint_id` sea NULL, la política tendrá alcance de fuente/producto/tipo según `policy_scope`.
 - UNIQUE `(id, data_source_id)`, necesaria para la FK desde evaluaciones.
 - CHECK `valid_until IS NULL OR valid_until > valid_from`.
-- CHECK de coherencia: `policy_scope = 'endpoint'` requiere endpoint no nulo.
+- CHECK de coherencia: `policy_scope = 'endpoint'` requiere endpoint no nulo y `scope_reference IS NULL`; `product` y `data_type` requieren `scope_reference` no vacío; `provider` requiere endpoint y scope_reference NULL.
+- La referencia de producto/plan es una clave textual estable del catálogo de evidencia (no una FK a un catálogo de productos aún inexistente); debe identificar sin ambigüedad el producto, plan y versión contractual revisados.
 - Filas append-only. Una modificación de condiciones crea una nueva política; no se actualiza evidencia histórica.
 
 **`policy_evaluations`**
@@ -147,12 +149,12 @@ La notación `NULL` indica nulabilidad. Los campos no listados como nullable son
 - `created_at TIMESTAMPTZ NOT NULL`
 - FK compuesta `(source_usage_policy_id, data_source_id) -> source_usage_policies(id, data_source_id)`.
 - FK compuesta `(data_endpoint_id, data_source_id) -> data_endpoints(id, data_source_id)`.
-- UNIQUE `(id, data_source_id, data_endpoint_id, intended_use)`, requerida por `dataset_sources`.
+- UNIQUE `(id, data_source_id, data_endpoint_id, data_type, intended_use)`, requerida por `dataset_sources`.
 - CHECK `policy_valid_until_snapshot IS NULL OR policy_valid_until_snapshot > policy_valid_from_snapshot`.
 - Registro append-only. La evaluación materializa la decisión concreta, aunque la política de origen tenga alcance provider/product/data_type y no un endpoint específico.
 - El servicio de autorización comprueba que la política cubra la fuente, endpoint, tipo, uso e instante evaluado. La FK garantiza coherencia referencial, no la validez jurídica de la interpretación.
 
-La política aplicable se resuelve considerando fuente, endpoint, tipo de dato, uso previsto, vigencia y evidencia. No se asume que una política de proveedor cubra automáticamente todos sus productos.
+La política aplicable se resuelve considerando fuente, alcance y referencia estructurada (producto/plan o tipo de dato cuando corresponda), endpoint, tipo de dato, uso previsto, vigencia y evidencia. No se asume que una política de proveedor cubra automáticamente todos sus productos.
 
 ### 4.2 Activos e instrumentos
 
@@ -386,6 +388,7 @@ La FK compuesta impide combinar endpoint de una fuente con instrumento de otra. 
 - `dataset_id UUID NOT NULL FK datasets(id)`
 - `data_source_id UUID NOT NULL FK data_sources(id)`
 - `data_endpoint_id UUID NOT NULL`
+- `data_type TEXT NOT NULL` (debe coincidir exactamente con `policy_evaluations.data_type` y el tipo de dato del endpoint/contribución).
 - `market_instrument_id UUID NULL`
 - `ingestion_request_id UUID NULL`
 - `policy_evaluation_id UUID NOT NULL`
@@ -394,11 +397,11 @@ La FK compuesta impide combinar endpoint de una fuente con instrumento de otra. 
 - FK `(data_endpoint_id, data_source_id) -> data_endpoints(id, data_source_id)`.
 - FK `(market_instrument_id, data_source_id) -> market_instruments(id, data_source_id)`.
 - FK `(ingestion_request_id, data_source_id, data_endpoint_id) -> ingestion_requests(id, data_source_id, data_endpoint_id)`. Esta FK se satisface cuando existe solicitud; sin solicitud, los tres campos pueden ser NULL.
-- FK `(policy_evaluation_id, data_source_id, data_endpoint_id, evaluated_intended_use) -> policy_evaluations(id, data_source_id, data_endpoint_id, intended_use)`.
+- FK `(policy_evaluation_id, data_source_id, data_endpoint_id, data_type, evaluated_intended_use) -> policy_evaluations(id, data_source_id, data_endpoint_id, data_type, intended_use)`.
 - UNIQUE candidato en `policy_evaluations` para la clave compuesta anterior.
 - Índices `(dataset_id)`, `(data_source_id, created_at DESC)` y `(policy_evaluation_id)`.
 
-**Regla obligatoria de autorización:** cada contribución de origen a un dataset persistido referencia una evaluación concreta. El servicio solo permite escribir si la evaluación devuelve `allowed` y comprueba alcance, vigencia, tipo de dato, endpoint y uso. Los estados `restricted, denied, unknown, pending_confirmation` bloquean la persistencia. La evaluación y su snapshot son append-only; una nueva revisión genera otra evaluación. La FK impide mezclar fuentes/endpoints/usos entre contribución y evaluación, pero no sustituye el juicio de aplicabilidad que debe realizar el servicio de autorización.
+**Regla obligatoria de autorización:** cada contribución de origen a un dataset persistido referencia una evaluación concreta. El servicio solo permite escribir si la evaluación devuelve `allowed` y comprueba alcance, vigencia, tipo de dato, endpoint y uso. Los estados `restricted, denied, unknown, pending_confirmation` bloquean la persistencia. La evaluación y su snapshot son append-only; una nueva revisión genera otra evaluación. La FK impide mezclar fuentes/endpoints/tipos/usos entre contribución y evaluación, pero no sustituye el juicio de aplicabilidad que debe realizar el servicio de autorización.
 
 ### 4.5 Linaje, validaciones y transformaciones
 
@@ -480,7 +483,7 @@ Se crearán índices explícitos para FKs usadas en joins y patrones de consulta
 | `data_sources` | UNIQUE `source_key` | Resolución estable de fuente. |
 | `data_endpoints` | UNIQUE `(data_source_id, endpoint_key)`; UNIQUE `(id, data_source_id)` | Búsqueda por fuente y FKs compuestas. |
 | `source_usage_policies` | `(data_source_id, valid_from DESC)`; parcial por endpoint | Resolver política aplicable e historial. |
-| `policy_evaluations` | `(data_source_id, data_endpoint_id, intended_use, evaluated_at DESC)`; FK índices | Consultar decisión concreta por endpoint y uso. |
+| `policy_evaluations` | `(data_source_id, data_endpoint_id, data_type, intended_use, evaluated_at DESC)`; FK índices | Consultar decisión concreta por endpoint, tipo y uso. |
 | `networks` | UNIQUE `network_key` | Identidad interna estable de red. |
 | `network_identifiers` | `(namespace, identifier_type, identifier_value)` | Resolver identificadores de red dentro de su namespace. |
 | `asset_representations` | `(network_id, representation_kind, contract_address)`; parcial para representaciones nativas | Identidad de despliegues y unidades nativas por red. |
