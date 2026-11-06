@@ -211,3 +211,15 @@ Decisiones implementadas:
 ## 10. Regla de seguridad
 
 La política de persistencia es de denegación por defecto. Si la autorización de almacenamiento, caché o redistribución es desconocida, vencida o no cubre el endpoint, tipo de dato y uso concreto, no escribir los datos en Parquet, PostgreSQL ni en el repositorio. Las pruebas sintéticas no requieren ni implican autorización para almacenar datos reales.
+
+
+## Validación temporal de identidad de activos
+
+La resolución temporal se prueba con dos instantes independientes:
+
+- `valid_at`: instante del proveedor/mercado para el que se determina la identidad.
+- `known_at`: instante hasta el que se permite utilizar decisiones registradas por CCI.
+
+Los fixtures sintéticos deben cubrir: intervalos semiabiertos, intervalos contiguos, ausencia de `valid_from`, timestamps sin zona horaria, revisiones posteriores que corrigen retroactivamente un periodo y consultas con `known_at` anterior a la corrección. Una corrección nunca debe modificar el resultado de una consulta cuyo `known_at` sea anterior a `recorded_at`.
+
+La suite unitaria amplía los contratos de identidad con seis escenarios bitemporales. La CI de esta iteración aún debe ejecutarse y confirmarse; las pruebas unitarias no sustituyen las futuras pruebas transaccionales sobre PostgreSQL real, especialmente para concurrencia, revisiones simultáneas y publicación atómica de mappings.
