@@ -8,7 +8,7 @@ import psycopg
 from psycopg import errors
 
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
 DDL_PATH = ROOT / "tests" / "postgresql" / "001_provider_platform_lab.sql"
 
 
