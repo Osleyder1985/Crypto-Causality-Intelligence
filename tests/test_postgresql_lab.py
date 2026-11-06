@@ -159,6 +159,27 @@ class PostgreSQLProviderPlatformLabTests(unittest.TestCase):
                     (self.platform_id,),
                 )
 
+    def test_partial_provider_provenance_is_rejected(self):
+        review_id = self.insert_review()
+        with self.assertRaises(errors.CheckViolation):
+            with self.conn.transaction():
+                self.conn.execute(
+                    """
+                    INSERT INTO cci_lab.network_identifiers (
+                        id, network_id, namespace, identifier_type, identifier_value,
+                        observed_at, evidence_reference, provider_platform_id,
+                        provider_data_source_id, provider_platform_resolution_review_id,
+                        provider_platform_resolution_status
+                    ) VALUES (%s, %s, 'synthetic:asset_platform_id',
+                              'asset_platform_id', %s, %s, 'synthetic://evidence',
+                              %s, %s, %s, NULL)
+                    """,
+                    (
+                        uuid.uuid4(), self.network_id, self.platform_key, self.now,
+                        self.platform_id, self.source_id, review_id,
+                    ),
+                )
+
     def test_mapping_literal_and_namespace_are_guarded(self):
         review_id = self.insert_review()
         with self.assertRaises(errors.CheckViolation):
