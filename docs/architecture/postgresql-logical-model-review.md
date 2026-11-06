@@ -73,3 +73,26 @@ Una vez cerrados los pendientes anteriores:
 PR #16 permanece Draft hasta que la comparación documental no encuentre divergencias, se resuelvan los pendientes del apartado 4 y exista una suite que ejecute contra PostgreSQL real. Las 48 pruebas Python aprobadas se reportan exclusivamente como pruebas de contratos de aplicación; nunca como pruebas del motor PostgreSQL.
 
 No se han creado migraciones ni se ha desplegado PostgreSQL en esta revisión.
+
+## 5. Integridad temporal de identidades: decisión de diseño
+
+Se corrige una imprecisión de la versión anterior: `recorded_at` no es por sí solo un intervalo bitemporal. El diseño adoptado conserva eventos/revisiones append-only con `recorded_at` inmutable y reconstruye el estado conocido en `known_at` mediante la cadena lineal de `supersedes_review_id`. La validez en el dominio se consulta por separado con `valid_at` dentro de `[valid_from, valid_until)`. No se añaden columnas `recorded_from/recorded_until`, porque cerrar intervalos de conocimiento exigiría actualizar filas históricas y rompería el contrato append-only.
+
+Decisiones:
+1. Cada `namespace` define un solo modo de alcance: global (`network_id IS NULL`) o por red (`network_id IS NOT NULL`). Los identificadores globales y los identificadores contractuales/de red pertenecen a namespaces diferentes. No se admite mezclar ambos modos en un mismo namespace.
+2. La clave de conflicto es `(namespace, external_identifier)` para namespace global y `(namespace, network_id, external_identifier)` para namespace por red.
+3. Para una misma clave y un mismo `known_at`, no puede haber dos revisiones accepted efectivas con intervalos `valid time` solapados y destinos distintos. Los intervalos son semiabiertos; el contacto exacto entre fin e inicio no es solapamiento.
+4. `supersedes_review_id` solo puede enlazar una revisión anterior de la misma clave. No se permiten autorreferencias, ciclos ni dos sucesoras competidoras. Las alternativas irresolubles se registran como `ambiguous`.
+5. Una corrección retroactiva crea una revisión nueva con `recorded_at` posterior y el periodo de validez corregido. Las consultas con un `known_at` anterior siguen devolviendo la decisión que CCI conocía entonces.
+6. La revisión y el mapping accepted se publican atómicamente. El mapping replica exactamente destino, namespace, identificador, red y periodo de la revisión.
+7. La escritura toma un bloqueo transaccional determinista por clave de identidad antes de validar sustituciones y solapamientos. Se probarán carreras con dos sesiones PostgreSQL; un prechequeo de aplicación sin bloqueo no es suficiente.
+
+La especificación física debe concretar la función/trigger, la clave de bloqueo, los permisos append-only y el procedimiento de reintento transaccional. Las FKs y CHECK actuales no prueban estas invariantes. El modo de alcance por namespace debe quedar fijado en el catálogo controlado de namespaces del proyecto y validarse al publicar; no se acepta que el mismo namespace se utilice unas veces con red NULL y otras con red concreta.
+
+## 6. Pendientes técnicos actualizados
+
+- Definir e implementar la validación de cadena lineal de sustitución y misma clave.
+- Implementar exclusión temporal por clave bajo bloqueo transaccional, incluida la prevención de mezcla de scopes.
+- Garantizar que los mappings reproduzcan el intervalo exacto de la revisión aceptada.
+- Probar consultas `valid_at/known_at`, correcciones retroactivas, cierre y reapertura de vigencia, solapamientos, sustituciones inválidas y carreras concurrentes en PostgreSQL real.
+- Mantener los eventos/revisiones append-only mediante roles y triggers; comprobar rollback atómico de revisión y mapping.
