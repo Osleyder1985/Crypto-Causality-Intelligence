@@ -1,8 +1,8 @@
 # Diseño físico de PostgreSQL
 
-- **Estado:** especificación física reconciliada v0.3; propuesta, no implementada.
+- **Estado:** especificación física reconciliada v0.4; propuesta, no implementada.
 - **Fecha:** 2026-11-06.
-- **Modelo lógico:** `postgresql-logical-data-model.md`, contrato reconciliado v0.4.
+- **Modelo lógico:** `postgresql-logical-data-model.md`, contrato reconciliado v0.5.
 - **Revisión:** `postgresql-logical-model-review.md`.
 - **Decisión relacionada:** `ADR-001-storage-and-analytics-architecture.md`.
 - **Issue / PR:** #14 / #16.
