@@ -119,7 +119,10 @@ La notación `NULL` indica nulabilidad. Los campos no listados como nullable son
 - `retention_rule TEXT NULL`, `notes TEXT NULL`
 - `created_at TIMESTAMPTZ NOT NULL`
 - FK compuesta `(data_endpoint_id, data_source_id) -> data_endpoints(id, data_source_id)`; cuando `data_endpoint_id` sea NULL, la política tendrá alcance de fuente/producto/tipo según `policy_scope`.
-- UNIQUE candidato `(id, data_source_id)`.
+- UNIQUE `(id, data_source_id)`, necesaria para la FK desde evaluaciones.
+- CHECK `valid_until IS NULL OR valid_until > valid_from`.
+- CHECK de coherencia: `policy_scope = 'endpoint'` requiere endpoint no nulo.
+- Filas append-only. Una modificación de condiciones crea una nueva política; no se actualiza evidencia histórica.
 
 **`policy_evaluations`**
 - `id UUID PK`
@@ -136,13 +139,10 @@ La notación `NULL` indica nulabilidad. Los campos no listados como nullable son
 - `created_at TIMESTAMPTZ NOT NULL`
 - FK compuesta `(source_usage_policy_id, data_source_id) -> source_usage_policies(id, data_source_id)`.
 - FK compuesta `(data_endpoint_id, data_source_id) -> data_endpoints(id, data_source_id)`.
-- UNIQUE candidato `(id, data_source_id, data_endpoint_id, intended_use)`.
+- UNIQUE `(id, data_source_id, data_endpoint_id, intended_use)`, requerida por `dataset_sources`.
 - CHECK `policy_valid_until_snapshot IS NULL OR policy_valid_until_snapshot > policy_valid_from_snapshot`.
 - Registro append-only. La evaluación materializa la decisión concreta, aunque la política de origen tenga alcance provider/product/data_type y no un endpoint específico.
 - El servicio de autorización comprueba que la política cubra la fuente, endpoint, tipo, uso e instante evaluado. La FK garantiza coherencia referencial, no la validez jurídica de la interpretación.
-- CHECK `valid_until IS NULL OR valid_until > valid_from`.
-- CHECK de coherencia: `policy_scope = 'endpoint'` requiere endpoint no nulo; los demás alcances pueden tenerlo nulo o usarlo para acotar el producto según la definición documental.
-- Filas append-only. Una modificación de condiciones crea una nueva política; no se actualiza evidencia histórica.
 
 La política aplicable se resuelve considerando fuente, endpoint, tipo de dato, uso previsto, vigencia y evidencia. No se asume que una política de proveedor cubra automáticamente todos sus productos.
 
@@ -273,7 +273,7 @@ La FK compuesta impide combinar endpoint de una fuente con instrumento de otra. 
 - `id UUID PK`
 - `dataset_id UUID NOT NULL FK datasets(id)`
 - `data_source_id UUID NOT NULL FK data_sources(id)`
-- `data_endpoint_id UUID NULL`
+- `data_endpoint_id UUID NOT NULL`
 - `market_instrument_id UUID NULL`
 - `ingestion_request_id UUID NULL`
 - `policy_evaluation_id UUID NOT NULL`
