@@ -1,6 +1,6 @@
 # Modelo lógico de PostgreSQL — Crypto Causality Intelligence
 
-- **Estado:** Propuesta para revisión; no implementada.
+- **Estado:** Propuesta revisada v0.2; no implementada.
 - **Fecha:** 2026-11-06.
 - **Decisión relacionada:** ADR-001.
 - **Issue relacionado:** #14.
@@ -102,6 +102,23 @@ Campos principales:
 
 No se debe identificar un activo únicamente por su ticker. Cuando la identidad sea ambigua, se mantendrá sin resolver hasta disponer de evidencia suficiente.
 
+#### asset_identifiers
+
+Identificadores externos de un activo dentro del namespace de un proveedor o red.
+
+Campos principales:
+- id UUID PK
+- asset_id UUID FK → assets.id
+- namespace TEXT NOT NULL
+- network TEXT NULL
+- external_identifier TEXT NOT NULL
+- valid_from TIMESTAMPTZ NULL
+- valid_until TIMESTAMPTZ NULL
+- evidence_reference TEXT NULL
+- created_at TIMESTAMPTZ NOT NULL
+
+Restricción única propuesta: (namespace, network, external_identifier, valid_from). La aplicación debe validar solapamientos de vigencia; no asumir que un identificador externo sin namespace es globalmente único.
+
 #### market_instruments
 
 Representa un instrumento negociado en un mercado concreto de un proveedor.
@@ -120,7 +137,24 @@ Campos principales:
 - metadata JSONB NOT NULL DEFAULT '{}'
 - created_at TIMESTAMPTZ NOT NULL
 
-La identidad de un instrumento es específica del proveedor y mercado. Restricción única propuesta: (data_source_id, native_symbol, market_type), sujeta a revisión si el proveedor reutiliza símbolos a lo largo del tiempo. Se conserva la distinción entre cotizaciones como USD y USDT.
+La identidad de un instrumento es específica del proveedor y mercado. La restricción única definitiva debe considerar el segmento/mercado y la vigencia; no asumir que (data_source_id, native_symbol, market_type) basta para todos los proveedores. Se conserva la distinción entre cotizaciones como USD y USDT.
+
+#### instrument_metadata_versions
+
+Historial inmutable de observaciones y versiones de metadata de un instrumento.
+
+Campos principales:
+- id UUID PK
+- market_instrument_id UUID FK → market_instruments.id
+- source_dataset_id UUID NULL FK → datasets.id
+- observed_at TIMESTAMPTZ NOT NULL
+- valid_from TIMESTAMPTZ NULL
+- valid_until TIMESTAMPTZ NULL
+- instrument_status TEXT NOT NULL
+- metadata JSONB NOT NULL DEFAULT '{}'
+- created_at TIMESTAMPTZ NOT NULL
+
+Separar el tiempo de observación (cuándo el proyecto conoció el valor) del tiempo de validez (cuándo la regla aplica en el mercado). Las nuevas observaciones generan nuevas filas; no sobrescribir versiones anteriores.
 
 ### 3.3 Adquisición y ejecución
 
@@ -192,6 +226,18 @@ Campos principales:
 
 Restricciones: (dataset_key, version) único; tamaño y conteo no negativos; time_end posterior a time_start cuando ambos existan. El registro puede conservarse como tombstone después de eliminar un archivo, sin retener los valores eliminados.
 
+#### run_datasets
+
+Relación explícita entre una ejecución y los datasets que produjo o registró. Es independiente de la procedencia de proveedores y del linaje de transformaciones.
+
+Campos principales:
+- ingestion_run_id UUID FK → ingestion_runs.id
+- dataset_id UUID FK → datasets.id
+- dataset_role TEXT NOT NULL: source_capture, normalized, validation_report, derived, analytical_result.
+- created_at TIMESTAMPTZ NOT NULL
+
+Clave primaria: (ingestion_run_id, dataset_id, dataset_role). El vocabulario de roles se restringirá mediante CHECK o catálogo controlado.
+
 #### dataset_sources
 
 Relación muchos-a-muchos entre datasets y las fuentes/endpoints que contribuyeron a ellos.
@@ -203,7 +249,12 @@ Campos:
 - data_endpoint_id UUID NULL FK → data_endpoints.id
 - market_instrument_id UUID NULL FK → market_instruments.id
 - ingestion_request_id UUID NULL FK → ingestion_requests.id
+- source_usage_policy_id UUID NULL FK → source_usage_policies.id
+- evaluated_intended_use TEXT NOT NULL
+- permission_evaluated_at TIMESTAMPTZ NOT NULL
 - Restricción de unicidad parcial para evitar duplicar la misma relación cuando exista ingestion_request_id; las filas sin solicitud se controlan mediante una clave de procedencia explícita.
+
+La política referenciada debe ser la que la aplicación evaluó para esa contribución y uso. La FK no demuestra por sí sola que la política estuviera vigente o autorizara la persistencia; la decisión debe comprobarse antes de escribir el artefacto y conservar evidencia suficiente para auditarla.
 
 Permite datasets derivados de más de una fuente sin ocultar la procedencia. No se mezclan proveedores en la capa original; una combinación, si se realiza, pertenece a la capa derivada y documenta cada entrada.
 
@@ -322,7 +373,20 @@ Campos:
 
 Clave primaria: (experiment_id, dataset_id, dataset_role).
 
-## 4. Relaciones principales
+## 4. Integridad relacional y restricciones transversales
+
+Las claves foráneas simples no bastan para garantizar que una solicitud, su endpoint y su instrumento pertenezcan a la misma fuente. El diseño físico deberá incorporar claves candidatas compuestas y FKs compuestas (por ejemplo, (id, data_source_id)) donde corresponda, o eliminar atributos redundantes cuya consistencia no pueda imponerse.
+
+En particular:
+- Una ingestion_request debe vincular un endpoint y, si aplica, un instrumento del mismo data_source.
+- Cada dataset_sources debe vincular una contribución coherente: fuente, endpoint, instrumento, solicitud y política evaluada deben ser compatibles.
+- Las relaciones de un dataset derivado con varias fuentes se representan mediante varias filas de procedencia, no mediante una fuente única ficticia.
+- Definir ON DELETE RESTRICT para entidades históricas y reservar CASCADE para relaciones puente cuya eliminación no destruya evidencia.
+- Añadir CHECK para vigencias, tiempos de inicio/fin, intentos positivos y conteos/tamaños no negativos.
+- Los ciclos del grafo dataset_lineage no se evitan con FKs; deben prevenirse mediante lógica transaccional explícita.
+- La aplicación debe validar transiciones de estado y evitar reabrir ejecuciones finalizadas.
+
+## 5. Relaciones principales
 
 - Una fuente tiene muchos endpoints, políticas, instrumentos y solicitudes indirectamente asociadas.
 - Un endpoint pertenece a una fuente.
