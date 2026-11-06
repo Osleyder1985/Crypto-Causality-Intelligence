@@ -4,10 +4,12 @@ on:
   push:
     branches:
       - research/issue-17-btc-episode-study
+      - research/issue-18-duckdb-parquet
     paths:
       - "scripts/research/**"
       - "tests/test_btc_episode_study.py"
       - ".github/workflows/btc-episode-study.yml"
+      - "requirements-research.txt"
   pull_request:
     paths:
       - "scripts/research/**"
@@ -28,5 +30,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Instalar dependencia analítica fijada
+        run: python -m pip install -r requirements-research.txt
       - name: Ejecutar pruebas con datos sintéticos y sin acceso a proveedores
         run: python -m unittest discover -s tests -p 'test_btc_episode_study.py' -v
