@@ -2,7 +2,7 @@
 
 - **Estado:** reconciliación documental v0.6 parcial; pendiente de validación automatizada y PostgreSQL real. No autoriza todavía migraciones.
 - **Fecha:** 2026-11-06.
-- **Documentos:** `postgresql-logical-data-model.md` v0.6 y `postgresql-physical-schema.md` v0.5.
+- **Documentos:** `postgresql-logical-data-model.md` v0.7 y `postgresql-physical-schema.md` v0.6.
 - **Decisión relacionada:** ADR-001.
 - **PR de trabajo:** #16.
 
