@@ -47,11 +47,11 @@ PostgreSQL mantiene catálogo, identidades, metadata, operaciones, autorizacione
 
 **`asset_relationships`** — relación dirigida y evidenciada entre activos distintos. Atributos: `id`, `subject_asset_id`, `object_asset_id`, `relationship_type`, `directionality`, `valid_from`, `valid_until`, `evidence_reference`, `observed_at`, `recorded_at`. No establece equivalencia ni transitividad automática.
 
-**`asset_identity_resolution_reviews`** — historial de decisiones de identidad. Atributos: `id`, `namespace`, `network_id`, `external_identifier`, `candidate_asset_id`, `candidate_asset_representation_id`, `resolution_status`, `evidence_reference`, `decision_reference`, `observed_at`, `reviewed_at`, `recorded_at`, `valid_from`, `valid_until`, `supersedes_review_id`. Una decisión aceptada apunta exactamente a un activo o representación, nunca a ambos; una ambigüedad no se publica como mapping aceptado.
+**`asset_identity_resolution_reviews`** — historial de decisiones de identidad. Atributos: `id`, `namespace`, `network_id`, `external_identifier`, `candidate_asset_id`, `candidate_asset_representation_id`, `resolution_status`, `evidence_reference`, `decision_reference`, `observed_at`, `reviewed_at`, `recorded_at`, `valid_from`, `valid_until`, `supersedes_review_id`. Una decisión aceptada apunta exactamente a un activo o representación, nunca a ambos; una ambigüedad no se publica como mapping aceptado. Expone claves candidatas compuestas para que las tablas de mappings solo puedan referenciar revisiones accepted del mismo destino y clave externa.
 
-**`asset_identifiers`** — mapping externo aceptado a nivel de activo. Atributos: `id`, `asset_id`, `namespace`, `external_identifier`, `valid_from`, `valid_until`, `recorded_at`, `evidence_reference`, `resolution_review_id`.
+**`asset_identifiers`** — mapping externo aceptado a nivel de activo. Atributos: `id`, `asset_id`, `namespace`, `external_identifier`, `network_id` nullable, `valid_from`, `valid_until`, `recorded_at`, `evidence_reference`, `resolution_review_id`, `resolution_status`. La FK compuesta exige que la revisión esté accepted y coincidan exactamente activo, namespace e identificador; un trigger compara el ámbito de red con igualdad NULL-safe.
 
-**`asset_representation_identifiers`** — mapping externo aceptado a nivel de representación. Atributos: `id`, `asset_representation_id`, `namespace`, `external_identifier`, `valid_from`, `valid_until`, `recorded_at`, `evidence_reference`, `resolution_review_id`.
+**`asset_representation_identifiers`** — mapping externo aceptado a nivel de representación. Atributos: `id`, `asset_representation_id`, `network_id`, `namespace`, `external_identifier`, `valid_from`, `valid_until`, `recorded_at`, `evidence_reference`, `resolution_review_id`, `resolution_status`. FKs compuestas exigen coincidencia exacta de revisión accepted, representación, red, namespace e identificador.
 
 **`market_instruments`** — identidad de un instrumento de mercado de una fuente. Atributos: `id`, `data_source_id`, `source_instrument_id`, `native_symbol`, `native_base_asset_code`, `native_quote_asset_code`, `base_asset_id`, `quote_asset_id`, `canonical_symbol`, `market_type`, `created_at`. Los activos canónicos base/cotizado pueden permanecer sin resolver (ambos NULL); si se resuelven, ambos deben existir y ser distintos. USD y USDT son activos diferentes.
 
@@ -101,7 +101,7 @@ PostgreSQL mantiene catálogo, identidades, metadata, operaciones, autorizacione
 6. Instrumento → versiones de metadata → reglas de negociación.
 7. Dataset → procedencias, validaciones, linaje y asociaciones con experimentos.
 8. Transformación → ejecuciones; cada arista de linaje referencia una ejecución concreta.
-9. Revisión de identidad aceptada → mapping de activo o representación del mismo destino.
+9. Revisión de identidad accepted → mapping del mismo destino, red (cuando aplique), namespace e identificador; las FKs compuestas garantizan destino y estado, y el trigger garantiza el ámbito nullable de red en mappings de activo.
 10. Las FKs compuestas de la especificación física son obligatorias cuando garantizan coherencia de fuente/endpoint/instrumento/política. No pueden sustituirse por validaciones solo en Python.
 
 Las restricciones locales incluyen intervalos temporales válidos, marcas de tiempo de finalización no anteriores al inicio, intentos positivos, contadores y tamaños no negativos, hashes SHA-256 con formato definido y estados dentro de vocabularios controlados. Los solapamientos temporales, ciclos de linaje, transiciones de estado y decisiones de aplicabilidad requieren lógica transaccional adicional cuando un CHECK/FK no sea suficiente.
