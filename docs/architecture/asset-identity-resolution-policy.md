@@ -94,3 +94,10 @@ Esta tabla es deliberadamente conservadora. No afirma que los códigos represent
 - No se han creado migraciones PostgreSQL.
 - La estructura de revisión/auditoría debe implementarse físicamente antes de poblar mappings aprobados.
 - La decisión de granularidad para activos tokenizados, redes y contratos debe cerrarse antes de incorporar catálogos de tokens extensos.
+
+
+## 10. Catálogo inicial y aprobación
+
+La matriz inicial y el protocolo de evidencia se mantienen en `docs/catalog/initial-asset-catalog.md`. Ese documento propone claves internas para Bitcoin, USD y Tether USD, y registra identificadores Binance/Kraken como hipótesis pendientes de revisión.
+
+Ningún mapping listado allí se considera aprobado. La aprobación requiere evidencia oficial específica del namespace, identificación inequívoca del activo y de su scope de red/contrato cuando aplique, decisión auditable y vigencia. La inclusión en el catálogo no autoriza almacenamiento de payloads ni sustituye la evaluación de políticas de uso de datos.
