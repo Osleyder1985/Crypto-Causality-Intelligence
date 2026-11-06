@@ -89,7 +89,7 @@ Todas las tablas siguientes pertenecen a `cci`.
 | `research_hypotheses` | `id` | Hipótesis y criterios de falsación. |
 | `experiment_datasets` | `experiment_id, dataset_id, dataset_role` | Datasets utilizados por experimentos. |
 | `research_experiment_runs` | `id` | Ejecuciones individuales de experimentos, con parámetros, commit, estado y métricas. |
-| `research_run_artifacts` | `id` | Referencias verificables a artefactos externos producidos/consumidos por runs.
+| `research_run_artifacts` | `id` | Referencias verificables a artefactos externos producidos/consumidos por runs. |
 
 ## 4. Definición de columnas y restricciones
 
