@@ -198,7 +198,7 @@ La política aplicable se resuelve considerando fuente, alcance y referencia est
 - `identifier_type TEXT NOT NULL` (por ejemplo `eip155_chain_id`, `genesis_hash`, `asset_platform_id`).
 - `identifier_value TEXT NOT NULL` (literal exacto).
 - `observed_at TIMESTAMPTZ NOT NULL`, `evidence_reference TEXT NOT NULL`.
-- `provider_platform_entity_id UUID NULL`, `provider_data_source_id UUID NULL`, `provider_platform_resolution_review_id UUID NULL` (solo para identificadores originados en una plataforma de proveedor).
+- `provider_platform_entity_id UUID NULL`, `provider_data_source_id UUID NULL`, `provider_platform_resolution_review_id UUID NULL`, `provider_platform_resolution_status TEXT NULL` (solo para identificadores originados en una plataforma de proveedor; status debe ser `accepted`).
 - FK compuesta `(provider_platform_entity_id, provider_data_source_id) -> provider_platforms(id, data_source_id)`; obliga a que identidad de plataforma y fuente coincidan. Un trigger/servicio valida que `identifier_value` sea exactamente el literal `provider_platform_key` de esa identidad.
 - FK compuesta `(provider_platform_resolution_review_id, provider_platform_entity_id, network_id, provider_platform_resolution_status) -> provider_platform_resolution_reviews(id, provider_platform_id, candidate_network_id, resolution_status)`, con `provider_platform_resolution_status TEXT NULL`; CHECK exige que los cuatro campos de procedencia sean todos NULL para identificadores nativos, o todos completos y status = `accepted` para identificadores de plataforma. CHECK adicional exige `identifier_type = 'asset_platform_id'` cuando hay procedencia de plataforma; un trigger verifica que `namespace` coincida con `data_sources.source_key` de `provider_data_source_id`.
 - UNIQUE candidato `(namespace, identifier_type, identifier_value)`, solo tras verificar que el namespace define unicidad en ese ámbito.
@@ -768,7 +768,7 @@ La política rectora es `network-identity-resolution-policy.md`. El inventario f
 - `capture_id UUID NOT NULL` (identificador del lote de ingestión, compartido por todas las entradas del mismo snapshot).
 - `observed_at TIMESTAMPTZ NOT NULL`; `recorded_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()` (sustituye a `created_at` como instante inmutable de incorporación).
 - `provider_name TEXT NULL`, `provider_shortname TEXT NULL`, `provider_native_coin_id TEXT NULL`.
-- `reported_chain_identifier_raw TEXT NULL`, `reported_chain_identifier_json_type TEXT NULL` (literal escalar recibido y tipo JSON; no convertir a NUMERIC hasta confirmar el contrato oficial).
+- `reported_chain_identifier_json JSONB NOT NULL` (escalar JSON `number` o `null`, validado con `jsonb_typeof`; conserva el valor numérico exacto de PostgreSQL `numeric`, sin imponer que sea entero). La evidencia del cuerpo HTTP y su hash permiten conservar el lexema original cuando la fidelidad byte a byte sea necesaria.
 - `evidence_reference TEXT NOT NULL`, `evidence_sha256 TEXT NULL`.
 - UNIQUE `(provider_platform_id, capture_id)`; UNIQUE candidato `(id, provider_platform_id)` y `(id, provider_platform_id, data_source_id)`.
 - No hay UNIQUE por `observed_at`: dos capturas distintas pueden compartir timestamp. La repetición de una plataforma dentro del mismo lote se rechaza.
@@ -793,7 +793,7 @@ La política rectora es `network-identity-resolution-policy.md`. El inventario f
 **`network_identifiers` — publicación del identificador externo**
 - Los campos de procedencia son `provider_platform_entity_id`, `provider_data_source_id`, `provider_platform_resolution_review_id` y `provider_platform_resolution_status`; todos NULL para identificadores nativos o todos completos para IDs de plataforma.
 - La FK compuesta de plataforma referencia `provider_platforms(id, data_source_id)`; un trigger/servicio transaccional comprueba que `identifier_value = provider_platform_key`.
-- La FK compuesta de revisión referencia `(id, provider_platform_id, candidate_network_id, resolution_status)` y exige destino igual a `network_id) y estado `accepted`.
+- La FK compuesta de revisión referencia `(id, provider_platform_id, candidate_network_id, resolution_status)` y exige destino igual a `network_id` y estado `accepted`.
 - CHECK adicional exige `identifier_type = 'asset_platform_id'`; un trigger verifica que `namespace` coincida con `data_sources.source_key`.
 - La publicación accepted y el mapping se realizan en una única transacción. Las consultas de vigencia deben considerar la cabeza de la cadena, no la mera existencia histórica de una fila accepted.
 
@@ -840,3 +840,159 @@ La política rectora es `network-identity-resolution-policy.md`. El inventario f
 ### Estado de implementación
 
 Separación documental solamente. No se han creado migraciones, no se ha ejecutado DDL ni se han probado estas restricciones en PostgreSQL real. Las pruebas Python de contratos no sustituyen las pruebas del motor.
+
+
+## 13. Garantías SQL concretas para resolución de plataformas
+
+Esta sección convierte los invariantes de la sección 10 en objetos PostgreSQL nominados. Es una especificación para el futuro DDL, no una migración ejecutable sobre el esquema actual. Los nombres de constraints e índices son normativos para que las pruebas puedan referenciarlos.
+
+### 13.1 Claves candidatas requeridas
+
+Antes de declarar las FKs compuestas, deben existir estas claves únicas:
+
+- `provider_platforms_uq_id_source UNIQUE (id, data_source_id)`.
+- `provider_platforms_uq_id_source_key UNIQUE (id, data_source_id, provider_platform_key)`.
+- `provider_platform_observations_uq_id_platform_source UNIQUE (id, provider_platform_id, data_source_id)`.
+- `provider_platform_resolution_reviews_uq_id_platform UNIQUE (id, provider_platform_id)`.
+- `provider_platform_resolution_reviews_uq_mapping UNIQUE (id, provider_platform_id, candidate_network_id, resolution_status)`.
+
+Las restricciones `UNIQUE` anteriores son necesarias como objetivos de FKs, aunque algunas columnas ya formen parte de una PK. PostgreSQL exige una clave única que coincida con las columnas referenciadas.
+
+### 13.2 FKs y CHECKs normativos
+
+**Observaciones**
+- `provider_platform_observations_fk_platform_source`: `(provider_platform_id, data_source_id) REFERENCES provider_platforms(id, data_source_id) ON UPDATE RESTRICT ON DELETE RESTRICT`.
+- `provider_platform_observations_uq_capture`: `UNIQUE (provider_platform_id, capture_id)`.
+
+**Revisiones**
+- `provider_platform_resolution_reviews_fk_platform_source`: `(provider_platform_id, data_source_id) REFERENCES provider_platforms(id, data_source_id) ON UPDATE RESTRICT ON DELETE RESTRICT`.
+- `provider_platform_resolution_reviews_fk_observation`: `(based_on_observation_id, provider_platform_id, data_source_id) REFERENCES provider_platform_observations(id, provider_platform_id, data_source_id) ON UPDATE RESTRICT ON DELETE RESTRICT`. Al ser nullable `based_on_observation_id`, se usa `MATCH SIMPLE` (default): o es NULL, o la FK compuesta debe coincidir.
+- `provider_platform_resolution_reviews_fk_successor_chain`: `(supersedes_review_id, provider_platform_id) REFERENCES provider_platform_resolution_reviews(id, provider_platform_id) ON UPDATE RESTRICT ON DELETE RESTRICT`.
+- `provider_platform_resolution_reviews_ck_validity`: `valid_until IS NULL OR (valid_from IS NOT NULL AND valid_until > valid_from)`.
+- `provider_platform_resolution_reviews_ck_successor_start`: `supersedes_review_id IS NULL OR valid_from IS NOT NULL`.
+- `provider_platform_resolution_reviews_ck_accepted`: `resolution_status <> 'accepted' OR (candidate_network_id IS NOT NULL AND evidence_reference IS NOT NULL AND btrim(evidence_reference) <> '' AND reviewed_at IS NOT NULL AND valid_from IS NOT NULL)`.
+- CHECK de vocabulario: `resolution_status IN ('pending_review','accepted','rejected','ambiguous')`.
+
+**Redes y mappings**
+- `network_identifiers_fk_platform_source`: `(provider_platform_entity_id, provider_data_source_id) REFERENCES provider_platforms(id, data_source_id) ON UPDATE RESTRICT ON DELETE RESTRICT`.
+- `network_identifiers_fk_accepted_review`: `(provider_platform_resolution_review_id, provider_platform_entity_id, network_id, provider_platform_resolution_status) REFERENCES provider_platform_resolution_reviews(id, provider_platform_id, candidate_network_id, resolution_status) ON UPDATE RESTRICT ON DELETE RESTRICT`.
+- CHECK de procedencia: los cuatro campos `provider_platform_entity_id`, `provider_data_source_id`, `provider_platform_resolution_review_id` y `provider_platform_resolution_status` son todos NULL (identificador nativo) o todos NOT NULL (identificador de plataforma); en el segundo caso el status debe ser literalmente `accepted` y `identifier_type = 'asset_platform_id'`.
+- Para mapping de plataforma, `network_id` e `identifier_value` son NOT NULL (ya lo son en el contrato base); la FK compuesta obliga a que `network_id = candidate_network_id` de la revisión accepted.
+- UNIQUE `network_identifiers_uq_review` sobre `(provider_platform_resolution_review_id)` WHERE `provider_platform_resolution_review_id IS NOT NULL`: una decisión accepted no publica dos filas de mapping.
+- No crear un UNIQUE global adicional sobre `(namespace, identifier_type, identifier_value)` hasta confirmar su ámbito; el ID externo se interpreta dentro de su proveedor.
+
+La FK compuesta de mapping debe tener como destino la clave candidata de cinco columnas indicada arriba. El campo `provider_platform_resolution_status` se mantiene redundante deliberadamente para que la FK fuerce el literal accepted; el CHECK impide otros estados. No se permite `ON DELETE CASCADE` en estas relaciones históricas.
+
+### 13.3 Índices UNIQUE parciales de cadena
+
+- `provider_platform_reviews_uq_root`: UNIQUE `(provider_platform_id)` WHERE `supersedes_review_id IS NULL`.
+- `provider_platform_reviews_uq_successor`: UNIQUE `(supersedes_review_id)` WHERE `supersedes_review_id IS NOT NULL`.
+
+La FK auto-referencial compuesta impide sucesión entre plataformas. El índice de raíz impide dos raíces y el de sucesora impide bifurcaciones. Estos índices no impiden por sí solos ciclos; para eso se requiere el trigger.
+
+### 13.4 Triggers requeridos
+
+1. `trg_provider_platform_observations_immutable`: BEFORE UPDATE OR DELETE; rechaza cualquier modificación/borrado de snapshots. Las correcciones se insertan como nuevas observaciones.
+2. `trg_provider_platform_reviews_immutable`: BEFORE UPDATE OR DELETE; rechaza cambios/borrados de decisiones. La única operación válida es insertar una sucesora.
+3. `trg_provider_platform_review_chain_guard`: BEFORE INSERT; toma `SELECT ... FOR UPDATE` sobre la identidad `provider_platforms.id`; valida que `supersedes_review_id`, si existe, sea la cabeza actual (ninguna fila la sucede), pertenezca a esa identidad y no cree ciclo. La FK verifica la identidad; el trigger comprueba cabeza y ciclo recorriendo ancestros/sucesores. El bloqueo serializa inserciones concurrentes de la misma identidad.
+4. `trg_network_identifier_platform_guard`: BEFORE INSERT; para filas con procedencia de plataforma, lee identidad y fuente, exige `identifier_value = provider_platform_key`, `namespace = data_sources.source_key || ':asset_platform_id'`, `identifier_type = 'asset_platform_id'`, y comprueba que la revisión referenciada sea la cabeza efectiva accepted en el instante de publicación. La FK/check ya garantizan plataforma, red y estado; el trigger valida literales y cabeza.
+5. Los triggers de inmutabilidad deben ejecutarse también para roles de aplicación; las tablas no deben conceder UPDATE/DELETE al rol de ingestión/revisión. Un owner privilegiado puede eludir triggers, por lo que operaciones administrativas quedan fuera del contrato normal y deben auditarse.
+
+La función de cadena debe rechazar que una revisión nueva apunte a una revisión que ya tenga sucesora. La comprobación de ciclo es defensiva: con una cabeza única y sin permitir sucesor de una no-cabeza, un ciclo no puede construirse mediante el flujo autorizado.
+
+### 13.5 Vista de resolución vigente
+
+No se debe definir la vigencia como «la revisión accepted más reciente» ni como «existe cualquier revisión accepted». Una decisión anterior puede seguir vigente hasta el `valid_from` de una sucesora futura. La consulta deriva el final efectivo usando la sucesora directa:
+
+```sql
+CREATE VIEW provider_platform_resolution_current AS
+SELECT
+    r.provider_platform_id,
+    r.data_source_id,
+    r.id AS resolution_review_id,
+    r.candidate_network_id AS network_id,
+    r.resolution_status,
+    r.valid_from,
+    r.valid_until,
+    r.recorded_at,
+    LEAST(
+        COALESCE(r.valid_until, 'infinity'::timestamptz),
+        COALESCE(s.valid_from, 'infinity'::timestamptz)
+    ) AS effective_valid_until
+FROM provider_platform_resolution_reviews AS r
+LEFT JOIN provider_platform_resolution_reviews AS s
+  ON s.supersedes_review_id = r.id
+WHERE r.valid_from <= statement_timestamp()
+  AND statement_timestamp() < LEAST(
+        COALESCE(r.valid_until, 'infinity'::timestamptz),
+        COALESCE(s.valid_from, 'infinity'::timestamptz)
+      );
+```
+
+La vista puede devolver como máximo una revisión por identidad si las reglas de cadena se cumplen. La autorización de resolución de plataforma se obtiene filtrando `resolution_status = 'accepted'`; una cabeza `pending_review`, `ambiguous` o `rejected` devuelve estado no resoluble y no habilita el mapping.
+
+Para reconstrucción bitemporal no basta la vista «ahora»: la consulta debe recibir ambos parámetros `valid_at` y `known_at`, excluir revisiones con `recorded_at > known_at), y truncar una revisión solo por una sucesora que también fuera conocida en `known_at`. Esta consulta parametrizada se incluirá en la capa de repositorio; no se simulará con una vista fija.
+
+### 13.6 Publicación atómica y revocaciones
+
+El único flujo autorizado para aceptar y publicar un mapping es una transacción PostgreSQL:
+
+1. `BEGIN`.
+2. `SELECT id FROM provider_platforms WHERE id = :platform_id FOR UPDATE`.
+3. Leer la cabeza de la cadena y comprobar que la nueva decisión la sucede (o es la raíz si no existe revisión previa).
+4. Insertar la revisión accepted con red, evidencia, `reviewed_at`, `recorded_at` y `valid_from`.
+5. Insertar `network_identifiers` con el mismo `provider_platform_entity_id`, proveedor, red, literal externo, revisión y status accepted.
+6. `COMMIT`; cualquier fallo ejecuta `ROLLBACK`.
+
+El mapping no se publica antes de que la revisión exista. La FK compuesta hace imposible publicar una red distinta de la candidata accepted.
+
+**Revocación/corrección:** insertar una revisión sucesora `rejected`, `ambiguous` o `pending_review` con su `valid_from`; no actualizar ni borrar la revisión ni el mapping históricos. La vista deja de exponer el mapping accepted a partir del inicio efectivo de la sucesora. Una nueva decisión accepted posterior crea otra sucesora y su mapping histórico asociado. No se reescriben filas previas.
+
+Una nueva observación por sí sola no revoca ni cambia la vista. La revocación debe ser una decisión explícita.
+
+### 13.7 Contrato CoinGecko: NET-06 cerrado documentalmente
+
+La referencia oficial del endpoint **Asset Platforms List** declara `chain_identifier` como `number | null`, y lo describe como el Chain ID de Chainlist. No declara que el tipo JSON sea específicamente integer. Por tanto:
+- `reported_chain_identifier_json JSONB NOT NULL` conserva el escalar JSON number o JSON null y evita un tipo binario aproximado (`REAL`/`DOUBLE PRECISION`).
+- CHECK: `jsonb_typeof(reported_chain_identifier_json) IN ('number','null')`.
+- No forzar integridad de entero en la columna de observación. La política de identidad EVM podrá extraer/validar un valor entero exacto antes de crear un `network_identifier` namespaced `eip155`.
+- Para fidelidad del lexema recibido (p. ej. `137` frente a `1.37e2`), conservar el cuerpo HTTP original o su artefacto de evidencia con hash; JSONB preserva el valor numérico, no el formato textual exacto del token.
+- JSON null se almacena como JSONB `'null'::jsonb`; SQL NULL se reserva para ausencia/no disponibilidad de la observación completa y no se usa para representar un null explícito del proveedor.
+
+Fuente oficial: https://docs.coingecko.com/reference/asset-platforms-list. La documentación visible confirma `number | null`; no confirma semántica de integer. Esta decisión cierra el tipo físico sin sobreinterpretar el contrato.
+
+### 13.8 Matriz de pruebas del motor PostgreSQL
+
+| ID | Fixture / operación | Resultado exigido |
+|---|---|---|
+| PG-NET-01 | Insertar observación con plataforma/fuente no coincidentes | FK compuesta rechaza |
+| PG-NET-02 | Dos observaciones misma plataforma + capture_id | UNIQUE rechaza segunda |
+| PG-NET-03 | Dos observaciones mismo observed_at, capture_id distinto | Ambas aceptadas |
+| PG-NET-04 | Revisar observación de otra plataforma/fuente | FK compuesta rechaza |
+| PG-NET-05 | Segunda raíz para la misma plataforma | UNIQUE parcial rechaza |
+| PG-NET-06 | Segunda sucesora para la misma revisión | UNIQUE parcial rechaza |
+| PG-NET-07 | Sucesora cruza de plataforma | FK compuesta rechaza |
+| PG-NET-08 | Sucesora apunta a revisión que no es cabeza | Trigger rechaza |
+| PG-NET-09 | Crear ciclo mediante inserción directa | Trigger rechaza |
+| PG-NET-10 | UPDATE/DELETE de observación o revisión | Trigger/permisos rechazan |
+| PG-NET-11 | Mapping con campos de procedencia parcialmente NULL | CHECK rechaza |
+| PG-NET-12 | Mapping con status pending/rejected/ambiguous | CHECK/FK rechazan |
+| PG-NET-13 | Mapping con revisión accepted pero network_id diferente | FK compuesta rechaza |
+| PG-NET-14 | Mapping con literal distinto del provider_platform_key | Trigger rechaza |
+| PG-NET-15 | Mapping con namespace no derivado del source_key | Trigger rechaza |
+| PG-NET-16 | Nueva observación sin revisión | Mapping vigente no cambia |
+| PG-NET-17 | Sucesora rejected entra en vigor | Vista deja de resolver la plataforma |
+| PG-NET-18 | Sucesora futura aún no entra en vigor | Revisión anterior sigue efectiva |
+| PG-NET-19 | Error después de insertar revisión y antes de mapping | ROLLBACK elimina ambos inserts |
+| PG-NET-20 | Dos sesiones crean sucesoras incompatibles concurrentemente | Una espera; solo una sucesora confirma |
+| PG-NET-21 | Dos sesiones publican mappings de la misma plataforma/redes distintas | Serialización; no pueden quedar dos resoluciones vigentes |
+| PG-NET-22 | chain_identifier JSON number, null, string, boolean, object o array | number/null aceptados; los otros tipos rechazados |
+| PG-NET-23 | chain_identifier JSON number con exponente o decimal | Se conserva exacto; no se fuerza integer en observación |
+| PG-NET-24 | Consulta bitemporal con known_at anterior a una revocación | Devuelve lo que CCI conocía entonces |
+| PG-NET-25 | Consulta bitemporal con valid_at antes/después del límite semiabierto | Resultado respeta [valid_from, effective_valid_until) |
+
+Las pruebas PG-NET-20/21 deben usar dos conexiones PostgreSQL independientes y barreras coordinadas; no pueden simularse con mocks ni con una sola transacción secuencial.
+
+### Estado de esta especificación
+
+NET-04/NET-05 quedan traducidos a claves, FKs, índices, triggers, vista, flujo transaccional y pruebas. NET-06 queda cerrado a nivel de contrato: CoinGecko declara `number | null`; se adopta JSONB escalar exacto y se conserva el cuerpo de evidencia para el lexema. Aún no se ha generado DDL ejecutable ni se ha probado PostgreSQL real.
