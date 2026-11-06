@@ -64,6 +64,15 @@ def resolve_asset_identity(
     ]
     accepted = [item for item in matches if item.get("status") == "accepted"]
     accepted_targets = {item.get("canonical_asset_key") for item in accepted}
+    if "ambiguous" in {item.get("status") for item in matches}:
+        return {
+            "resolution_status": "ambiguous",
+            "canonical_asset_key": None,
+            "evidence_reference": None,
+            "matched_namespace": namespace,
+            "matched_native_code": native_code,
+            "matched_network": network,
+        }
     if len(accepted_targets) > 1:
         raise ValueError("Correspondencias aceptadas en conflicto para el mismo identificador")
     if accepted:
