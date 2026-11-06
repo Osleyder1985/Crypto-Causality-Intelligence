@@ -1,8 +1,8 @@
 # Diseño físico de PostgreSQL
 
-- **Estado:** especificación física reconciliada v0.2; propuesta, no implementada.
+- **Estado:** especificación física reconciliada v0.3; propuesta, no implementada.
 - **Fecha:** 2026-11-06.
-- **Modelo lógico:** `postgresql-logical-data-model.md`, contrato reconciliado v0.3.
+- **Modelo lógico:** `postgresql-logical-data-model.md`, contrato reconciliado v0.4.
 - **Revisión:** `postgresql-logical-model-review.md`.
 - **Decisión relacionada:** `ADR-001-storage-and-analytics-architecture.md`.
 - **Issue / PR:** #14 / #16.
@@ -560,13 +560,15 @@ No se exige `btree_gist` en esta etapa. Se prefiere el bloqueo por clave más va
 
 ## 6. Tiempo, estados e inmutabilidad
 
-### 6.1 Tiempo bitemporal
+### 6.1 Dimensiones temporales
 
-Se distinguen dos dimensiones cuando el dato lo requiere:
-- **Valid time:** `valid_from / valid_until`, periodo durante el cual una regla o metadata aplica en el mercado/proveedor.
-- **Observation/record time:** `observed_at`, `reviewed_at`, `permission_evaluated_at` o `created_at`, momento en que el proyecto conoció o registró la información.
+No todos los timestamps representan la misma dimensión:
+- **Valid time:** `valid_from / valid_until`, periodo durante el cual una identidad, regla o metadata aplica en el dominio de origen.
+- **Observation time:** `observed_at`, momento en que CCI observó la evidencia.
+- **Decision time:** `reviewed_at`, momento en que se revisó o decidió, cuando corresponda.
+- **Transaction/knowledge time:** `recorded_at`, momento inmutable en que la decisión quedó registrada en CCI.
 
-No se inferirá el tiempo de validez a partir del tiempo de observación. Los intervalos de validez son semiabiertos `[valid_from, valid_until)`. Si `valid_from` es NULL en un identificador histórico, significa que el inicio no está documentado, no que sea válido desde siempre.
+Los intervalos de validez son semiabiertos `[valid_from, valid_until)`. No se infiere validez a partir de observación o registro. Para resolución de identidades, la reconstrucción bitemporal se basa en revisiones append-only, `recorded_at` y la cadena `supersedes_review_id`; no hay columnas físicas `recorded_from/recorded_until`. Para otras entidades, no se afirmará bitemporalidad si solo existe un timestamp de observación o creación. Si `valid_from` es NULL en un registro que lo admite, el inicio no está documentado, no significa “válido desde siempre”.
 
 ### 6.2 Inmutabilidad
 
