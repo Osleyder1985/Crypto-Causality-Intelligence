@@ -60,9 +60,14 @@ Todas las tablas siguientes pertenecen a `cci`.
 | `data_endpoints` | `id` | Productos y familias de endpoints. |
 | `source_usage_policies` | `id` | Evidencia versionada de condiciones de uso. |
 | `policy_evaluations` | `id` | Decisión concreta de aplicabilidad de una política a endpoint, uso e instante. |
-| `assets` | `id` | Identidad canónica de activos. |
-| `asset_identifiers` | `id` | Identificadores externos con correspondencia canónica aceptada. |
-| `asset_identity_resolution_reviews` | `id` | Candidatos, decisiones y evidencia de resolución, incluidas ambigüedad y pendientes. |
+| `assets` | `id` | Identidad económica/técnica del activo; no identifica un contrato concreto. |
+| `networks` | `id` | Redes blockchain con clave interna estable. |
+| `network_identifiers` | `id` | Chain IDs y alias de red namespaced. |
+| `asset_representations` | `id` | Unidad nativa o despliegue contractual de un activo en una red. |
+| `asset_relationships` | `id` | Relaciones tipadas, dirigidas y evidenciadas entre activos distintos. |
+| `asset_identifiers` | `id` | Identificadores externos aceptados a nivel de activo. |
+| `asset_representation_identifiers` | `id` | Identificadores externos aceptados a nivel de representación. |
+| `asset_identity_resolution_reviews` | `id` | Candidatos, decisiones y evidencia de resolución a nivel de activo o representación. |
 | `market_instruments` | `id` | Identidad estable de instrumentos específicos de una fuente/mercado. |
 | `instrument_identifiers` | `id` | Claves y alias nativos del instrumento por interfaz/namespace. |
 | `instrument_metadata_versions` | `id` | Observaciones históricas de metadata y estado. |
@@ -155,47 +160,97 @@ La política aplicable se resuelve considerando fuente, endpoint, tipo de dato, 
 - `id UUID PK`
 - `canonical_code TEXT NOT NULL UNIQUE` (clave interna estable; no se exige que sea ticker).
 - `display_name TEXT NOT NULL`
-- `asset_type TEXT NOT NULL`: CHECK en `crypto, fiat, stablecoin, tokenized_asset, other`.
-- `network TEXT NULL` (atributo descriptivo; no es identidad universal).
-- `external_identifiers JSONB NOT NULL DEFAULT '{}'` (extensión transitoria; no sustituye la tabla normalizada).
+- `asset_type TEXT NOT NULL`: CHECK inicial en `crypto, fiat, stablecoin, tokenized_asset, other`.
+- `issuer_key TEXT NULL`, `issuer_name TEXT NULL` (descriptivos; no sustituyen una entidad de emisor ni evidencia).
+- `external_identifiers JSONB NOT NULL DEFAULT '{}'` (extensión transitoria; no sustituye tablas normalizadas).
 - `created_at TIMESTAMPTZ NOT NULL`.
+- No incluir `network` como atributo de identidad del activo: la relación con redes se expresa mediante `asset_representations`.
+
+**`networks`**
+- `id UUID PK`
+- `network_key TEXT NOT NULL UNIQUE` (clave interna estable y namespaced por familia cuando sea necesario).
+- `display_name TEXT NOT NULL`
+- `network_family TEXT NOT NULL`: CHECK inicial `bitcoin, evm, solana, other`; vocabulario ampliable mediante migración.
+- `environment TEXT NOT NULL`: CHECK `mainnet, testnet, devnet, other`.
+- `created_at TIMESTAMPTZ NOT NULL`.
+- El nombre o chain ID no se considera por sí solo una prueba de identidad de red.
+
+**`network_identifiers`**
+- `id UUID PK`
+- `network_id UUID NOT NULL FK networks(id)`
+- `namespace TEXT NOT NULL` (familia/especificación que define el identificador).
+- `identifier_type TEXT NOT NULL` (por ejemplo `eip155_chain_id`, `genesis_hash`, `provider_network_key`).
+- `identifier_value TEXT NOT NULL` (literal exacto).
+- `observed_at TIMESTAMPTZ NOT NULL`, `evidence_reference TEXT NOT NULL`.
+- UNIQUE candidato `(namespace, identifier_type, identifier_value)`, solo tras verificar que el namespace define unicidad en ese ámbito.
+- No almacenar un chain ID aislado sin namespace ni asumir que es globalmente único.
+
+**`asset_representations`**
+- `id UUID PK`
+- `asset_id UUID NOT NULL FK assets(id)`
+- `network_id UUID NOT NULL FK networks(id)`
+- `representation_kind TEXT NOT NULL`: CHECK `native, token_contract, other`.
+- `native_asset_key TEXT NULL` (identificador nativo de la unidad de red; solo para `native`).
+- `contract_address TEXT NULL` (dirección literal; solo para representación contractual).
+- `address_normalization TEXT NULL` (regla/versionado de comparación; nunca reemplaza el valor original).
+- `token_standard TEXT NULL`, `decimals INTEGER NULL` (metadata observada; decimals no equivale a precisión de mercado).
+- `issuer_key TEXT NULL` (referencia descriptiva pendiente de catálogo de emisores).
+- `valid_from TIMESTAMPTZ NULL`, `valid_until TIMESTAMPTZ NULL` (vigencia semiabierta).
+- `observed_at TIMESTAMPTZ NOT NULL`, `evidence_reference TEXT NOT NULL`.
+- CHECK: `representation_kind = 'native'` exige `native_asset_key IS NOT NULL AND contract_address IS NULL`.
+- CHECK: `representation_kind = 'token_contract'` exige `contract_address IS NOT NULL AND native_asset_key IS NULL`.
+- CHECK: `valid_until IS NULL OR (valid_from IS NOT NULL AND valid_until > valid_from)`.
+- Una representación contractual requiere red y dirección verificadas; una unidad nativa nunca recibe una dirección ficticia.
+- No imponer unicidad global de `contract_address`; su scope mínimo es red + dirección + tipo de representación. La política de case/checksum se define por familia de red.
+
+**`asset_relationships`**
+- `id UUID PK`
+- `subject_asset_id UUID NOT NULL FK assets(id)`
+- `object_asset_id UUID NOT NULL FK assets(id)`
+- `relationship_type TEXT NOT NULL`: CHECK inicial `wrapped_representation_of, bridged_representation_of, redeemable_for, backed_by, tracks_price_of, migrated_to`.
+- `directionality TEXT NOT NULL DEFAULT 'directed'`: CHECK `directed`.
+- `valid_from TIMESTAMPTZ NULL`, `valid_until TIMESTAMPTZ NULL`.
+- `evidence_reference TEXT NOT NULL`, `observed_at TIMESTAMPTZ NOT NULL`.
+- CHECK `subject_asset_id <> object_asset_id`.
+- CHECK `valid_until IS NULL OR (valid_from IS NOT NULL AND valid_until > valid_from)`.
+- Las relaciones no crean equivalencia de identidad, fungibilidad, paridad ni propagación automática de FKs. No asumir transitividad.
 
 **`asset_identity_resolution_reviews`**
 - `id UUID PK`
 - `namespace TEXT NOT NULL`
-- `network TEXT NULL`
-- `external_identifier TEXT NOT NULL` (código nativo exacto).
+- `network_id UUID NULL FK networks(id)` (scope de red normalizado; NULL solo cuando la fuente no delimita una red).
+- `external_identifier TEXT NOT NULL` (código/dirección nativa exacta).
 - `candidate_asset_id UUID NULL FK assets(id)`
+- `candidate_asset_representation_id UUID NULL FK asset_representations(id)`
+- CHECK: exactamente uno de `candidate_asset_id` y `candidate_asset_representation_id` debe ser NOT NULL para decisiones candidatas/aceptadas.
 - `resolution_status TEXT NOT NULL`: CHECK en `pending_review, accepted, rejected, ambiguous`.
-- `evidence_reference TEXT NULL`
-- `decision_reference TEXT NULL` (identidad del proceso/revisor o acta de decisión; nunca credenciales).
-- `observed_at TIMESTAMPTZ NOT NULL` (momento de observación de la fuente).
-- `reviewed_at TIMESTAMPTZ NULL` (momento de decisión humana/proceso).
-- `recorded_at TIMESTAMPTZ NOT NULL` (momento de registro inmutable en CCI; reloj de conocimiento).
-- `valid_from TIMESTAMPTZ NULL`, `valid_until TIMESTAMPTZ NULL` (intervalo de validez del proveedor, semiabierto `[valid_from, valid_until)`).
-- `supersedes_review_id UUID NULL FK asset_identity_resolution_reviews(id)` (revisión anterior corregida, si aplica).
+- `evidence_reference TEXT NULL`, `decision_reference TEXT NULL`.
+- `observed_at TIMESTAMPTZ NOT NULL`, `reviewed_at TIMESTAMPTZ NULL`, `recorded_at TIMESTAMPTZ NOT NULL`.
+- `valid_from TIMESTAMPTZ NULL`, `valid_until TIMESTAMPTZ NULL`.
+- `supersedes_review_id UUID NULL FK asset_identity_resolution_reviews(id)`.
 - CHECK `valid_until IS NULL OR (valid_from IS NOT NULL AND valid_until > valid_from)`.
-- CHECK `resolution_status <> 'accepted' OR (candidate_asset_id IS NOT NULL AND evidence_reference IS NOT NULL AND reviewed_at IS NOT NULL AND valid_from IS NOT NULL)`.
-- CHECK de no auto-referencia en `supersedes_review_id`.
-- Registro append-only; `recorded_at` se asigna al insertar y nunca se backdatea. Las revisiones correctivas apuntan a la anterior sin modificarla. Una nueva decisión crea otra fila; no sobrescribir decisiones históricas.
-- Índices `(namespace, network, external_identifier, recorded_at DESC)` y `(supersedes_review_id)`; índice parcial por `candidate_asset_id` cuando no sea NULL.
-- Esta tabla conserva estados pendientes, ambiguos y rechazados; no autoriza por sí misma la asociación canónica. La consulta bitemporal filtra por `valid_at` y `known_at`, y selecciona la revisión más reciente por `recorded_at` que era conocida en `known_at`; empates contradictorios se resuelven como `ambiguous`.
+- CHECK: una decisión `accepted` requiere exactamente un destino, evidencia, `reviewed_at` y `valid_from`.
+- Registro append-only; `recorded_at` se asigna al insertar. Correcciones mediante nueva revisión.
+- Las revisiones de activo y de representación son scopes distintos. Una revisión contractual exige `network_id` y el identificador debe corresponder exactamente al contrato/alias documentado.
+- Empates máximos contradictorios para la misma clave exacta se resuelven como `ambiguous`, nunca como selección arbitraria.
 
 **`asset_identifiers`**
-
 - `id UUID PK`
 - `asset_id UUID NOT NULL FK assets(id)`
-- `namespace TEXT NOT NULL`
-- `network TEXT NULL`
-- `external_identifier TEXT NOT NULL`
-- `valid_from TIMESTAMPTZ NOT NULL`, `valid_until TIMESTAMPTZ NULL` (vigencia semiabierta).
-- `recorded_at TIMESTAMPTZ NOT NULL` (cuándo CCI publicó el mapping).
-- `evidence_reference TEXT NOT NULL` y `resolution_review_id UUID NOT NULL FK asset_identity_resolution_reviews(id)`.
-- `created_at TIMESTAMPTZ NOT NULL`.
+- `namespace TEXT NOT NULL`, `external_identifier TEXT NOT NULL`.
+- `valid_from TIMESTAMPTZ NOT NULL`, `valid_until TIMESTAMPTZ NULL`, `recorded_at TIMESTAMPTZ NOT NULL`.
+- `evidence_reference TEXT NOT NULL`, `resolution_review_id UUID NOT NULL FK asset_identity_resolution_reviews(id)`.
 - CHECK `valid_until IS NULL OR valid_until > valid_from`.
-- Índice de búsqueda `(namespace, network, external_identifier)`.
-- No se impone UNIQUE simple con `valid_from`: PostgreSQL permite múltiples NULL en una restricción UNIQUE convencional y los identificadores pueden tener periodos históricos. Se implementarán índices únicos parciales para identidades vigentes sin fecha inicial y para observaciones con fecha inicial, una vez definida la política de correcciones.
-- Esta tabla contiene solo mappings aceptados derivados de una revisión aceptada. `recorded_at` permite reconstruir cuándo CCI conocía el mapping; `valid_from/valid_until` describen cuándo aplicaba en el proveedor. La publicación debe ser transaccional y referenciar la revisión aprobatoria exacta. No actualizar ni borrar mappings históricos.
+- Solo mappings aceptados a nivel de activo. La referencia debe apuntar a una revisión accepted cuyo candidate_asset_id coincide exactamente.
+
+**`asset_representation_identifiers`**
+- `id UUID PK`
+- `asset_representation_id UUID NOT NULL FK asset_representations(id)`
+- `namespace TEXT NOT NULL`, `external_identifier TEXT NOT NULL`.
+- `valid_from TIMESTAMPTZ NOT NULL`, `valid_until TIMESTAMPTZ NULL`, `recorded_at TIMESTAMPTZ NOT NULL`.
+- `evidence_reference TEXT NOT NULL`, `resolution_review_id UUID NOT NULL FK asset_identity_resolution_reviews(id)`.
+- CHECK `valid_until IS NULL OR valid_until > valid_from`.
+- Solo mappings aceptados a nivel de representación. La referencia debe apuntar a una revisión accepted cuyo candidate_asset_representation_id coincide exactamente.
 
 **`market_instruments`**
 - `id UUID PK`
@@ -426,8 +481,13 @@ Se crearán índices explícitos para FKs usadas en joins y patrones de consulta
 | `data_endpoints` | UNIQUE `(data_source_id, endpoint_key)`; UNIQUE `(id, data_source_id)` | Búsqueda por fuente y FKs compuestas. |
 | `source_usage_policies` | `(data_source_id, valid_from DESC)`; parcial por endpoint | Resolver política aplicable e historial. |
 | `policy_evaluations` | `(data_source_id, data_endpoint_id, intended_use, evaluated_at DESC)`; FK índices | Consultar decisión concreta por endpoint y uso. |
-| `asset_identity_resolution_reviews` | `(namespace, network, external_identifier, observed_at DESC)`; parcial por candidato | Auditar resoluciones pendientes, ambiguas, aceptadas y rechazadas. |
-| `asset_identifiers` | `(namespace, network, external_identifier)` | Resolver solo identificadores con correspondencia aprobada. |
+| `networks` | UNIQUE `network_key` | Identidad interna estable de red. |
+| `network_identifiers` | `(namespace, identifier_type, identifier_value)` | Resolver identificadores de red dentro de su namespace. |
+| `asset_representations` | `(network_id, representation_kind, contract_address)`; parcial para representaciones nativas | Identidad de despliegues y unidades nativas por red. |
+| `asset_relationships` | `(subject_asset_id, relationship_type)`; `(object_asset_id)` | Consultar relaciones tipadas sin inferir identidad. |
+| `asset_identity_resolution_reviews` | `(namespace, network_id, external_identifier, recorded_at DESC)`; parcial por candidato | Auditar resoluciones de activo y representación. |
+| `asset_identifiers` | `(namespace, external_identifier)` | Resolver identificadores aceptados a nivel de activo. |
+| `asset_representation_identifiers` | `(namespace, external_identifier)` | Resolver identificadores aceptados a nivel de representación. |
 | `market_instruments` | `(data_source_id, native_symbol)` no único; UNIQUE candidato `(id, data_source_id)` | Búsqueda por símbolo conservando alias y ambigüedad. |
 | `instrument_identifiers` | `(identifier_namespace, identifier_value)`; `(market_instrument_id, observed_at DESC)` | Resolver alias nativos y símbolos por interfaz. |
 | `instrument_metadata_versions` | `(market_instrument_id, observed_at DESC)` | Recuperar la última observación conocida. |
@@ -444,14 +504,14 @@ Se crearán índices explícitos para FKs usadas en joins y patrones de consulta
 
 No crear índices GIN sobre todos los JSONB ni índices parciales sin consulta concreta. No particionar tablas operativas antes de disponer de volúmenes medidos. No añadir índices duplicados que ya cubra una PK/UNIQUE.
 
-## 5.1 Tiempo bitemporal de resolución de activos
+## 5.1 Tiempo bitemporal de resolución de activos y representaciones
 
-Para `asset_identity_resolution_reviews` y `asset_identifiers` se aplican dos ejes independientes:
+Para `asset_identity_resolution_reviews`, `asset_identifiers` y `asset_representation_identifiers` se aplican dos ejes independientes:
 
 - Validez del proveedor: `[valid_from, valid_until)`.
 - Conocimiento de CCI: `recorded_at`, nunca retrodatado.
 
-`observed_at` y `reviewed_at` son timestamps de procedencia y decisión; no sustituyen a ninguno de los dos ejes. La consulta histórica requiere `valid_at` y `known_at`, ambos con zona horaria. En una misma clave exacta (namespace, red, código), se selecciona la revisión más reciente registrada hasta `known_at`; si la revisión máxima contiene decisiones contradictorias, no se publica FK y el resultado es ambiguo. Una corrección se inserta como nueva fila con `supersedes_review_id`; nunca se reescribe la fila anterior.
+`observed_at` y `reviewed_at` son timestamps de procedencia y decisión; no sustituyen a ninguno de los dos ejes. La consulta histórica requiere `valid_at` y `known_at`, ambos con zona horaria. En una misma clave exacta (namespace, network_id, código y ámbito de destino), se selecciona la revisión más reciente registrada hasta `known_at`; si la revisión máxima contiene decisiones contradictorias, no se publica FK y el resultado es ambiguo. Una corrección se inserta como nueva fila con `supersedes_review_id`; nunca se reescribe la fila anterior.
 
 Una revisión aceptada necesita `valid_from` explícito. NULL no significa “desde siempre”. Los mappings publicados heredan el periodo y la referencia de la revisión aceptada. Las escrituras de revisión y publicación deben ejecutarse en una transacción; la lógica de aplicación/constraint trigger debe impedir que una revisión aceptada se publique sin su evidencia y sin que la revisión sea la decisión efectiva para el periodo consultado.
 
@@ -499,7 +559,7 @@ Las migraciones serán versionadas, secuenciales, revisables y ejecutables desde
 1. Crear esquema `cci` y convenciones mínimas.
 2. Crear `data_sources`, `assets`, `ingestion_runs`, `transformations` y `research_experiments`.
 3. Crear `data_endpoints`, `source_usage_policies` y `policy_evaluations`.
-4. Crear `asset_identity_resolution_reviews` y `asset_identifiers` (estas últimas solo contienen correspondencias aceptadas).
+4. Crear `networks`, `network_identifiers`, `asset_representations`, `asset_relationships`, `asset_identity_resolution_reviews`, `asset_identifiers` y `asset_representation_identifiers`.
 5. Crear `market_instruments` e `instrument_identifiers`.
 6. Crear `datasets` antes de las tablas que los referencian.
 7. Crear `ingestion_requests`, `run_datasets` y `dataset_sources` con FKs compuestas.
