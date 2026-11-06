@@ -289,8 +289,11 @@ class PostgreSQLProviderPlatformLabTests(unittest.TestCase):
             (other_root_id, other_platform_id, self.source_id, self.now - timedelta(minutes=1)),
         )
         self.insert_review()
-        with self.assertRaises(errors.CheckViolation):
+        with self.assertRaises(errors.ForeignKeyViolation):
             with self.conn.transaction():
+                self.conn.execute(
+                    "ALTER TABLE cci_lab.provider_platform_resolution_reviews DISABLE TRIGGER trg_provider_platform_review_chain_guard"
+                )
                 self.insert_review(status="rejected", supersedes=other_root_id)
 
     def test_pg_net_08_non_head_review_cannot_be_superseded(self):
@@ -326,26 +329,43 @@ class PostgreSQLProviderPlatformLabTests(unittest.TestCase):
                     """,
                     (self.platform_id,),
                 )
+        with self.assertRaises(errors.ObjectNotInPrerequisiteState):
+            with self.conn.transaction():
+                self.conn.execute(
+                    "DELETE FROM cci_lab.provider_platform_resolution_reviews WHERE provider_platform_id = %s",
+                    (self.platform_id,),
+                )
+
+    def test_pg_net_10_observations_reject_delete(self):
+        self.insert_observation()
+        with self.assertRaises(errors.ObjectNotInPrerequisiteState):
+            with self.conn.transaction():
+                self.conn.execute(
+                    "DELETE FROM cci_lab.provider_platform_observations WHERE provider_platform_id = %s",
+                    (self.platform_id,),
+                )
 
     def test_pg_net_12_nonaccepted_review_cannot_publish_mapping(self):
         review_id = self.insert_review()
-        with self.assertRaises(errors.CheckViolation):
-            with self.conn.transaction():
-                self.conn.execute(
-                    """
-                    INSERT INTO cci_lab.network_identifiers (
-                        id, network_id, namespace, identifier_type, identifier_value,
-                        observed_at, evidence_reference, provider_platform_id,
-                        provider_data_source_id, provider_platform_resolution_review_id,
-                        provider_platform_resolution_status
-                    ) VALUES (%s, %s, 'synthetic:asset_platform_id', 'asset_platform_id',
-                              %s, %s, 'synthetic://evidence', %s, %s, %s, 'pending_review')
-                    """,
-                    (
-                        uuid.uuid4(), self.network_id, self.platform_key, self.now,
-                        self.platform_id, self.source_id, review_id,
-                    ),
-                )
+        for invalid_status in ("pending_review", "rejected", "ambiguous"):
+            with self.subTest(invalid_status=invalid_status):
+                with self.assertRaises(errors.CheckViolation):
+                    with self.conn.transaction():
+                        self.conn.execute(
+                            """
+                            INSERT INTO cci_lab.network_identifiers (
+                                id, network_id, namespace, identifier_type, identifier_value,
+                                observed_at, evidence_reference, provider_platform_id,
+                                provider_data_source_id, provider_platform_resolution_review_id,
+                                provider_platform_resolution_status
+                            ) VALUES (%s, %s, 'synthetic:asset_platform_id', 'asset_platform_id',
+                                      %s, %s, 'synthetic://evidence', %s, %s, %s, %s)
+                            """,
+                            (
+                                uuid.uuid4(), self.network_id, self.platform_key, self.now,
+                                self.platform_id, self.source_id, review_id, invalid_status,
+                            ),
+                        )
 
     def test_pg_net_13_mapping_network_must_match_accepted_review(self):
         review_id = self.insert_review()
