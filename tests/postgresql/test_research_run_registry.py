@@ -124,15 +124,46 @@ class ResearchRunRegistryPostgresTests(unittest.TestCase):
             with input_path.open("w",encoding="utf-8",newline="") as handle:
                 writer=csv.writer(handle)
                 writer.writerow(["open_time_utc","open","high","low","close","volume"])
-                for i in range(192):
+                for i in range(336):
                     price=100.0+i*0.1
                     stamp=(start+timedelta(hours=i)).isoformat().replace("+00:00","Z")
                     writer.writerow([stamp,price,price+1,price-1,price+0.5,10+i])
-            episodes_path.write_text(json.dumps([{
-                "episode_id":"synthetic-rise","direction":"bullish",
-                "start_utc":(start+timedelta(hours=168)).isoformat().replace("+00:00","Z"),
-                "end_utc":(start+timedelta(hours=192)).isoformat().replace("+00:00","Z")
-            }]),encoding="utf-8")
+            utc_offset=timezone(timedelta(hours=-5))
+            first_start=start+timedelta(hours=168)
+            first_end=start+timedelta(hours=192)
+            second_start=start+timedelta(hours=192)
+            second_end=start+timedelta(hours=216)
+            def stamp_pair(value):
+                return {
+                    "local":value.astimezone(utc_offset).isoformat(),
+                    "utc":value.isoformat().replace("+00:00","Z"),
+                }
+            a,b,c_stamp,d=map(stamp_pair,(first_start,first_end,second_start,second_end))
+            manifest={
+                "schema_version":"cci.episode-manifest.v1",
+                "manifest_status":"approved",
+                "experiment_key":"btc-usdt-directional-episodes-v1",
+                "market":"BTC/USDT",
+                "venue":"synthetic-test-venue",
+                "market_type":"spot",
+                "interval_seconds":3600,
+                "input_timezone":"UTC-05:00",
+                "data_source":{
+                    "provider":"synthetic-test",
+                    "dataset_id":"postgres-cli-fixture",
+                    "acquisition_method":"generated in test",
+                },
+                "data_usage_authorization":{"status":"authorized","evidence_ref":"synthetic-only"},
+                "episodes":[
+                    {"episode_id":"synthetic-rise","direction":"bullish","status":"confirmed",
+                     "start_local":a["local"],"end_local":b["local"],
+                     "start_utc":a["utc"],"end_utc":b["utc"]},
+                    {"episode_id":"synthetic-fall","direction":"bearish","status":"confirmed",
+                     "start_local":c_stamp["local"],"end_local":d["local"],
+                     "start_utc":c_stamp["utc"],"end_utc":d["utc"]},
+                ],
+            }
+            episodes_path.write_text(json.dumps(manifest),encoding="utf-8")
             output=io.StringIO()
             with patch.dict(os.environ,{"CCI_DATABASE_URL":DSN}), contextlib.redirect_stdout(output):
                 result=main([
@@ -147,7 +178,7 @@ class ResearchRunRegistryPostgresTests(unittest.TestCase):
             row=self.conn.execute(
                 "SELECT status,metrics->>'episode_count' FROM cci.research_experiment_runs WHERE id=%s",
                 (run_id,)).fetchone()
-            self.assertEqual(row,("succeeded","1"))
+            self.assertEqual(row,("succeeded","2"))
             artifacts=self.conn.execute(
                 "SELECT artifact_role,sha256,byte_size FROM cci.research_run_artifacts WHERE run_id=%s ORDER BY artifact_role",
                 (run_id,)).fetchall()
