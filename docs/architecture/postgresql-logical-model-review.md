@@ -1,8 +1,8 @@
 # Revisión técnica del modelo lógico de PostgreSQL
 
-- **Estado:** reconciliación documental v0.5 parcial; pendiente de validación automatizada y PostgreSQL real. No autoriza todavía migraciones.
+- **Estado:** reconciliación documental v0.6 parcial; pendiente de validación automatizada y PostgreSQL real. No autoriza todavía migraciones.
 - **Fecha:** 2026-11-06.
-- **Documentos:** `postgresql-logical-data-model.md` v0.5 y `postgresql-physical-schema.md` v0.4.
+- **Documentos:** `postgresql-logical-data-model.md` v0.6 y `postgresql-physical-schema.md` v0.5.
 - **Decisión relacionada:** ADR-001.
 - **PR de trabajo:** #16.
 
@@ -44,10 +44,10 @@ Se ha actualizado el modelo lógico para que represente el inventario, las entid
 
 ## 4. Pendientes antes de generar migraciones
 
-La alineación de inventario y entidades está cerrada como propuesta. La comparación automatizada confirma 29/29 tablas representadas en el modelo lógico. Todavía se requiere:
+La alineación de inventario y entidades está cerrada como propuesta. La comparación automatizada confirma 31/31 tablas representadas en el modelo lógico. Todavía se requiere:
 
-1. **Inventario de entidades verificado:** comparación automatizada del inventario físico contra el modelo lógico: 29/29 tablas físicas están representadas en el modelo lógico, sin entidades ausentes. Esta comprobación confirma cobertura de nombres de tablas; no sustituye una revisión semántica de cada columna y restricción.
-2. Definir y registrar los namespaces concretos que CCI utilizará inicialmente, con evidencia de autoridad, semántica y nivel de destino; la tabla `identity_namespaces` ya está especificada, pero no hay catálogo poblado ni namespaces aprobados todavía.
+1. **Inventario de entidades verificado:** comparación automatizada del inventario físico contra el modelo lógico: 31/31 tablas físicas están representadas en el modelo lógico, sin entidades ausentes. Esta comprobación confirma cobertura de nombres de tablas; no sustituye una revisión semántica de cada columna y restricción.
+2. Mantener el catálogo `identity_namespaces` sin poblar hasta que exista evidencia concreta por proveedor/endpoint y la etapa de validación autorice su carga. El procedimiento de resolución de redes y plataformas ya está documentado; las filas y mappings reales siguen fuera de alcance.
 3. Verificar que el vocabulario de `data_type` en endpoints, evaluaciones y contribuciones sea canónico y no se permita una discrepancia semántica.
 4. Definir la semántica operacional de `scope_reference` y documentar el formato de claves de producto/plan y de tipo de dato.
 5. **Integridad revisión→mapping especificada:** FKs compuestas que incorporan `resolution_status = 'accepted'`, destino, namespace e identificador; para mappings de representación también red y FK a `(asset_representation_id, network_id)`. Para mappings de activo, un trigger compara `network_id` con semántica NULL-safe. La publicación se ejecuta en una única transacción. Falta implementar y probar estas reglas en PostgreSQL real.
@@ -93,7 +93,7 @@ La especificación física debe concretar la función/trigger, la clave de bloqu
 ## 8. Pendientes técnicos actualizados
 
 - Definir la semántica completa de sucesión de intervalos (nueva vigencia frente a corrección retroactiva), el desempate determinista de revisiones registradas en el mismo instante y la validación de sucesión por clave.
-- Definir el conjunto inicial de filas de `identity_namespaces` con evidencia y validar por trigger `scope_mode`/`target_level`; después implementar exclusión temporal por clave bajo bloqueo transaccional.
+- Antes del DDL, traducir las reglas de `network-identity-resolution-policy.md` y de `identity_namespaces` a restricciones/funciones/triggers; después probar exclusión temporal por clave bajo bloqueo transaccional.
 - Garantizar que los mappings reproduzcan el intervalo exacto de la revisión aceptada.
 - Probar consultas `valid_at/known_at`, correcciones retroactivas, cierre y reapertura de vigencia, solapamientos, sustituciones inválidas y carreras concurrentes en PostgreSQL real.
 - Definir una secuencia monotónica por clave si se necesita desempate total además de `recorded_at`; mantener eventos/revisiones append-only mediante roles y triggers; comprobar rollback atómico de revisión y mapping.
