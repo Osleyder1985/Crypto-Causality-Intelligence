@@ -83,7 +83,7 @@ Campos principales:
 - notes TEXT
 - created_at TIMESTAMPTZ NOT NULL
 
-Regla crítica: una política desconocida, vencida o no aplicable al endpoint, tipo de dato y uso solicitado no habilita persistencia. La aplicación debe resolver la política aplicable antes de escribir valores en Parquet. Los cambios de política generan nuevos registros; no se reescribe la evidencia anterior.
+Regla crítica: una política desconocida, vencida o no aplicable al endpoint, tipo de dato y uso solicitado no habilita persistencia. La evaluación debe ser de denegación por defecto: una política general del proveedor no se interpretará automáticamente como autorización específica del endpoint o producto. La aplicación debe resolver y registrar la política aplicable antes de escribir valores en Parquet. Los cambios de política generan nuevos registros; no se reescribe la evidencia anterior.
 
 ### 3.2 Catálogo de activos e instrumentos
 
@@ -197,12 +197,13 @@ Restricciones: (dataset_key, version) único; tamaño y conteo no negativos; tim
 Relación muchos-a-muchos entre datasets y las fuentes/endpoints que contribuyeron a ellos.
 
 Campos:
+- id UUID PK
 - dataset_id UUID FK → datasets.id
 - data_source_id UUID FK → data_sources.id
 - data_endpoint_id UUID NULL FK → data_endpoints.id
 - market_instrument_id UUID NULL FK → market_instruments.id
 - ingestion_request_id UUID NULL FK → ingestion_requests.id
-- Clave primaria compuesta basada en dataset y origen/solicitud.
+- Restricción de unicidad parcial para evitar duplicar la misma relación cuando exista ingestion_request_id; las filas sin solicitud se controlan mediante una clave de procedencia explícita.
 
 Permite datasets derivados de más de una fuente sin ocultar la procedencia. No se mezclan proveedores en la capa original; una combinación, si se realiza, pertenece a la capa derivada y documenta cada entrada.
 
@@ -213,10 +214,10 @@ Registra relaciones entre datasets de entrada y salida.
 Campos:
 - input_dataset_id UUID FK → datasets.id
 - output_dataset_id UUID FK → datasets.id
-- transformation_id UUID FK → transformations.id
+- transformation_run_id UUID FK → transformation_runs.id
 - created_at TIMESTAMPTZ NOT NULL
 
-Clave primaria compuesta: (input_dataset_id, output_dataset_id, transformation_id). Se prohíbe que un dataset sea su propio antecesor. La aplicación debe prevenir ciclos en el grafo de linaje.
+Clave primaria compuesta: (input_dataset_id, output_dataset_id, transformation_run_id). Se prohíbe que un dataset sea su propio antecesor. La aplicación debe prevenir ciclos en el grafo de linaje.
 
 ### 3.5 Validaciones y transformaciones
 
@@ -271,7 +272,7 @@ Campos principales:
 - code_commit TEXT
 - error_summary TEXT NULL
 
-Los datasets de entrada y salida se relacionan mediante dataset_lineage, que referencia la transformación aplicada.
+Los datasets de entrada y salida se relacionan mediante dataset_lineage, que referencia la ejecución concreta de la transformación (transformation_run_id), no solamente su definición versionada.
 
 ### 3.6 Investigación
 
@@ -352,7 +353,7 @@ erDiagram
     DATASETS ||--o{ DATA_VALIDATIONS : validated_by
     TRANSFORMATIONS ||--o{ TRANSFORMATION_RUNS : executed_as
     DATASETS ||--o{ DATASET_LINEAGE : input_or_output
-    TRANSFORMATIONS ||--o{ DATASET_LINEAGE : produces
+    TRANSFORMATION_RUNS ||--o{ DATASET_LINEAGE : produces
     RESEARCH_EXPERIMENTS ||--o{ RESEARCH_HYPOTHESES : tests
     RESEARCH_EXPERIMENTS ||--o{ EXPERIMENT_DATASETS : uses
     DATASETS ||--o{ EXPERIMENT_DATASETS : included_in
