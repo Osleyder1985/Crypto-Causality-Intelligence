@@ -182,8 +182,15 @@ def load_episodes(path: str | Path) -> list[dict[str, Any]]:
         raw = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise StudyError(f"No se pudo leer el archivo de episodios: {exc}") from exc
+    if isinstance(raw, dict):
+        try:
+            from scripts.research.episode_manifest import ManifestError, validate_manifest
+            normalized = validate_manifest(raw, require_approved=True)
+        except (ManifestError, ImportError) as exc:
+            raise StudyError(f"Manifiesto de episodios inválido: {exc}") from exc
+        return normalized
     if not isinstance(raw, list) or not raw:
-        raise StudyError("El archivo de episodios debe ser una lista JSON no vacía")
+        raise StudyError("El archivo de episodios debe ser una lista JSON no vacía o un manifiesto versionado")
     episodes = []
     seen: set[str] = set()
     for item in raw:
