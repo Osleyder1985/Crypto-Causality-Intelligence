@@ -66,7 +66,7 @@ La clasificación T no significa que se permita modificar libremente la fila. So
 | 31 | `research_hypotheses` | Investigación | T | Investigación y vistas aprobadas | Servicio de investigación: alta y transición mediante función |
 | 32 | `experiment_datasets` | Investigación | B | Investigación y auditoría | Servicio de investigación, mediante INSERT |
 
-**Resultado de clasificación:** 32 entidades inventariadas; 15 A, 4 V, 3 B y 8 T. Las clases describen la política de escritura propuesta, no privilegios ya concedidos.
+**Resultado de clasificación:** 32 entidades inventariadas; 17 A, 4 V, 3 B y 8 T. Las clases describen la política de escritura propuesta, no privilegios ya concedidos.
 
 ## 4. Roles de aplicación propuestos
 
