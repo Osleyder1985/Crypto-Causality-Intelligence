@@ -82,17 +82,18 @@ La primera ejecución fue [Run #7](https://github.com/Osleyder1985/Crypto-Causal
 
 ## 9. Segundo incremento: cobertura PG-NET-01–PG-NET-25
 
-Se amplió el laboratorio y se ejecutó la matriz completa de 25 condiciones. La suite contiene **28 métodos de prueba** porque algunos requisitos requieren más de una operación o una comprobación independiente.
+Se amplió el laboratorio y se ejecutó la matriz completa de 25 condiciones. La suite contiene **29 métodos de prueba** porque algunos requisitos requieren más de una operación o una comprobación independiente.
 
 ### Evidencia de CI
 
-- **Workflow:** [Pruebas reales de PostgreSQL — Run #21](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42292792250).
+- **Ejecución base de la matriz:** [Pruebas reales de PostgreSQL — Run #21](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42292792250), 28/28 pruebas.
+- **Ejecución confirmatoria después de la auditoría:** [Pruebas reales de PostgreSQL — Run #38](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42293769631).
 - **Evento:** `pull_request`, PR #16.
-- **HEAD del PR:** `1bc65146a66149aea651230a882d4f59445347a4`.
+- **HEAD probado:** `55ba44449a1016e7902e90271801ef8ee3f05fa2`.
 - **Job:** `postgresql-lab`, conclusión `success`.
 - **Motor:** PostgreSQL **16.15**.
 - **Suite:** `python -m unittest discover -s tests -p 'test_postgresql_lab.py' -v`.
-- **Resultado:** **28/28 pruebas aprobadas** en 1.959 segundos.
+- **Resultado confirmatorio:** **29/29 pruebas aprobadas** en 1.911 segundos; incluye validación del formato SHA-256 de evidencia.
 - **CI de contratos Python:** ejecución separada, también aprobada; no se contabiliza como prueba del motor.
 
 ### Cobertura de los 25 requisitos
@@ -132,6 +133,7 @@ Se amplió el laboratorio y se ejecutó la matriz completa de 25 condiciones. La
 3. Cada prueba reconstruye el esquema desechable `cci_lab` desde cero. Esto evita que los commits intencionales de los tests concurrentes contaminen fixtures posteriores.
 4. Los tests de índices parciales aíslan el índice deshabilitando temporalmente el trigger de cadena dentro de un savepoint; otros casos comprueban por separado el rechazo del trigger.
 5. Las pruebas negativas verifican clases de error PostgreSQL concretas (FK, UNIQUE, CHECK o inmutabilidad), no una excepción genérica.
+6. Se añadió un caso adicional para exigir SHA-256 hexadecimal minúsculo de 64 caracteres cuando `evidence_sha256` está presente.
 
 ### Límites de la evidencia
 
@@ -147,14 +149,15 @@ El laboratorio no es una migración productiva y no se han insertado datos reale
 
 ## 10. Próximo paso
 
-Antes de considerar cerrado el subsistema, corresponde una revisión de coherencia entre el DDL del laboratorio y la sección 13 del modelo físico, con atención a:
+La auditoría estática de equivalencia del subsistema reducido y su regresión PostgreSQL quedaron cerradas para esta etapa. Antes de redactar migraciones productivas, corresponde una decisión explícita de promoción:
 
-1. Confirmar que cada constraint, índice, trigger y vista del laboratorio coincide con su nombre y semántica normativa.
-2. Revisar el procedimiento de publicación y los locks bajo aislamiento PostgreSQL `READ COMMITTED`; conservar evidencia de las pruebas de dos sesiones.
-3. Determinar qué partes del laboratorio se trasladarán al DDL productivo y qué partes deben convertirse en pruebas de integración de la capa de repositorio.
-4. Mantener separadas las pruebas del motor y las pruebas de contratos Python.
+1. Congelar el contrato de estas seis tablas y elaborar un DDL productivo integrado al esquema `cci` (no copiar el schema aislado `cci_lab`).
+2. Incorporar al DDL productivo roles y grants que impidan UPDATE/DELETE de snapshots y revisiones a los roles de aplicación; los triggers no protegen frente al propietario/superusuario que puede deshabilitarlos.
+3. Implementar el protocolo de escritura en repositorio: lock de identidad en sentencia independiente, lectura de head, INSERT de revisión, INSERT de mapping cuando sea accepted, COMMIT/ROLLBACK.
+4. Añadir una prueba de regresión para una publicación de mapping obsoleta que espera el lock mientras otra transacción registra una sucesora.
+5. Integrar este subsistema en el esquema completo de 32 entidades y ejecutar migración desde base vacía, sin datos reales.
 
-El PR #16 permanece Draft. No se crearán migraciones productivas ni se fusionará el PR como parte de esta etapa.
+El laboratorio no se promoverá literalmente a producción. El PR #16 permanece Draft; no se han creado migraciones productivas ni se ha fusionado.
 
 
 ## 11. Auditoría de equivalencia laboratorio ↔ especificación física
