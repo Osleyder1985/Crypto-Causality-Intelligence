@@ -113,3 +113,44 @@ Después de limitar el workflow al manifiesto, la ejecución [Run #14](https://g
 - Se descargó e inspeccionó el ZIP del artefacto: contiene exclusivamente `manifest.json` (37.424 bytes). No contiene JSON originales ni CSV con series OHLCV.
 
 Esta ejecución confirma que el control de publicación funciona y que la extracción/validación sigue operativa. No resuelve los permisos contractuales de almacenamiento local ni la exposición del artefacto histórico Run #13.
+
+
+## Revalidación con el descargador corregido — ejecución CI #16
+
+La ejecución [CI #16](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42280045634), iniciada el 6 de noviembre de 2026, probó la versión del descargador que ahora convierte las anomalías críticas en fallos de ejecución y calcula los huecos sobre timestamps ordenados.
+
+- **18/18 pruebas unitarias aprobadas.**
+- Extracción, validación y publicación del manifiesto: completadas correctamente.
+- Metadata Binance exchangeInfo: HTTP 200; BTCUSDT y ETHUSDT en estado TRADING.
+- Metadata Kraken AssetPairs: HTTP 200; XBT/USD y ETH/USD en estado online.
+- Las cuatro consultas CoinGecko fueron procesadas en memoria; no se archivaron sus valores.
+- El manifiesto registra execution_status=success y execution_exit_code=0.
+- El ZIP del artefacto se descargó e inspeccionó: contiene exclusivamente manifest.json (38.267 bytes).
+
+### Cobertura de la revalidación
+
+| Proveedor | Activo | Intervalo | Registros | Esperados | Cobertura |
+|---|---|---:|---:|---:|---:|
+| Binance | BTC | 1h | 720 | 720 | 100 % |
+| Binance | ETH | 1h | 720 | 720 | 100 % |
+| Kraken | BTC | 1h | 701 | 720 | 97,3611 % |
+| Kraken | ETH | 1h | 701 | 720 | 97,3611 % |
+| Binance | BTC | 1d | 350 | 350 | 100 % |
+| Binance | ETH | 1d | 350 | 350 | 100 % |
+| Kraken | BTC | 1d | 350 | 350 | 100 % |
+| Kraken | ETH | 1d | 350 | 350 | 100 % |
+
+En las ocho series no se detectaron duplicados, huecos internos, timestamps fuera de ventana, timestamps desalineados ni violaciones OHLC/volumen. Todos los registros recibidos incluyeron conteo de operaciones y ninguno registró cero operaciones.
+
+La cobertura horaria de Kraken disminuyó de 706 a 701 observaciones frente a la captura anterior. El tramo recibido continuó siendo internamente contiguo y sin huecos. La reducción afecta al comienzo de la ventana y es coherente con el límite de 720 observaciones recientes y el momento de la consulta; no debe interpretarse como cinco huecos internos ni como prueba de pérdida de datos.
+
+### Cambios de validación comprobados
+
+- Las respuestas vacías generan una violación crítica.
+- El orden original de timestamps se valida por separado del diagnóstico de huecos.
+- Los huecos se calculan con timestamps únicos ordenados, evitando diferencias negativas o diagnósticos falsos por desorden.
+- Duplicados, desorden, registros fuera de ventana, desalineación y violaciones OHLC/volumen invalidan la serie.
+- La metadata se valida contra los cuatro mercados requeridos y sus estados operativos.
+- Cualquier fallo de adquisición o validación crítica deja el manifiesto escrito y termina el proceso con código distinto de cero.
+
+Esta ejecución valida la corrección con una captura real y pruebas unitarias. No demuestra estabilidad a lo largo de múltiples fechas; esa evaluación requiere nuevas ejecuciones separadas.
