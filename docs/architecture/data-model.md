@@ -1,103 +1,103 @@
-# Conceptual Data Model
+# Modelo conceptual de datos
 
-## Purpose and scope
+## Propósito y alcance
 
-This document defines the provider-neutral conceptual entities required by **Historical Market Intelligence**. It does not prescribe a physical schema or require every entity to be implemented in the first iteration.
+Este documento define las entidades conceptuales independientes de proveedores que necesita **Historical Market Intelligence**. No prescribe un esquema físico ni exige que todas las entidades se implementen en la primera iteración.
 
-## Entity groups
+## Grupos de entidades
 
-### Identity and market structure
+### Identidad y estructura del mercado
 
-| Entity | Responsibility | Important attributes |
+| Entidad | Responsabilidad | Atributos importantes |
 |---|---|---|
-| `Asset` | Identifies a cryptoasset independently of a trading venue | internal ID, canonical name, symbols, network/contract identifiers, identity status |
-| `Exchange` | Identifies a trading venue or market operator | internal ID, name, jurisdiction when known, official identifiers |
-| `Market` | Identifies a venue-specific market | exchange ID, market-native ID, base asset ID, quote asset ID, market type, status |
-| `TradingPair` | Represents the base/quote relationship and its conventions | base asset ID, quote asset ID, canonical pair notation |
+| `Asset` | Identifica un criptoactivo independientemente de la plataforma de trading | ID interno, nombre canónico, símbolos, identificadores de red/contrato, estado de identidad |
+| `Exchange` | Identifica una plataforma de trading u operador de mercado | ID interno, nombre, jurisdicción cuando se conozca, identificadores oficiales |
+| `Market` | Identifica un mercado específico de una plataforma | ID del exchange, ID nativo del mercado, ID del activo base, ID del activo cotizado, tipo y estado del mercado |
+| `TradingPair` | Representa la relación base/cotización y sus convenciones | ID del activo base, ID del activo cotizado, notación canónica del par |
 
-Symbols are not globally unique identifiers. Asset identity must account for networks, contract addresses, migrations, wrapped assets, and ambiguous tickers. Provider-native identifiers must be retained alongside internal identifiers.
+Los símbolos no son identificadores globalmente únicos. La identidad de un activo debe considerar redes, direcciones de contratos, migraciones, activos wrapped y tickers ambiguos. Los identificadores nativos de cada proveedor deben conservarse junto con los identificadores internos.
 
-### Market observations
+### Observaciones de mercado
 
-| Entity | Responsibility | Important attributes |
+| Entidad | Responsabilidad | Atributos importantes |
 |---|---|---|
-| `MarketObservation` | Stores a measured value for a market and time interval | market ID, metric, value, unit, interval start/end, source ID, availability |
-| `MetricDefinition` | Defines the meaning and unit of a metric | name, unit, methodology, aggregation semantics |
+| `MarketObservation` | Almacena un valor medido para un mercado y un intervalo temporal | ID del mercado, métrica, valor, unidad, inicio/fin del intervalo, ID de la fuente, disponibilidad |
+| `MetricDefinition` | Define el significado y la unidad de una métrica | nombre, unidad, metodología, semántica de agregación |
 
-OHLCV may be represented as a candle observation or as a grouped set of metrics, provided the physical implementation preserves candle-level semantics: open/high/low/close; volume with explicit base/quote unit; optional quote volume and trade count; interval boundaries; source/market/provider-native identifiers; final/provisional status and revision lineage.
+OHLCV puede representarse como una observación de vela o como un conjunto agrupado de métricas, siempre que la implementación física preserve la semántica de cada vela: open/high/low/close; volumen con unidad base/cotizada explícita; volumen cotizado y número de operaciones opcionales; límites del intervalo; identificadores de fuente/mercado/proveedor; estado final/provisional y linaje de revisiones.
 
-A candle key must include venue/market identity, interval definition, interval start, and metric semantics. Different venues and quote currencies must never be merged implicitly.
+La clave de una vela debe incluir la identidad de la plataforma/mercado, la definición del intervalo, el inicio del intervalo y la semántica de la métrica. Nunca deben combinarse implícitamente mercados de distintas plataformas o monedas de cotización.
 
-### Information and events
+### Información y eventos
 
-| Entity | Responsibility | Important attributes |
+| Entidad | Responsabilidad | Atributos importantes |
 |---|---|---|
-| `Source` | Describes an origin of information | source ID, category, operator, primary/secondary status, access and license metadata |
-| `Document` | Captures a publication or retrievable content item | source ID, native ID, URL/reference, title, published time, captured time, content hash |
-| `Event` | Represents an occurrence being investigated | event type, description, event-time interval, time precision, status, affected entities |
-| `EventDocument` | Links documents to events | event ID, document ID, relationship type, assessment |
+| `Source` | Describe un origen de información | ID de la fuente, categoría, operador, condición primaria/secundaria, metadatos de acceso y licencia |
+| `Document` | Registra una publicación o contenido recuperable | ID de la fuente, ID nativo, URL/referencia, título, fecha de publicación, fecha de captura, hash del contenido |
+| `Event` | Representa un acontecimiento bajo investigación | tipo, descripción, intervalo temporal del evento, precisión temporal, estado, entidades afectadas |
+| `EventDocument` | Vincula documentos con eventos | ID del evento, ID del documento, tipo de relación, evaluación |
 
-An event may have multiple documents, and a document may discuss multiple events. The event's occurrence time must not be inferred automatically from its publication time.
+Un evento puede tener varios documentos y un documento puede tratar varios eventos. La hora de ocurrencia de un evento no debe inferirse automáticamente a partir de la fecha de publicación de un documento.
 
-### Evidence and reasoning
+### Evidencia y razonamiento
 
-| Entity | Responsibility | Important attributes |
+| Entidad | Responsabilidad | Atributos importantes |
 |---|---|---|
-| `Evidence` | A traceable item relevant to a research question | evidence type, source record/document reference, extracted span or measurement, availability time |
-| `Claim` | A proposition asserted by a source or analyst | statement, attribution, status, scope, temporal context |
-| `Hypothesis` | A proposed explanation to be tested | statement, mechanism, scope, assumptions, status |
-| `HypothesisEvidence` | Links evidence to a hypothesis | hypothesis ID, evidence ID, relation (supports/contradicts/contextualizes), rationale |
-| `ClaimEvidence` | Links evidence to a claim | claim ID, evidence ID, relation and rationale |
+| `Evidence` | Elemento trazable relevante para una pregunta de investigación | tipo de evidencia, referencia al registro/documento de origen, fragmento o medición extraída, hora de disponibilidad |
+| `Claim` | Proposición afirmada por una fuente o analista | enunciado, atribución, estado, alcance, contexto temporal |
+| `Hypothesis` | Explicación propuesta que debe someterse a prueba | enunciado, mecanismo, alcance, supuestos, estado |
+| `HypothesisEvidence` | Vincula evidencias con una hipótesis | ID de hipótesis, ID de evidencia, relación (apoya/contradice/contextualiza), justificación |
+| `ClaimEvidence` | Vincula evidencias con una afirmación | ID de afirmación, ID de evidencia, relación y justificación |
 
-Claims and hypotheses must remain distinct from source records and observations. Evidence may support, contradict, or merely contextualize a hypothesis. The model must preserve alternative explanations and unresolved disagreement.
+Las afirmaciones y las hipótesis deben mantenerse diferenciadas de los registros de origen y las observaciones. Una evidencia puede apoyar, contradecir o simplemente aportar contexto a una hipótesis. El modelo debe preservar explicaciones alternativas y desacuerdos no resueltos.
 
-### Lineage and governance
+### Linaje y gobernanza
 
-| Entity | Responsibility | Important attributes |
+| Entidad | Responsabilidad | Atributos importantes |
 |---|---|---|
-| `IngestionRecord` | Records retrieval of source data | source ID, captured/ingested times, request context, status, payload hash |
-| `DataRevision` | Records corrections or superseding records | prior/new record references, reason, observed time |
-| `TransformationRun` | Records a reproducible processing operation | code/version, schema version, parameters, input manifest, output references |
-| `SourceAssessment` | Documents source quality and limitations | criteria, evidence, assessment date, reviewer, rationale |
+| `IngestionRecord` | Registra la recuperación de datos de origen | ID de fuente, horas de captura/ingesta, contexto de solicitud, estado, hash del payload |
+| `DataRevision` | Registra correcciones o registros que sustituyen a otros | referencias a registros anterior/nuevo, motivo, hora observada |
+| `TransformationRun` | Registra una operación de procesamiento reproducible | código/versión, versión del esquema, parámetros, manifiesto de entradas, referencias de salida |
+| `SourceAssessment` | Documenta la calidad y las limitaciones de una fuente | criterios, evidencias, fecha de evaluación, revisor, justificación |
 
-## Relationship overview
+## Resumen de relaciones
 
 ```mermaid
 erDiagram
-    ASSET ||--o{ MARKET : participates_in
-    EXCHANGE ||--o{ MARKET : lists
-    MARKET ||--o{ MARKET_OBSERVATION : has
-    SOURCE ||--o{ INGESTION_RECORD : provides
-    SOURCE ||--o{ DOCUMENT : publishes
-    SOURCE ||--o{ MARKET_OBSERVATION : originates
-    DOCUMENT }o--o{ EVENT : describes
-    DOCUMENT ||--o{ EVIDENCE : contains
-    MARKET_OBSERVATION ||--o{ EVIDENCE : supports
-    CLAIM ||--o{ CLAIM_EVIDENCE : has
-    EVIDENCE ||--o{ CLAIM_EVIDENCE : referenced_by
-    HYPOTHESIS ||--o{ HYPOTHESIS_EVIDENCE : tested_by
-    EVIDENCE ||--o{ HYPOTHESIS_EVIDENCE : referenced_by
-    INGESTION_RECORD ||--o{ TRANSFORMATION_RUN : input_to
+    ASSET ||--o{ MARKET : participa_en
+    EXCHANGE ||--o{ MARKET : lista
+    MARKET ||--o{ MARKET_OBSERVATION : contiene
+    SOURCE ||--o{ INGESTION_RECORD : proporciona
+    SOURCE ||--o{ DOCUMENT : publica
+    SOURCE ||--o{ MARKET_OBSERVATION : origina
+    DOCUMENT }o--o{ EVENT : describe
+    DOCUMENT ||--o{ EVIDENCE : contiene
+    MARKET_OBSERVATION ||--o{ EVIDENCE : respalda
+    CLAIM ||--o{ CLAIM_EVIDENCE : tiene
+    EVIDENCE ||--o{ CLAIM_EVIDENCE : referenciada_por
+    HYPOTHESIS ||--o{ HYPOTHESIS_EVIDENCE : evaluada_mediante
+    EVIDENCE ||--o{ HYPOTHESIS_EVIDENCE : referenciada_por
+    INGESTION_RECORD ||--o{ TRANSFORMATION_RUN : entrada_de
 ```
 
-The diagram is conceptual; implementation may introduce association entities, composite keys, or additional lineage relations.
+El diagrama es conceptual; la implementación puede introducir entidades de asociación, claves compuestas o relaciones adicionales de linaje.
 
-## Identity and key strategy
+## Estrategia de identidad y claves
 
-- Use stable internal IDs for canonical entities.
-- Preserve all source-native IDs and their provider namespace.
-- Do not use ticker symbols, URLs, or display names as primary keys.
-- Model identifier changes and asset migrations explicitly where relevant.
-- Define uniqueness constraints only within a documented namespace and scope.
-- Preserve raw source references after canonical entity resolution.
+- Usar IDs internos estables para las entidades canónicas.
+- Conservar todos los IDs nativos de las fuentes y su namespace de proveedor.
+- No utilizar símbolos ticker, URLs ni nombres visibles como claves primarias.
+- Modelar explícitamente los cambios de identificadores y las migraciones de activos cuando corresponda.
+- Definir restricciones de unicidad solo dentro de un namespace y alcance documentados.
+- Conservar las referencias a las fuentes originales después de resolver la entidad canónica.
 
-## Minimum viable implementation order
+## Orden mínimo de implementación
 
-1. Source registry and ingestion metadata.
-2. Asset, exchange, market, and trading-pair identity.
-3. Market observations and temporal semantics.
-4. Documents and events.
-5. Evidence, claims, and hypotheses.
-6. Revisions, transformation lineage, and source assessments.
+1. Registro de fuentes y metadatos de ingesta.
+2. Identidad de activos, exchanges, mercados y pares de trading.
+3. Observaciones de mercado y semántica temporal.
+4. Documentos y eventos.
+5. Evidencias, afirmaciones e hipótesis.
+6. Revisiones, linaje de transformaciones y evaluaciones de fuentes.
 
-This sequence is an implementation priority, not a reason to omit later entities from the conceptual design.
+Esta secuencia establece prioridades de implementación; no implica que deban omitirse entidades posteriores del diseño conceptual.
