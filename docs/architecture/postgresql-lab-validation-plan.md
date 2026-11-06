@@ -155,3 +155,35 @@ Antes de considerar cerrado el subsistema, corresponde una revisión de coherenc
 4. Mantener separadas las pruebas del motor y las pruebas de contratos Python.
 
 El PR #16 permanece Draft. No se crearán migraciones productivas ni se fusionará el PR como parte de esta etapa.
+
+
+## 11. Auditoría de equivalencia laboratorio ↔ especificación física
+
+Revisión estática realizada sobre `tests/postgresql/001_provider_platform_lab.sql` frente a la sección 13 de `postgresql-physical-schema.md`.
+
+### Discrepancias detectadas y corregidas
+
+1. **Índice de unicidad del mapping:** el laboratorio declaraba una constraint `UNIQUE(provider_platform_resolution_review_id)` sin predicado. En PostgreSQL su tratamiento de NULL era funcionalmente equivalente para esta columna nullable, pero no coincidía con el objeto normativo parcial ni con su nombre/forma. Se reemplazó por el índice exacto `network_identifiers_uq_review` con `WHERE provider_platform_resolution_review_id IS NOT NULL`.
+2. **Proyección de la vista vigente:** la especificación incluye `recorded_at`; el laboratorio no lo exponía. Se añadió a `provider_platform_resolution_current`.
+3. **Semántica de concurrencia:** el trigger toma un lock de la identidad, pero el procedimiento normativo requiere además un `SELECT ... FOR UPDATE` en una sentencia independiente antes de insertar. Bajo `READ COMMITTED`, esta separación garantiza que la sentencia INSERT posterior use un snapshot nuevo tras esperar el lock. Se explicitó esta condición en el procedimiento físico y se aclaró que el lock dentro del trigger no lo sustituye.
+4. **Descripción de prevención de ciclos:** la redacción normativa anterior atribuía al trigger un recorrido de ancestros/sucesores que el DDL no implementaba. Se corrigió: la cadena autorizada es append-only, la FK inmediata exige que la predecesora exista, el trigger solo admite la cabeza y los índices parciales impiden bifurcaciones/raíces duplicadas. No hay recorrido recursivo en el trigger.
+
+### Elementos alineados en la revisión
+
+- Claves candidatas compuestas de plataforma, observación y revisión.
+- FKs compuestas de fuente/plataforma, observación de soporte, sucesión y mapping accepted.
+- `MATCH SIMPLE` para observación de soporte nullable.
+- CHECK de `valid_from` obligatorio, intervalo semiabierto y vocabulario de estados.
+- JSONB `number | null` para `reported_chain_identifier_json`.
+- Índices parciales de raíz y sucesora.
+- Triggers de inmutabilidad, cabeza de cadena y literal/namespace del mapping.
+- Vista temporal y vista de mappings publicables.
+- Función de laboratorio bitemporal por `valid_at/known_at`.
+- Procedimiento de publicación atómica y rollback.
+
+### Límites y pendientes
+
+Esta auditoría es estática y cubre el subsistema reducido de seis tablas. No demuestra equivalencia del esquema completo de 32 entidades ni reemplaza la ejecución de regresión. Tras los cambios, debe repetirse el workflow PostgreSQL y revisar sus logs.
+
+Además, las pruebas de concurrencia existentes cubren el protocolo con lock explícito previo. Antes de promover el diseño a productivo debe mantenerse ese protocolo en la capa de repositorio y añadir una prueba de regresión que falle si un caller intenta publicar un mapping para una revisión que dejó de ser cabeza mientras espera el lock.
+
