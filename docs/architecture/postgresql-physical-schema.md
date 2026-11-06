@@ -1,8 +1,8 @@
 # Diseño físico de PostgreSQL
 
-- **Estado:** especificación física reconciliada v0.5; propuesta, no implementada.
+- **Estado:** especificación física reconciliada v0.6; propuesta, no implementada.
 - **Fecha:** 2026-11-06.
-- **Modelo lógico:** `postgresql-logical-data-model.md`, contrato reconciliado v0.5.
+- **Modelo lógico:** `postgresql-logical-data-model.md`, contrato reconciliado v0.7.
 - **Revisión:** `postgresql-logical-model-review.md`.
 - **Decisión relacionada:** `ADR-001-storage-and-analytics-architecture.md`.
 - **Issue / PR:** #14 / #16.
@@ -65,7 +65,7 @@ Todas las tablas siguientes pertenecen a `cci`.
 | `networks` | `id` | Redes blockchain con clave interna estable. |
 | `network_identifiers` | `id` | Identificadores técnicos y externos de red namespaced, con evidencia. |
 | `provider_platforms` | `id` | Observaciones versionadas de plataformas publicadas por proveedores, separadas de las redes canónicas. |
-| `provider_platform_resolution_reviews` | `id` | Revisiones append-only de correspondencia entre una plataforma observada y una red canónica.
+| `provider_platform_resolution_reviews` | `id` | Revisiones append-only de correspondencia entre una plataforma observada y una red canónica. |
 | `asset_representations` | `id` | Unidad nativa o despliegue contractual de un activo en una red. |
 | `asset_relationships` | `id` | Relaciones tipadas, dirigidas y evidenciadas entre activos distintos. |
 | `asset_identity_resolution_reviews` | `id` | Candidatos, decisiones y evidencia de resolución a nivel de activo o representación. |
