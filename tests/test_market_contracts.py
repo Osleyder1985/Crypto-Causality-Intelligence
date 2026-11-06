@@ -1,4 +1,6 @@
+import json
 import unittest
+from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
@@ -301,6 +303,53 @@ class AssetIdentityResolutionTests(unittest.TestCase):
         }]
         with self.assertRaises(ValueError):
             resolve_asset_identity("provider", "ABC", mappings)
+
+
+class InitialAssetCatalogFixtureTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        fixture_path = (
+            Path(__file__).parent
+            / "fixtures"
+            / "asset_identity"
+            / "initial_asset_catalog.json"
+        )
+        cls.fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    def test_all_initial_external_mappings_remain_pending(self):
+        self.assertEqual(self.fixture["status"], "synthetic_test_fixture")
+        self.assertEqual(len(self.fixture["mappings"]), 5)
+        for mapping in self.fixture["mappings"]:
+            with self.subTest(
+                namespace=mapping["namespace"],
+                native_code=mapping["native_code"],
+            ):
+                self.assertEqual(mapping["status"], "pending_review")
+                self.assertIsNone(mapping["evidence_reference"])
+                result = resolve_asset_identity(
+                    mapping["namespace"],
+                    mapping["native_code"],
+                    [mapping],
+                    network=mapping["network"],
+                )
+                self.assertEqual(result["resolution_status"], "pending_review")
+                self.assertIsNone(result["canonical_asset_key"])
+
+    def test_usd_and_tether_usd_are_distinct_canonical_entities(self):
+        assets = {
+            item["canonical_asset_key"]: item
+            for item in self.fixture["canonical_assets"]
+        }
+        self.assertNotEqual(assets["usd"]["canonical_asset_key"],
+                            assets["tether_usd"]["canonical_asset_key"])
+        self.assertEqual(assets["usd"]["asset_type"], "fiat")
+        self.assertEqual(assets["tether_usd"]["asset_type"], "stablecoin")
+
+    def test_fixture_contains_no_accepted_external_mapping(self):
+        self.assertFalse(any(
+            mapping["status"] == "accepted"
+            for mapping in self.fixture["mappings"]
+        ))
 
 
 if __name__ == "__main__":
