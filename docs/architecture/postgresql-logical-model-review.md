@@ -44,7 +44,7 @@ Se ha actualizado el modelo lógico para que represente el inventario, las entid
 
 ## 4. Pendientes antes de generar migraciones
 
-La alineación de inventario y entidades está cerrada como propuesta. La comparación automatizada confirma 28/28 tablas representadas en el modelo lógico. Todavía se requiere:
+La alineación de inventario y entidades está cerrada como propuesta. La comparación automatizada confirma 29/29 tablas representadas en el modelo lógico. Todavía se requiere:
 
 1. **Inventario de entidades verificado:** comparación automatizada del inventario físico contra el modelo lógico: 29/29 tablas físicas están representadas en el modelo lógico, sin entidades ausentes. Esta comprobación confirma cobertura de nombres de tablas; no sustituye una revisión semántica de cada columna y restricción.
 2. Definir y registrar los namespaces concretos que CCI utilizará inicialmente, con evidencia de autoridad, semántica y nivel de destino; la tabla `identity_namespaces` ya está especificada, pero no hay catálogo poblado ni namespaces aprobados todavía.
@@ -53,7 +53,7 @@ La alineación de inventario y entidades está cerrada como propuesta. La compar
 5. **Integridad revisión→mapping especificada:** FKs compuestas que incorporan `resolution_status = 'accepted'`, destino, namespace e identificador; para mappings de representación también red y FK a `(asset_representation_id, network_id)`. Para mappings de activo, un trigger compara `network_id` con semántica NULL-safe. La publicación se ejecuta en una única transacción. Falta implementar y probar estas reglas en PostgreSQL real.
 6. Definir reglas de no solapamiento y selección histórica de mappings bajo concurrencia; CHECK no puede imponerlas por sí solo.
 7. Revisar las restricciones de estado terminal y las invariantes de contadores antes del DDL.
-8. Implementar el trigger de ámbito de red para `asset_identifiers`, permisos de escritura append-only y pruebas de rollback atómico para ambos tipos de mapping.
+8. Implementar el trigger de ámbito de red y nivel de destino para `asset_identity_resolution_reviews`, el trigger NULL-safe de ámbito para `asset_identifiers`, permisos de escritura append-only y pruebas de rollback atómico para ambos tipos de mapping.
 
 ## 5. Plan de validación real PostgreSQL
 
