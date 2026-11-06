@@ -58,3 +58,40 @@ Los artefactos de Runs #1–#8 contienen respuestas y CSV de CoinGecko, con rete
 - **CoinGecko:** consulta técnica comprobada, pero su uso, almacenamiento y publicación quedan en espera de confirmar el plan y la licencia.
 
 La PoC no demuestra causalidad de mercado ni aprueba definitivamente proveedores. Siguen pendientes metadata de mercado, semántica completa de volumen, licencias, permisos comerciales, tratamiento USD/USDT y estabilidad en ejecuciones repetidas.
+
+## Actualización de captura — Run #13
+
+La ejecución Run #13, posterior a la incorporación de metadata y normalización ampliada, finalizó correctamente:
+
+https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42234403548
+
+- 11/11 pruebas unitarias aprobadas.
+- Extracción y validación completadas.
+- Artefacto `issue-11-exchange-evidence` creado y conservado durante 90 días.
+- Metadata Binance `exchangeInfo`: HTTP 200, cero reintentos, 1.865 ms; SHA-256 `4e66c0d7e2632b7d990ecb850932e9b2c8c6513f39e787a0f449f664ad52282a`.
+- Metadata Kraken `AssetPairs`: HTTP 200, cero reintentos, 296 ms; SHA-256 `e55a61b0fd718a757c9fed185c5d16e1b80c625830512428355f412800e08364`.
+- Binance confirmó BTCUSDT y ETHUSDT como `TRADING`, con Spot habilitado.
+- Kraken confirmó XBT/USD y ETH/USD como `online`.
+
+### Cobertura de la nueva captura
+
+| Proveedor | Activo | Intervalo | Registros | Esperados | Cobertura teórica |
+|---|---|---:|---:|---:|---:|
+| Binance | BTC | 1h | 720 | 720 | 100 % |
+| Binance | ETH | 1h | 720 | 720 | 100 % |
+| Kraken | BTC | 1h | 706 | 720 | 98,0556 % |
+| Kraken | ETH | 1h | 706 | 720 | 98,0556 % |
+| Binance | BTC | 1d | 350 | 350 | 100 % |
+| Binance | ETH | 1d | 350 | 350 | 100 % |
+| Kraken | BTC | 1d | 350 | 350 | 100 % |
+| Kraken | ETH | 1d | 350 | 350 | 100 % |
+
+En los ocho conjuntos no se detectaron duplicados, huecos internos, timestamps desalineados, registros fuera de ventana ni violaciones OHLC/volumen. Los campos de conteo de operaciones estuvieron presentes en todas las velas recibidas y no registraron conteos cero.
+
+### Interpretación de Kraken 1h
+
+La respuesta REST sin filtrar contiene 721 observaciones, desde 2026-10-07 14:00 UTC hasta 2026-11-06 14:00 UTC, incluyendo la vela en curso. Al aplicar la ventana exclusiva que termina a las 00:00 UTC del 6 de noviembre, quedan 706 observaciones desde el 7 de octubre a las 14:00 UTC hasta el 5 de noviembre a las 23:00 UTC.
+
+El tramo recibido es continuo: no presenta huecos internos. La reducción de 14 observaciones frente a las 720 esperadas se explica por el límite de observaciones recientes y el momento de la consulta, no por una evidencia de pérdida interna de datos. La comparación horaria entre exchanges debe restringirse a la intersección común de 706 velas en esta captura. La cobertura diaria sigue completa.
+
+Las latencias indicadas son mediciones de una sola ejecución y no constituyen un SLA. La captura demuestra que la nueva implementación funciona en este run; no demuestra estabilidad temporal ni disponibilidad histórica uniforme. Se requieren ejecuciones repetidas para evaluar esa dimensión.
