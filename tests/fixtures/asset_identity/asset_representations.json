@@ -7,16 +7,42 @@
     "The fixture tests structural identity rules only; it does not define address normalization."
   ],
   "assets": [
-    {"asset_key": "bitcoin", "asset_type": "crypto"},
-    {"asset_key": "wbtc_synthetic", "asset_type": "tokenized_asset"},
-    {"asset_key": "tether_usd_synthetic", "asset_type": "stablecoin"},
-    {"asset_key": "token_abc_alpha", "asset_type": "crypto", "symbol": "ABC"},
-    {"asset_key": "token_abc_beta", "asset_type": "crypto", "symbol": "ABC"}
+    {
+      "asset_key": "bitcoin",
+      "asset_type": "crypto"
+    },
+    {
+      "asset_key": "wbtc_synthetic",
+      "asset_type": "tokenized_asset"
+    },
+    {
+      "asset_key": "tether_usd_synthetic",
+      "asset_type": "stablecoin"
+    },
+    {
+      "asset_key": "token_abc_alpha",
+      "asset_type": "crypto",
+      "symbol": "ABC"
+    },
+    {
+      "asset_key": "token_abc_beta",
+      "asset_type": "crypto",
+      "symbol": "ABC"
+    }
   ],
   "networks": [
-    {"network_key": "bitcoin_mainnet_synthetic", "network_family": "bitcoin"},
-    {"network_key": "ethereum_mainnet_synthetic", "network_family": "evm"},
-    {"network_key": "tron_mainnet_synthetic", "network_family": "other"}
+    {
+      "network_key": "bitcoin_mainnet_synthetic",
+      "network_family": "bitcoin"
+    },
+    {
+      "network_key": "ethereum_mainnet_synthetic",
+      "network_family": "evm"
+    },
+    {
+      "network_key": "tron_mainnet_synthetic",
+      "network_family": "other"
+    }
   ],
   "representations": [
     {
@@ -29,7 +55,8 @@
       "decimals": 8,
       "valid_from": "2009-01-03T00:00:00Z",
       "valid_until": null,
-      "evidence_reference": "fixture:synthetic-bitcoin-native"
+      "evidence_reference": "fixture:synthetic-bitcoin-native",
+      "observed_at": "2026-11-06T00:00:00Z"
     },
     {
       "representation_key": "wbtc_ethereum_synthetic",
@@ -41,7 +68,8 @@
       "decimals": 8,
       "valid_from": "2020-01-01T00:00:00Z",
       "valid_until": null,
-      "evidence_reference": "fixture:synthetic-wbtc-deployment"
+      "evidence_reference": "fixture:synthetic-wbtc-deployment",
+      "observed_at": "2026-11-06T00:00:00Z"
     },
     {
       "representation_key": "tether_ethereum_synthetic",
@@ -53,7 +81,8 @@
       "decimals": 6,
       "valid_from": "2020-01-01T00:00:00Z",
       "valid_until": null,
-      "evidence_reference": "fixture:synthetic-usdt-ethereum-deployment"
+      "evidence_reference": "fixture:synthetic-usdt-ethereum-deployment",
+      "observed_at": "2026-11-06T00:00:00Z"
     },
     {
       "representation_key": "tether_tron_synthetic",
@@ -65,7 +94,8 @@
       "decimals": 6,
       "valid_from": "2020-01-01T00:00:00Z",
       "valid_until": null,
-      "evidence_reference": "fixture:synthetic-usdt-tron-deployment"
+      "evidence_reference": "fixture:synthetic-usdt-tron-deployment",
+      "observed_at": "2026-11-06T00:00:00Z"
     },
     {
       "representation_key": "abc_alpha_ethereum",
@@ -77,7 +107,8 @@
       "decimals": 18,
       "valid_from": "2022-01-01T00:00:00Z",
       "valid_until": null,
-      "evidence_reference": "fixture:synthetic-abc-alpha"
+      "evidence_reference": "fixture:synthetic-abc-alpha",
+      "observed_at": "2026-11-06T00:00:00Z"
     },
     {
       "representation_key": "abc_beta_ethereum",
@@ -89,7 +120,8 @@
       "decimals": 18,
       "valid_from": "2022-01-01T00:00:00Z",
       "valid_until": null,
-      "evidence_reference": "fixture:synthetic-abc-beta"
+      "evidence_reference": "fixture:synthetic-abc-beta",
+      "observed_at": "2026-11-06T00:00:00Z"
     }
   ],
   "relationships": [
@@ -99,7 +131,8 @@
       "relationship_type": "wrapped_representation_of",
       "valid_from": "2020-01-01T00:00:00Z",
       "valid_until": null,
-      "evidence_reference": "fixture:synthetic-wrapper-relationship"
+      "evidence_reference": "fixture:synthetic-wrapper-relationship",
+      "observed_at": "2026-11-06T00:00:00Z"
     }
   ]
 }
