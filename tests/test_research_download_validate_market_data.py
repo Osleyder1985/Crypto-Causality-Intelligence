@@ -59,6 +59,15 @@ class CandleValidationTests(unittest.TestCase):
             {"ohlc", "negative_volume"},
         )
 
+    def test_reports_misaligned_outside_and_zero_volume(self):
+        report = validate_candles(
+            [candle(1800, volume="0"), candle(7200)],
+            3600, 0, 3600
+        )
+        self.assertEqual(report["records_outside_window"], 1)
+        self.assertEqual(report["misaligned_timestamps"], [1800])
+        self.assertEqual(report["zero_volume_records"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()
