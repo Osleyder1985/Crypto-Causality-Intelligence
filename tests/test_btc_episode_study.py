@@ -125,6 +125,14 @@ class EpisodeStudyTests(unittest.TestCase):
                 "end_local": "2026-01-02T00:00:00-05:00",
                 "start_utc": "2026-01-01T05:00:00Z",
                 "end_utc": "2026-01-02T05:00:00Z",
+            }, {
+                "episode_id": "manifest-fall",
+                "direction": "bearish",
+                "status": "confirmed",
+                "start_local": "2026-01-03T00:00:00-05:00",
+                "end_local": "2026-01-04T00:00:00-05:00",
+                "start_utc": "2026-01-03T05:00:00Z",
+                "end_utc": "2026-01-04T05:00:00Z",
             }],
         }
         with tempfile.TemporaryDirectory() as tmp:
