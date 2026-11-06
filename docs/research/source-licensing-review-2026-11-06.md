@@ -83,3 +83,57 @@ El repositorio GitHub actualmente tiene visibilidad **pública**. “Investigaci
 ### Medida pendiente sobre artefactos históricos
 
 Los artefactos de Runs #1–#8 incluyen respuestas y CSV de CoinGecko, con retención configurada hasta febrero de 2027. No deben redistribuirse ni reutilizarse hasta confirmar que el plan y las condiciones aplicables permiten esa retención. El propietario puede eliminarlos desde GitHub Actions si no desea conservarlos o si los términos no lo permiten.
+
+## Actualización de revisión documental — 2026-11-06
+
+Se contrastaron de nuevo las fuentes oficiales y se detectaron precisiones importantes para la decisión de almacenamiento y publicación.
+
+### Binance: distinguir el archivo histórico del endpoint REST
+
+Los términos específicos de Binance Vision, versión 1.0 y actualizados el 26 de agosto de 2026, describen datasets publicados en `data.binance.vision` y endpoints asociados. Establecen licencia CC BY-NC-SA 4.0 para esos datasets, usos no comerciales limitados y exclusión del uso comercial salvo licencia empresarial escrita.
+
+Sin embargo, una respuesta de un colaborador de Binance en el Issue #502 del repositorio oficial aclara que `data-api.binance.vision` no es el endpoint de archivos históricos `data.binance.vision`. El mismo intercambio indica que las consultas y usos de datos de Binance Vision desde la fecha de vigencia están sujetos a esos términos; no resuelve de forma inequívoca el régimen contractual de la API REST Spot que utiliza esta PoC (`data-api.binance.vision/api/v3/klines` y `/api/v3/exchangeInfo`).
+
+Por tanto:
+- No aplicar automáticamente CC BY-NC-SA 4.0 al endpoint REST de esta PoC.
+- Tampoco interpretar la ausencia de una licencia REST específica encontrada en esta revisión como permiso irrestricto de almacenamiento o publicación.
+- Mantener la consulta técnica separada de la autorización para conservar y publicar respuestas.
+- Solicitar confirmación escrita a Binance si se pretende mantener datasets REST en artefactos públicos o emplearlos fuera de investigación personal no comercial.
+
+Fuentes:
+- Términos oficiales Binance Vision: https://github.com/binance/binance-public-data/blob/master/TERMS_AND_CONDITIONS.md
+- Aclaración de alcance en Issue #502: https://github.com/binance/binance-public-data/issues/502
+- FAQ oficial de Market Data Only: https://developers.binance.com/en/docs/products/spot/faqs/market_data_only
+
+### Kraken: el permiso se formula para ciertos usos comerciales no personales
+
+La guía oficial del Kraken API Center indica expresamente que se necesita permiso previo para ciertos usos de la API, incluidos los usos comerciales no personales de datos de endpoints públicos como market data. El contacto indicado es `marketdata@kraken.com`. Los términos globales reservan los derechos sobre su contenido, incluidos los datos de precios, y limitan su uso a los fines permitidos para beneficio propio; para otros fines requieren permiso previo.
+
+Esta redacción no permite concluir que la investigación personal privada y no comercial necesite automáticamente el mismo permiso. Pero tampoco constituye una licencia explícita de almacenamiento de datasets en un repositorio público. Dado que el repositorio del proyecto es público, la publicación de archivos de mercado en artefactos de Actions amplía la exposición más allá del uso privado. Se debe evitar esa exposición hasta tener claridad contractual.
+
+Fuentes:
+- Guía oficial de API: https://docs-legacy.kraken.com/api/docs/guides/global-intro/
+- Términos globales (actualizados el 30 de octubre de 2026): https://www.kraken.com/legal/global-terms
+
+### CoinGecko: retención condicionada al plan y a los términos
+
+Los términos API publicados por CoinGecko indican que no fomentan el almacenamiento; si se almacena información, se aplican condiciones como refresco de caché, medidas de seguridad y eliminación de datos al terminar el acceso. La guía de licencias actualizada recientemente explica que la retención depende de la suscripción activa y que la redistribución requiere derechos adicionales. Los derechos concretos dependen del plan y de cualquier acuerdo adicional.
+
+Se mantiene la decisión técnica de no archivar valores CoinGecko en ejecuciones nuevas. No se puede concluir que los artefactos históricos de Runs #1–#8 estén autorizados sin conocer el plan y los términos vigentes en el momento de cada captura.
+
+Fuentes:
+- Términos API: https://www.coingecko.com/en/api_terms
+- Diferencias entre licencias: https://support.coingecko.com/articles/1043089972-what-are-the-differences-between-commercial-and-custom-licenses
+
+### Consecuencia operativa para el repositorio público
+
+El repositorio sigue siendo público y el workflow de Run #13 archivó archivos originales y normalizados de Binance/Kraken en un artefacto de Actions. Por ello, no es correcto describir esa evidencia como si estuviera bajo acceso privado o controlado: la configuración de retención de 90 días no es un control de confidencialidad.
+
+**Medida preventiva recomendada:** suspender la publicación de valores originales/normalizados de mercado en nuevos artefactos de Actions mientras se aclara el permiso de almacenamiento y exposición pública con Binance y Kraken. Se pueden conservar manifiestos técnicos sin valores de mercado (endpoint, parámetros, status, latencia, hora de captura, conteos y hashes) si se confirma que esos metadatos no contienen material restringido. No borrar el artefacto Run #13 ni alterar la configuración actual sin autorización expresa; dejar constancia de la exposición existente y decidir la corrección con el propietario.
+
+### Estado revisado
+
+- Binance REST Spot: alcance de licencia para almacenamiento y publicación de respuestas no resuelto; confirmación escrita recomendada.
+- Kraken Spot: uso personal privado no comercial no queda automáticamente incluido en la categoría de permiso comercial no personal; publicación de datasets en repositorio público no debe asumirse autorizada.
+- CoinGecko: persistencia nueva desactivada; retención de artefactos antiguos pendiente de validar contra el plan aplicable.
+- Repositorio público: no equivale a entorno de investigación privado. Los artefactos de Actions con valores deben considerarse expuestos públicamente mientras no se demuestre lo contrario.
