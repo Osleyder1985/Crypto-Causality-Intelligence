@@ -2,7 +2,9 @@
 
 - Experiment key propuesta: `btc-usdt-directional-episodes-v1`
 - Estado: `planned`; no ejecutar inferencia hasta cerrar el manifiesto de datos y la lista de episodios.
-- Instrumento: BTC/USDT; venue único por dataset.
+- Instrumento: BTC/USDT Spot; venue único: Binance Spot.
+- Símbolo nativo: `BTCUSDT`.
+- Endpoint de mercado previsto: `GET /api/v3/klines` en `data-api.binance.vision`; selección de endpoint no equivale a autorización de almacenamiento o publicación.
 - Frecuencia objetivo: 1 hora.
 - Zona horaria de captura de los límites aportados: UTC-5; normalización de almacenamiento y análisis: UTC.
 - Unidad de observación: episodio direccional delimitado por el operador.
