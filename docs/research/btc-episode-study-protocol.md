@@ -105,3 +105,8 @@ El Parquet debe contener las mismas columnas canónicas. `open_time_utc` debe se
 DuckDB se ejecuta en memoria y consulta directamente el archivo local. No crea una copia persistente, no escribe tablas temporales al dataset y no realiza conexiones a proveedores. La lectura conserva el orden físico para que los timestamps duplicados o fuera de orden no se oculten mediante ordenación automática. La versión de DuckDB está fijada en `requirements-research.txt`.
 
 Las pruebas crean archivos Parquet temporales con datos sintéticos y verifican equivalencia con el contrato de análisis. No contienen ni requieren datos reales.
+
+
+## Prerregistro del experimento histórico
+
+La pregunta de investigación, hipótesis exploratorias, reglas de cohorte, definiciones de métricas, controles de calidad y condiciones para iniciar el primer run real se especifican en [btc-usdt-first-experiment-preregistration.md](btc-usdt-first-experiment-preregistration.md). Ese prerregistro es la referencia antes de inspeccionar resultados reales. La lista definitiva de episodios aún debe reconciliarse; no se deben completar límites por inferencia.
