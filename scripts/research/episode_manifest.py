@@ -1,6 +1,7 @@
 """Validation of the versioned, auditable BTC/USDT episode manifest."""
 from __future__ import annotations
 
+import argparse
 import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -137,3 +138,28 @@ def load_manifest_episodes(path: str | Path) -> list[dict[str, Any]]:
     except (OSError, json.JSONDecodeError) as exc:
         raise ManifestError(f"No se pudo leer el manifiesto: {exc}") from exc
     return validate_manifest(document, require_approved=True)
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Validate an approved manifest independently of any candle dataset."""
+    parser = argparse.ArgumentParser(
+        description="Valida el manifiesto canónico BTC/USDT antes de ejecutar el estudio."
+    )
+    parser.add_argument("--manifest", required=True, help="Ruta al manifiesto JSON versionado")
+    args = parser.parse_args(argv)
+    try:
+        episodes = load_manifest_episodes(args.manifest)
+    except ManifestError as exc:
+        parser.exit(2, f"ERROR: {exc}\\n")
+    bullish = sum(item["direction"] == "bullish" for item in episodes)
+    bearish = sum(item["direction"] == "bearish" for item in episodes)
+    print(
+        "Manifiesto válido: "
+        f"{len(episodes)} episodios (bullish={bullish}, bearish={bearish}); "
+        "BTC/USDT Spot; intervalo=3600s; límites UTC verificados."
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
