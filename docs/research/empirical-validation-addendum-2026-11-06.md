@@ -4,8 +4,8 @@ Revisión de condiciones de uso: [source-licensing-review-2026-11-06.md](source-
 
 ## Ejecución reproducible
 
-Run #8 de GitHub Actions:
-https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42167506238
+Run #10 de GitHub Actions:
+https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42167688358
 
 Commit: `a76b5c9d8227a5b8ad9ddc58af15d20709adaac8`.
 
