@@ -1,7 +1,7 @@
 # Modelo de dominio para activos y representaciones blockchain
 
 - **Estado:** propuesta técnica para revisión; no implementada.
-- **Versión:** 0.1.0-draft.
+- **Versión:** 0.2.0-draft.
 - **Fecha:** 2026-11-06.
 - **Alcance:** identidad de activos nativos, activos emitidos y despliegues tokenizados en redes.
 - **Documentos relacionados:** asset-identity-resolution-policy.md, initial-asset-catalog.md, postgresql-physical-schema.md.
@@ -141,12 +141,12 @@ Estas decisiones no bloquean el modelo conceptual inicial, pero sí deben cerrar
 ## 8. Estado de validación
 
 - Diseño conceptual: propuesto.
-- Validador estructural Python: implementado en `scripts/validation/asset_representation_contracts.py`.
+- Validador estructural Python: implementado en `scripts/validation/asset_representation_contracts.py`; valida tipos de entrada, claves no vacías, observación temporal con zona horaria, metadatos físicos opcionales y relaciones normalizadas. No normaliza direcciones ni genera `recorded_at`.
 - Fixture sintético: `tests/fixtures/asset_identity/asset_representations.json`; los contratos son placeholders deliberadamente inválidos y no representan despliegues reales.
-- Pruebas automatizadas: 12 escenarios nuevos integrados en `tests/test_market_contracts.py`; la suite contiene 48 métodos `test_*` en total.
-- Alcance probado: cardinalidad multi-chain, representación nativa sin contrato, token contractual con contrato obligatorio, duplicados por red, activos distintos con ticker coincidente, relaciones dirigidas, referencias huérfanas y validez temporal.
+- Pruebas automatizadas: la suite contiene 58 métodos `test_*` tras ampliar los casos de regresión de identidad. La cobertura añadida incluye entradas malformadas, tipos inválidos, `observed_at`, `directionality`, preservación de metadatos y salida relacional normalizada.
+- Alcance probado en código de tests: cardinalidad multi-chain, representación nativa sin contrato, token contractual con contrato obligatorio, duplicados por red, activos distintos con ticker coincidente, relaciones dirigidas, referencias huérfanas, validez temporal, validación de estructuras y tipos, observaciones y preservación de metadatos. La ejecución de CI de esta revisión está pendiente.
 - Normalización/checksum de direcciones: no implementada; se preserva el literal y se aplaza la regla específica por familia de red.
 - Mappings reales de contratos: ninguno aprobado por este documento.
 - Validación empírica con redes o APIs: no realizada en esta etapa.
 - DDL/migraciones PostgreSQL: no implementadas.
-- CI de esta ampliación: aprobada en el run [#42275359843](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42275359843); `contract-tests` terminó en `success` y el log confirma 48/48 pruebas.
+- CI de la revisión anterior: aprobada en el run [#42275359843](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42275359843), con 48/48 pruebas. Esa ejecución no valida los cambios posteriores de este borrador.
