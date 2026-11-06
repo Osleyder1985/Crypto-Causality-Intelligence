@@ -1,0 +1,2 @@
+# Pinned dependency for local Parquet analysis; no provider/network client.
+duckdb==1.4.3
