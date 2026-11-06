@@ -7,6 +7,7 @@ from scripts.validation.market_contracts import (
     map_kraken_instrument_metadata,
     parse_binance_kline,
     parse_kraken_ohlc_row,
+    resolve_asset_identity,
 )
 
 
@@ -214,6 +215,79 @@ class InstrumentMetadataContractTests(unittest.TestCase):
         self.assertIsNone(result["min_quantity"])
         self.assertIsNone(result["min_notional"])
         self.assertEqual(result["provider_extensions"], {})
+
+
+class AssetIdentityResolutionTests(unittest.TestCase):
+    def test_ticker_similarity_never_creates_implicit_equivalence(self):
+        for namespace, code in (
+            ("binance_spot", "BTC"),
+            ("kraken_spot", "XBT"),
+            ("kraken_spot", "XXBT"),
+        ):
+            result = resolve_asset_identity(namespace, code, [])
+            self.assertEqual(result["resolution_status"], "unresolved")
+            self.assertIsNone(result["canonical_asset_key"])
+
+    def test_exact_approved_mapping_resolves_with_evidence(self):
+        mappings = [{
+            "namespace": "kraken_spot",
+            "native_code": "XXBT",
+            "network": None,
+            "canonical_asset_key": "bitcoin",
+            "status": "accepted",
+            "evidence_reference": "evidence:asset-review-001",
+        }]
+        result = resolve_asset_identity("kraken_spot", "XXBT", mappings)
+        self.assertEqual(result["resolution_status"], "resolved")
+        self.assertEqual(result["canonical_asset_key"], "bitcoin")
+        self.assertEqual(result["evidence_reference"], "evidence:asset-review-001")
+
+    def test_namespace_and_network_are_exact_scopes(self):
+        mappings = [{
+            "namespace": "kraken_spot", "native_code": "XBT",
+            "network": None, "canonical_asset_key": "bitcoin",
+            "status": "accepted", "evidence_reference": "evidence:001",
+        }]
+        self.assertEqual(
+            resolve_asset_identity("binance_spot", "XBT", mappings)["resolution_status"],
+            "unresolved",
+        )
+        self.assertEqual(
+            resolve_asset_identity(
+                "kraken_spot", "XBT", mappings, network="bitcoin"
+            )["resolution_status"],
+            "unresolved",
+        )
+
+    def test_pending_mapping_does_not_resolve_asset(self):
+        mappings = [{
+            "namespace": "kraken_spot", "native_code": "XBT",
+            "network": None, "canonical_asset_key": "bitcoin",
+            "status": "pending_review", "evidence_reference": None,
+        }]
+        result = resolve_asset_identity("kraken_spot", "XBT", mappings)
+        self.assertEqual(result["resolution_status"], "pending_review")
+        self.assertIsNone(result["canonical_asset_key"])
+
+    def test_conflicting_accepted_mappings_are_rejected(self):
+        mappings = [
+            {"namespace": "provider", "native_code": "ABC", "network": None,
+             "canonical_asset_key": "asset-a", "status": "accepted",
+             "evidence_reference": "evidence:a"},
+            {"namespace": "provider", "native_code": "ABC", "network": None,
+             "canonical_asset_key": "asset-b", "status": "accepted",
+             "evidence_reference": "evidence:b"},
+        ]
+        with self.assertRaises(ValueError):
+            resolve_asset_identity("provider", "ABC", mappings)
+
+    def test_accepted_mapping_requires_evidence(self):
+        mappings = [{
+            "namespace": "provider", "native_code": "ABC", "network": None,
+            "canonical_asset_key": "asset-a", "status": "accepted",
+        }]
+        with self.assertRaises(ValueError):
+            resolve_asset_identity("provider", "ABC", mappings)
 
 
 if __name__ == "__main__":
