@@ -184,8 +184,8 @@ La aprobación de los namespaces CoinGecko es documental y no equivale a poblar 
 
 La identidad de red canónica pertenece a `networks.network_key`. El modelo separa tres hechos: `provider_platforms` identifica de forma estable la plataforma externa dentro de un proveedor; `provider_platform_observations` conserva snapshots inmutables; `provider_platform_resolution_reviews` registra decisiones sobre la identidad estable.
 
-Para CoinGecko, `asset_platforms[].id` se conserva como `provider_platform_key`, no como clave canónica. `chain_identifier` puede ser NULL y, aun cuando exista, es un valor reportado, no prueba suficiente de identidad. Hasta confirmar su contrato JSON y representación exacta, se conserva como literal escalar más tipo JSON, sin conversión numérica destructiva.
+Para CoinGecko, `asset_platforms[].id` se conserva como `provider_platform_key`, no como clave canónica. `chain_identifier` puede ser NULL y, aun cuando exista, es un valor reportado, no prueba suficiente de identidad. La documentación oficial del endpoint declara `number | null`; se conserva como escalar JSONB exacto, sin imponer integer ni usar tipos aproximados. El cuerpo HTTP/evidencia con hash permite preservar el lexema original.
 
 Una observación nueva no crea ni sustituye automáticamente una revisión. La revisión apunta a la identidad estable y puede señalar `based_on_observation_id` como evidencia. `supersedes_review_id` se reserva exclusivamente para corregir, revocar o sustituir una decisión anterior. `observed_at`, `recorded_at` y `valid_from/valid_until` conservan semánticas independientes. La política EVM/Solana se rige por `network-identity-resolution-policy.md`.
 
-La ampliación del contrato lógico es documental. No se ha poblado el catálogo ni se han aprobado correspondencias reales.
+La ampliación del contrato lógico es documental. Las FKs, índices parciales, triggers, vista temporal, publicación atómica y matriz de pruebas del motor se especifican en `postgresql-physical-schema.md`, sección 13. No se ha poblado el catálogo ni se han aprobado correspondencias reales.
