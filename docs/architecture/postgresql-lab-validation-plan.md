@@ -70,6 +70,19 @@ Una ejecución de tests Python sin conexión PostgreSQL no satisface estos crite
 - Consultas a APIs de proveedores.
 - Fusión del PR #16.
 
-## 8. Próximo paso
+## 9. Primer incremento implementado
+
+Se añadieron los siguientes artefactos de laboratorio:
+
+- `tests/postgresql/001_provider_platform_lab.sql`: DDL aislado de las seis tablas mínimas, claves candidatas, FKs compuestas, CHECKs, índices parciales, triggers y vistas.
+- `tests/test_postgresql_lab.py`: pruebas iniciales de smoke/integración para JSONB number/null, unicidad de captura, resolución accepted, visibilidad pending, inmutabilidad, literal/namespace y procedencia parcial.
+- `.github/workflows/postgresql-lab.yml`: workflow separado con servicio efímero PostgreSQL 16 y driver psycopg fijado.
+
+Durante la revisión estática del DDL se detectó una sutileza de SQL: en PostgreSQL un CHECK que evalúa a NULL no rechaza la fila. Se reforzó explícitamente la condición `provider_platform_resolution_status IS NOT NULL` para impedir que una procedencia parcialmente nula eluda la validación.
+
+**Estado de ejecución:** los archivos están versionados en la rama, pero no hay todavía una ejecución de workflow PostgreSQL confirmada para el HEAD inspeccionado. Por tanto, el DDL y las pruebas aún no están validados en el motor. La suite inicial es un primer subconjunto de smoke tests; no sustituye la matriz completa PG-NET-01–PG-NET-25.
+
+
+## 10. Próximo paso
 
 Implementar el DDL desechable del subsistema NET en `tests/postgresql/`, añadir fixtures sintéticos y crear un workflow separado de GitHub Actions con servicio PostgreSQL. Después se ejecutará la matriz PG-NET-01 a PG-NET-25 y se corregirá el SQL a partir de resultados observados.
