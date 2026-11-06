@@ -2,7 +2,8 @@
 
 - Estado: propuesta de implementación incremental del Issue #19.
 - Dependencia: esquema canónico `cci.research_experiments` definido en PostgreSQL físico v0.7.
-- Migración: `migrations/postgresql/002_research_run_registry.sql`.
+- Migraciones: `001_research_experiments.sql` y después `002_research_run_registry.sql`.
+- Alcance: base ejecutable de `research_experiments` y su registro de runs; no instala todas las tablas del modelo CCI.
 
 ## Semántica
 
@@ -16,7 +17,7 @@ Estados: `queued → running → succeeded|failed|cancelled`; también `queued �
 
 Cada método del repositorio usa una transacción PostgreSQL. Las transiciones bloquean la fila con `FOR UPDATE`; la función trigger aplica el grafo de estados también ante escrituras fuera del repositorio. Las restricciones FK/CHECK/UNIQUE son responsabilidad del motor, no solo de Python.
 
-La migración presupone que el esquema `cci` y `research_experiments` ya existen. No pretende instalar el modelo completo v0.7 ni ejecutar el laboratorio NET-04/05/06. El despliegue productivo debe aplicar primero la migración base canónica aprobada.
+Para una instalación aislada, aplicar en orden `001_research_experiments.sql` y `002_research_run_registry.sql`; la primera crea el esquema `cci` y la tabla base `research_experiments`, la segunda añade runs y artefactos. En un entorno que ya tenga el modelo físico v0.7 aplicado, verificar equivalencia de `research_experiments` y aplicar solo la segunda migración si la tabla ya existe. Estas dos migraciones no instalan todas las tablas del modelo CCI ni sustituyen la migración integral del esquema productivo.
 
 ## Rol operativo de mínimo privilegio
 
