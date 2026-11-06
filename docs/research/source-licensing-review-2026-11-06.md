@@ -51,7 +51,7 @@ Referencias:
 
 ## Medida aplicada en el repositorio
 
-A partir de la siguiente ejecución, el script cuenta las observaciones de CoinGecko en memoria y registra únicamente metadatos de la respuesta (endpoint, parámetros, estado, latencia, unidad temporal, tamaño y SHA-256). No guarda el JSON ni genera CSV con los valores de CoinGecko. El artefacto de GitHub Actions conserva únicamente el manifiesto y los archivos de Binance/Kraken.
+Desde Run #9, el script cuenta las observaciones de CoinGecko en memoria y registra únicamente metadatos de la respuesta (endpoint, parámetros, estado, latencia, unidad temporal, tamaño y SHA-256). No guarda el JSON ni genera CSV con los valores de CoinGecko. Run #10 confirma que el artefacto de GitHub Actions conserva únicamente el manifiesto y los archivos de Binance/Kraken.
 
 Las ejecuciones anteriores (Runs #1–#8) sí incluyeron respuestas y CSV de CoinGecko en sus artefactos. El Run #8 tiene retención configurada hasta el 4 de febrero de 2027. No redistribuir ni reutilizar esos archivos hasta confirmar que el plan y las condiciones aplicables permiten esa conservación. Si no lo permiten, el propietario del repositorio debe eliminar los artefactos anteriores desde GitHub Actions.
 
