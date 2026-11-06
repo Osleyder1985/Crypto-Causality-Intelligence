@@ -7,6 +7,8 @@ on:
       - architecture/issue-14-storage-resynced
     paths:
       - "scripts/validation/**"
+      - "docs/architecture/**"
+      - "docs/catalog/**"
       - "tests/test_market_contracts.py"
       - ".github/workflows/contract-tests.yml"
   pull_request:
