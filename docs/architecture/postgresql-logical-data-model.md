@@ -113,6 +113,7 @@ PostgreSQL mantiene catálogo, identidades, metadata, operaciones, autorizacione
 6. Instrumento → versiones de metadata → reglas de negociación.
 7. Dataset → procedencias, validaciones, linaje y asociaciones con experimentos.
 8. Transformación → ejecuciones; cada arista de linaje referencia una ejecución concreta.
+9. Revisión de identidad accepted → mapping del mismo destino, red (cuando aplique), namespace e identificador; las FKs compuestas garantizan destino y estado.
 10. Experimento → runs de investigación → referencias a artefactos; los runs analíticos no reutilizan las ejecuciones de ingesta ni de transformación.
 9. Revisión de identidad accepted → mapping del mismo destino, red (cuando aplique), namespace e identificador; las FKs compuestas garantizan destino y estado, y el trigger garantiza el ámbito nullable de red en mappings de activo.
 10. Las FKs compuestas de la especificación física son obligatorias cuando garantizan coherencia de fuente/endpoint/instrumento/política. No pueden sustituirse por validaciones solo en Python.
