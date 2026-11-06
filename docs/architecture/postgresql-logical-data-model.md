@@ -43,7 +43,11 @@ PostgreSQL mantiene catálogo, identidades, metadata, operaciones, autorizacione
 
 **`networks`** — identidad canónica de una red. Atributos: `id`, `network_key`, `display_name`, `network_family`, `environment`, `created_at`.
 
-**`network_identifiers`** — identificadores namespaced de una red. Atributos: `id`, `network_id`, `namespace`, `identifier_type`, `identifier_value`, `observed_at`, `evidence_reference`. Un chain ID no es global sin namespace.
+**`network_identifiers`** — identificadores técnicos y externos namespaced de una red. Atributos: `id`, `network_id`, `namespace`, `identifier_type`, `identifier_value`, `observed_at`, `evidence_reference`. Un Chain ID no es global sin namespace; un identificador de plataforma de proveedor solo se publica aquí después de una revisión accepted.
+
+**`provider_platforms`** — observaciones versionadas de entradas de catálogo de plataformas de proveedores. Atributos: `id`, `data_source_id`, `provider_platform_id`, `provider_name`, `provider_shortname`, `provider_native_coin_id`, `reported_chain_identifier` nullable, `observed_at`, `evidence_reference`, `evidence_sha256`. El identificador de plataforma conserva el namespace del proveedor y nunca se trata como `network_key`; los campos descriptivos no son claves canónicas.
+
+**`provider_platform_resolution_reviews`** — historial append-only de la correspondencia de una observación de plataforma con una red CCI. Atributos: `id`, `provider_platform_observation_id`, `candidate_network_id`, `resolution_status`, `evidence_reference`, `decision_reference`, `reviewed_at`, `recorded_at`, `supersedes_review_id`. Solo una revisión accepted puede habilitar el mapping; la publicación del identificador externo en `network_identifiers` se realiza atómicamente.
 
 **`asset_representations`** — unidad nativa o despliegue contractual de un activo en una red. Atributos: `id`, `asset_id`, `network_id`, `representation_kind`, `native_asset_key`, `contract_address`, `address_normalization`, `token_standard`, `decimals`, `issuer_key`, `valid_from`, `valid_until`, `observed_at`, `evidence_reference`. Una representación pertenece a un activo y una red; los datos nativos y contractuales son mutuamente excluyentes.
 
@@ -99,7 +103,7 @@ PostgreSQL mantiene catálogo, identidades, metadata, operaciones, autorizacione
 2. Política → evaluaciones; cada evaluación referencia la política de la misma fuente y el endpoint de esa fuente.
 3. Evaluación → contribución de dataset mediante coincidencia exacta de fuente, endpoint, tipo de dato y uso previsto.
 4. Run → solicitudes y, mediante `run_datasets`, datasets producidos/registrados.
-5. Activo → representaciones; representación → red; red → identificadores namespaced.
+5. Activo → representaciones; representación → red; red → identificadores namespaced. Proveedor → observaciones de plataformas → revisiones de correspondencia → red; solo revisiones accepted pueden publicar identificadores de proveedor en `network_identifiers`.
 6. Instrumento → versiones de metadata → reglas de negociación.
 7. Dataset → procedencias, validaciones, linaje y asociaciones con experimentos.
 8. Transformación → ejecuciones; cada arista de linaje referencia una ejecución concreta.
@@ -119,7 +123,7 @@ erDiagram
     DATA_SOURCES ||--o{ MARKET_INSTRUMENTS : lists
     ASSETS ||--o{ ASSET_REPRESENTATIONS : represented_by
     NETWORKS ||--o{ ASSET_REPRESENTATIONS : hosts
-    NETWORKS ||--o{ NETWORK_IDENTIFIERS : identified_by
+    NETWORKS ||--o{ NETWORK_IDENTIFIERS : identified_by\n    DATA_SOURCES ||--o{ PROVIDER_PLATFORMS : publishes\n    PROVIDER_PLATFORMS ||--o{ PROVIDER_PLATFORM_RESOLUTION_REVIEWS : reviewed_as\n    NETWORKS ||--o{ PROVIDER_PLATFORM_RESOLUTION_REVIEWS : candidate_network
     IDENTITY_NAMESPACES ||--o{ ASSET_IDENTITY_RESOLUTION_REVIEWS : governs
     ASSETS ||--o{ ASSET_IDENTIFIERS : identified_by
     ASSET_REPRESENTATIONS ||--o{ ASSET_REPRESENTATION_IDENTIFIERS : identified_by
@@ -146,7 +150,7 @@ El diagrama muestra relaciones conceptuales; nulabilidad, claves compuestas y re
 
 ## 6. Criterios de aceptación previos a migraciones
 
-- El inventario de entidades de este documento coincide exactamente con el inventario físico, incluida `identity_namespaces`.
+- El inventario de entidades de este documento coincide exactamente con el inventario físico, incluidas `identity_namespaces`, `provider_platforms` y `provider_platform_resolution_reviews`.
 - Cada atributo lógico tiene correspondencia física; no quedan atributos obsoletos como `assets.network` ni `dataset_sources.source_usage_policy_id`.
 - `dataset_sources.data_type` forma parte de la FK compuesta a `policy_evaluations`.
 - El alcance de producto/plan y de tipo de dato en `source_usage_policies` tiene referencia estructurada y CHECKs coherentes.
@@ -167,3 +171,12 @@ La revisión documental de CoinGecko permite definir dos namespaces candidatos: 
 Los campos Binance Spot `baseAsset`/`quoteAsset` y Kraken Spot `base_asset`/`quote_asset` son códigos de activo dentro de metadata de pares. No se aceptan como namespaces canónicos de activos sin evidencia adicional de unicidad, estabilidad y semántica. Los símbolos de pares y alias REST/WebSocket se registran en `market_instruments` e `instrument_identifiers`. Los códigos nativos permanecen como metadata del instrumento hasta una resolución explícita; nunca se deduce equivalencia por ticker.
 
 La aprobación de los namespaces CoinGecko es documental y no equivale a poblar `identity_namespaces`, validar todos los valores ni probar su estabilidad temporal. Véase la sección 9 de `postgresql-physical-schema.md` para la matriz de decisión y evidencia.
+
+
+### 3.2.2 Resolución de plataformas de proveedores y redes
+
+La identidad de red canónica pertenece a `networks.network_key`. Los identificadores publicados por proveedores se conservan en `provider_platforms` como observaciones versionadas y requieren una revisión explícita antes de relacionarse con una red. `provider_platform_resolution_reviews` registra candidatos y decisiones; únicamente una revisión accepted habilita la publicación del identificador del proveedor en `network_identifiers`.
+
+Para CoinGecko, `asset_platforms[].id` es un `provider_platform_id`, no una clave canónica. `chain_identifier` es nullable y, aun cuando exista, se conserva como valor reportado por CoinGecko, no como prueba suficiente de identidad. `name`, `shortname` y `native_coin_id` son metadata descriptiva. La correspondencia plataforma → red y las reglas EVM/Solana se rigen por `network-identity-resolution-policy.md`.
+
+La ampliación del contrato lógico es documental. No se ha poblado el catálogo ni se han aprobado correspondencias reales.
