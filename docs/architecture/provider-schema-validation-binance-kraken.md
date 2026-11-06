@@ -4,7 +4,7 @@
 - **Fecha de revisión:** 2026-11-06.
 - **Contratos evaluados:** `market_ohlcv` y `market_instrument_metadata`.
 - **Rama:** `docs/issue-14-storage-architecture-decision`.
-- **PR:** #15.
+- **PR:** #16.
 - **Alcance:** endpoints públicos Spot; no incluye Futures, Margin, Options ni productos derivados.
 
 ## 1. Resumen ejecutivo
