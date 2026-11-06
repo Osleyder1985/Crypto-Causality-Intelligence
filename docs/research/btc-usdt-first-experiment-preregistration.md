@@ -37,7 +37,7 @@ Reglas:
 5. Mantener todos los episodios elegibles, incluso si el resultado contradice la hipótesis.
 6. No usar episodios de entrenamiento y validación como si fueran muestras independientes cuando pertenecen a un mismo movimiento de mercado.
 
-El registro trazable de los límites comunicados y de sus discrepancias se mantiene en [btc-usdt-episode-candidates.md](btc-usdt-episode-candidates.md). La lista completa de fechas todavía requiere reconciliación. El contexto disponible confirma algunos límites aportados, pero contiene una discrepancia sobre el final del episodio que comienza el 5 de febrero de 2026 y el inicio de la caída de mayo de 2026. No completar ni inferir los límites faltantes. La tabla definitiva se congelará en un manifiesto versionado antes de ejecutar el experimento.
+El registro trazable de los límites comunicados y de sus discrepancias se mantiene en [btc-usdt-episode-candidates.md](btc-usdt-episode-candidates.md). El operador confirmó que la subida iniciada el 2026-02-05 19:00 UTC-05:00 termina el 2026-05-06 04:00 UTC-05:00. La caída de mayo comienza en ese mismo instante, por lo que ambas ventanas son contiguas bajo la semántica `[start, end)`. El único límite temporal todavía ausente es el final de la caída iniciada el 2026-05-06 04:00 UTC-05:00. Los cinco candidatos y sus conversiones se mantienen en el manifiesto pendiente y en [btc-usdt-episode-candidates.md](btc-usdt-episode-candidates.md); no inferir el límite ausente ni aprobar todavía la cohorte.
 
 ## 4. Métricas primarias y definiciones
 
@@ -91,7 +91,7 @@ PostgreSQL conserva metadata y trazabilidad; Parquet conserva únicamente datase
 ## 8. Condiciones para iniciar el primer run real
 
 El run real permanece bloqueado hasta que:
-- se confirme la lista completa de episodios y se resuelva la discrepancia temporal señalada;
+- se confirme el límite final de la caída iniciada el 2026-05-06 04:00 UTC-05:00 y se ratifiquen los demás episodios como cohorte;
 - se confirme el dataset exacto, su venue y su cobertura;
 - se documente que el uso y tratamiento local del dataset están autorizados;
 - el manifiesto y los archivos de entrada pasen los controles del estudio.
