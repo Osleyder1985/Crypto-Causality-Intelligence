@@ -3,7 +3,7 @@
 - **Estado:** propuesta técnica para revisión.
 - **Versión:** 0.1.0-draft.
 - **Fecha:** 2026-11-06.
-- **Documentos relacionados:** `canonical-market-data-schemas.md`, `postgresql-physical-schema.md` y `provider-instrument-schema-cross-review.md`.
+- **Documentos relacionados:** `canonical-market-data-schemas.md`, `postgresql-physical-schema.md`, `provider-instrument-schema-cross-review.md` y `asset-representation-domain-model.md`.
 - **PR:** #15.
 
 ## 1. Objetivo
@@ -70,7 +70,10 @@ Esta tabla es deliberadamente conservadora. No afirma que los códigos represent
 
 - **Fiat:** distinguir código ISO, unidad monetaria y representación de proveedor; usar evidencia oficial del proveedor o estándar pertinente.
 - **Stablecoins:** no inferir identidad a partir del ticker; verificar emisor, activo referenciado y, cuando aplique, red/contrato.
-- **Wrapped/bridged assets:** mantener identidad separada de la moneda subyacente salvo que el modelo de dominio defina explícitamente una relación de representación/redención. No fusionar sus series de mercado.
+- **Wrapped/bridged assets:** el activo envuelto/bridged mantiene identidad propia; la relación con el subyacente se registra mediante `asset_relationships` y no como alias. No fusionar sus series de mercado.
+- **Representaciones multi-chain:** un mismo activo puede tener varias filas `asset_representations`, una por red/despliegue verificado. Cada contrato se identifica por red + dirección literal + tipo; no asumir que contratos distintos son intercambiables sin evidencia.
+- **Activos nativos:** se representan mediante `asset_representations` de tipo `native`, sin dirección de contrato.
+- **Resolución de contratos:** los identificadores de despliegue se resuelven contra `asset_representations`; no se publican en `asset_identifiers` a nivel de activo.
 - **Tokens con ticker reutilizado:** distinguir por emisor, contrato y red; ticker igual no es identidad.
 - **Activos renombrados o migrados:** conservar identificadores históricos y periodos de vigencia; no reasignar retrospectivamente sin evidencia.
 - **Pares de mercado:** resolver base y quote de forma independiente. El símbolo concatenado no debe analizarse por partición de texto para deducir ambos activos.
@@ -93,7 +96,7 @@ Esta tabla es deliberadamente conservadora. No afirma que los códigos represent
 - No se ha validado contra respuestas API actuales en esta tarea.
 - No se han creado migraciones PostgreSQL.
 - La estructura de revisión/auditoría debe implementarse físicamente antes de poblar mappings aprobados.
-- La decisión de granularidad para activos tokenizados, redes y contratos debe cerrarse antes de incorporar catálogos de tokens extensos.
+- El modelo conceptual de redes, activos y representaciones se propone en `asset-representation-domain-model.md`; su implementación, reglas de direcciones y catálogo de redes siguen pendientes.
 
 
 ## 10. Catálogo inicial y aprobación
