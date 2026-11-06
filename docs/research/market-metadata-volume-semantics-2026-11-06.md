@@ -105,3 +105,19 @@ No se declara todavía aptitud definitiva de ninguna fuente. Esta revisión redu
 - Kraken — API symbols and tickers / AssetPairs: https://support.kraken.com/articles/360000920306-api-symbols-and-tickers
 - Kraken — OHLC endpoint: https://docs.kraken.com/api/docs/rest-api/get-ohlc-data
 - Kraken — Historical OHLCVT files and empty intervals: https://support.kraken.com/articles/360047124832-downloadable-historical-ohlcvt-open-high-low-close-volume-trades-data
+
+## 7. Implementación incorporada en la rama de investigación
+
+En la rama `research/issue-11-empirical-data-poc` se actualizó el descargador para:
+
+- Consultar `GET /api/v3/exchangeInfo` y archivar la respuesta original de Binance.
+- Consultar `GET /0/public/AssetPairs` y archivar la respuesta original de Kraken.
+- Registrar para cada captura de metadata el endpoint, parámetros, estado HTTP, latencia, reintentos, hora UTC y SHA-256, además de conservar un resumen de los mercados BTC/ETH relevantes en el manifiesto.
+- Normalizar explícitamente `base_volume` y `quote_volume` con sus unidades. Se conserva también `volume` como campo de compatibilidad.
+- Incorporar `trade_count`, `taker_buy_base_volume` y `taker_buy_quote_volume` de Binance.
+- Incorporar `vwap` y `trade_count` de Kraken; `quote_volume` queda vacío porque el endpoint OHLC no proporciona ese dato.
+- Informar huecos, conteos de operaciones y cobertura teórica sin convertir automáticamente la ausencia de una vela en una declaración de pérdida de datos.
+
+Las pruebas unitarias se ampliaron para comprobar la selección de metadata de los pares, la asignación de unidades y campos de volumen y la interpretación prudente de huecos.
+
+**Estado de verificación:** el código y las pruebas están incorporados en la rama, pero la ejecución del workflow con la nueva captura y la inspección de sus artefactos siguen pendientes. Por tanto, todavía no se afirma que la metadata haya sido validada empíricamente ni que las nuevas llamadas hayan respondido correctamente en GitHub Actions.
