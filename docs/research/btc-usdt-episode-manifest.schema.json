@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/cci/episode-manifest-v1.schema.json",
+  "title": "CCI BTC/USDT Episode Manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "manifest_status",
+    "experiment_key",
+    "market",
+    "venue",
+    "market_type",
+    "interval_seconds",
+    "input_timezone",
+    "data_source",
+    "data_usage_authorization",
+    "episodes",
+    "pending_boundary_notes"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "cci.episode-manifest.v1"
+    },
+    "manifest_status": {
+      "enum": [
+        "pending_confirmation",
+        "approved"
+      ]
+    },
+    "experiment_key": {
+      "type": "string",
+      "minLength": 1
+    },
+    "market": {
+      "const": "BTC/USDT"
+    },
+    "venue": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "market_type": {
+      "enum": [
+        "spot",
+        "perpetual",
+        "future",
+        null
+      ]
+    },
+    "interval_seconds": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "input_timezone": {
+      "const": "UTC-05:00"
+    },
+    "data_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "dataset_id",
+        "acquisition_method"
+      ],
+      "properties": {
+        "provider": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "dataset_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "acquisition_method": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "data_usage_authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "evidence_ref"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "pending",
+            "authorized",
+            "not_authorized"
+          ]
+        },
+        "evidence_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "episodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "episode_id",
+          "direction",
+          "status",
+          "start_local",
+          "end_local",
+          "start_utc",
+          "end_utc"
+        ],
+        "properties": {
+          "episode_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "direction": {
+            "enum": [
+              "bullish",
+              "bearish"
+            ]
+          },
+          "status": {
+            "enum": [
+              "pending_confirmation",
+              "confirmed"
+            ]
+          },
+          "start_local": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "end_local": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "start_utc": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "end_utc": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "pending_boundary_notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
