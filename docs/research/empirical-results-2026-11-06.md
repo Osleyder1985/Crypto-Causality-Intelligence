@@ -1,5 +1,7 @@
 # Resultados empíricos BTC/ETH — 2026-11-06
 
+Anexo de trazabilidad, controles adicionales y clasificación provisional: [empirical-validation-addendum-2026-11-06.md](empirical-validation-addendum-2026-11-06.md).
+
 ## Alcance
 
 Ejecución de la PoC con ventanas UTC [inicio, fin):
