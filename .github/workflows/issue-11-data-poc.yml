@@ -6,6 +6,7 @@ on:
       - research/issue-11-empirical-data-poc
     paths:
       - "scripts/research/download_validate_market_data.py"
+      - "tests/**"
       - ".github/workflows/issue-11-data-poc.yml"
   workflow_dispatch:
 
