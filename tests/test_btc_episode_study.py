@@ -101,6 +101,59 @@ class EpisodeStudyTests(unittest.TestCase):
             with self.assertRaisesRegex(StudyError, "direction"):
                 load_episodes(path)
 
+    def test_loads_approved_versioned_episode_manifest(self):
+        manifest = {
+            "schema_version": "cci.episode-manifest.v1",
+            "manifest_status": "approved",
+            "experiment_key": "btc-usdt-directional-episodes-v1",
+            "market": "BTC/USDT",
+            "venue": "binance",
+            "market_type": "spot",
+            "interval_seconds": 3600,
+            "input_timezone": "UTC-05:00",
+            "data_source": {
+                "provider": "local-file",
+                "dataset_id": "synthetic-fixture",
+                "acquisition_method": "test fixture",
+            },
+            "data_usage_authorization": {"status": "authorized", "evidence_ref": "test-only"},
+            "episodes": [{
+                "episode_id": "manifest-rise",
+                "direction": "bullish",
+                "status": "confirmed",
+                "start_local": "2026-01-01T00:00:00-05:00",
+                "end_local": "2026-01-02T00:00:00-05:00",
+                "start_utc": "2026-01-01T05:00:00Z",
+                "end_utc": "2026-01-02T05:00:00Z",
+            }],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "manifest.json"
+            path.write_text(json.dumps(manifest), encoding="utf-8")
+            loaded = load_episodes(path)
+        self.assertEqual(loaded[0]["start"], datetime(2026, 1, 1, 5, tzinfo=timezone.utc))
+
+    def test_pending_versioned_manifest_is_rejected_for_execution(self):
+        manifest = {
+            "schema_version": "cci.episode-manifest.v1",
+            "manifest_status": "pending_confirmation",
+            "experiment_key": "btc-usdt-directional-episodes-v1",
+            "market": "BTC/USDT",
+            "venue": None,
+            "market_type": None,
+            "interval_seconds": 3600,
+            "input_timezone": "UTC-05:00",
+            "data_source": {"provider": None, "dataset_id": None, "acquisition_method": None},
+            "data_usage_authorization": {"status": "pending", "evidence_ref": None},
+            "episodes": [],
+            "pending_boundary_notes": ["pending"],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "manifest.json"
+            path.write_text(json.dumps(manifest), encoding="utf-8")
+            with self.assertRaisesRegex(StudyError, "pendiente"):
+                load_episodes(path)
+
     def test_drawdown_is_explicitly_close_based(self):
         result = study(self.candles, self.episodes)
         episode = result["episodes"][0]
