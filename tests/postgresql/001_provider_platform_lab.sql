@@ -159,9 +159,11 @@ CREATE TABLE network_identifiers (
                 AND identifier_type = 'asset_platform_id'
             )
         ),
-    CONSTRAINT network_identifiers_uq_review
-        UNIQUE (provider_platform_resolution_review_id)
 );
+
+CREATE UNIQUE INDEX network_identifiers_uq_review
+    ON network_identifiers (provider_platform_resolution_review_id)
+    WHERE provider_platform_resolution_review_id IS NOT NULL;
 
 CREATE INDEX network_identifiers_ix_network
     ON network_identifiers (network_id);
@@ -309,6 +311,7 @@ SELECT
     r.resolution_status,
     r.valid_from,
     r.valid_until,
+    r.recorded_at,
     LEAST(
         COALESCE(r.valid_until, 'infinity'::timestamptz),
         COALESCE(s.valid_from, 'infinity'::timestamptz)
