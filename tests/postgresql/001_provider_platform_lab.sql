@@ -341,4 +341,45 @@ JOIN provider_platform_resolution_current AS r
 WHERE r.resolution_status = 'accepted'
   AND m.provider_platform_resolution_status = 'accepted';
 
+
+CREATE FUNCTION provider_platform_resolution_as_known(
+    p_valid_at TIMESTAMPTZ,
+    p_known_at TIMESTAMPTZ
+)
+RETURNS TABLE (
+    provider_platform_id UUID,
+    data_source_id UUID,
+    resolution_review_id UUID,
+    network_id UUID,
+    resolution_status TEXT,
+    valid_from TIMESTAMPTZ,
+    effective_valid_until TIMESTAMPTZ
+)
+LANGUAGE sql
+STABLE
+SET search_path = cci_lab, pg_temp
+AS $
+    SELECT
+        r.provider_platform_id,
+        r.data_source_id,
+        r.id,
+        r.candidate_network_id,
+        r.resolution_status,
+        r.valid_from,
+        LEAST(
+            COALESCE(r.valid_until, 'infinity'::timestamptz),
+            COALESCE(s.valid_from, 'infinity'::timestamptz)
+        )
+    FROM provider_platform_resolution_reviews AS r
+    LEFT JOIN provider_platform_resolution_reviews AS s
+      ON s.supersedes_review_id = r.id
+     AND s.recorded_at <= p_known_at
+    WHERE r.recorded_at <= p_known_at
+      AND r.valid_from <= p_valid_at
+      AND p_valid_at < LEAST(
+            COALESCE(r.valid_until, 'infinity'::timestamptz),
+            COALESCE(s.valid_from, 'infinity'::timestamptz)
+          );
+$;
+
 COMMIT;
