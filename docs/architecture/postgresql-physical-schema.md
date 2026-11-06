@@ -1,6 +1,6 @@
 # Diseño físico de PostgreSQL
 
-- **Estado:** especificación física reconciliada v0.6; propuesta, no implementada.
+- **Estado:** especificación física reconciliada v0.7; propuesta, no implementada.
 - **Fecha:** 2026-11-06.
 - **Modelo lógico:** `postgresql-logical-data-model.md`, contrato reconciliado v0.7.
 - **Revisión:** `postgresql-logical-model-review.md`.
@@ -64,8 +64,9 @@ Todas las tablas siguientes pertenecen a `cci`.
 | `identity_namespaces` | `namespace_key` | Registro inmutable del significado, alcance y nivel de destino de los namespaces de resolución de activos. |
 | `networks` | `id` | Redes blockchain con clave interna estable. |
 | `network_identifiers` | `id` | Identificadores técnicos y externos de red namespaced, con evidencia. |
-| `provider_platforms` | `id` | Observaciones versionadas de plataformas publicadas por proveedores, separadas de las redes canónicas. |
-| `provider_platform_resolution_reviews` | `id` | Revisiones append-only de correspondencia entre una plataforma observada y una red canónica. |
+| `provider_platforms` | `id` | Identidad estable de una plataforma dentro de un proveedor. |
+| `provider_platform_observations` | `id` | Capturas inmutables de metadata de una plataforma de proveedor. |
+| `provider_platform_resolution_reviews` | `id` | Revisiones append-only de correspondencia entre una identidad de plataforma y una red canónica. |
 | `asset_representations` | `id` | Unidad nativa o despliegue contractual de un activo en una red. |
 | `asset_relationships` | `id` | Relaciones tipadas, dirigidas y evidenciadas entre activos distintos. |
 | `asset_identity_resolution_reviews` | `id` | Candidatos, decisiones y evidencia de resolución a nivel de activo o representación. |
@@ -197,12 +198,12 @@ La política aplicable se resuelve considerando fuente, alcance y referencia est
 - `identifier_type TEXT NOT NULL` (por ejemplo `eip155_chain_id`, `genesis_hash`, `asset_platform_id`).
 - `identifier_value TEXT NOT NULL` (literal exacto).
 - `observed_at TIMESTAMPTZ NOT NULL`, `evidence_reference TEXT NOT NULL`.
-- `provider_platform_observation_id UUID NULL`, `provider_data_source_id UUID NULL`, `provider_platform_resolution_review_id UUID NULL` (solo para identificadores originados en una plataforma de proveedor).
-- FK compuesta `(provider_platform_observation_id, provider_data_source_id, identifier_value) -> provider_platforms(id, data_source_id, provider_platform_id)`; obliga a que el valor publicado sea exactamente el ID observado para ese proveedor.
-- FK compuesta `(provider_platform_resolution_review_id, provider_platform_observation_id, network_id, provider_platform_resolution_status) -> provider_platform_resolution_reviews(id, provider_platform_observation_id, candidate_network_id, resolution_status)`, con `provider_platform_resolution_status TEXT NULL`; CHECK exige que los cuatro campos de procedencia sean todos NULL para identificadores nativos, o todos completos y status = `accepted` para identificadores de plataforma. CHECK adicional exige `identifier_type = 'asset_platform_id'` cuando hay procedencia de plataforma; un trigger verifica que `namespace` coincida con `data_sources.source_key` de `provider_data_source_id`.
+- `provider_platform_entity_id UUID NULL`, `provider_data_source_id UUID NULL`, `provider_platform_resolution_review_id UUID NULL` (solo para identificadores originados en una plataforma de proveedor).
+- FK compuesta `(provider_platform_entity_id, provider_data_source_id) -> provider_platforms(id, data_source_id)`; obliga a que identidad de plataforma y fuente coincidan. Un trigger/servicio valida que `identifier_value` sea exactamente el literal `provider_platform_key` de esa identidad.
+- FK compuesta `(provider_platform_resolution_review_id, provider_platform_entity_id, network_id, provider_platform_resolution_status) -> provider_platform_resolution_reviews(id, provider_platform_id, candidate_network_id, resolution_status)`, con `provider_platform_resolution_status TEXT NULL`; CHECK exige que los cuatro campos de procedencia sean todos NULL para identificadores nativos, o todos completos y status = `accepted` para identificadores de plataforma. CHECK adicional exige `identifier_type = 'asset_platform_id'` cuando hay procedencia de plataforma; un trigger verifica que `namespace` coincida con `data_sources.source_key` de `provider_data_source_id`.
 - UNIQUE candidato `(namespace, identifier_type, identifier_value)`, solo tras verificar que el namespace define unicidad en ese ámbito.
 - UNIQUE candidato `(id, network_id)` y las claves candidatas compuestas requeridas por las FKs anteriores.
-- No almacenar un chain ID aislado sin namespace ni asumir que es globalmente único. Una fila con identificador de proveedor no puede existir sin la observación y revisión accepted exactas.
+- No almacenar un chain ID aislado sin namespace ni asumir que es globalmente único. Una fila con identificador de proveedor no puede existir sin la identidad de plataforma y revisión accepted exactas.
 
 **`asset_representations`**
 - `id UUID PK`
@@ -748,77 +749,93 @@ La revisión de documentación oficial distingue identificadores de catálogo de
 No se han creado migraciones, no se han insertado registros y no se han ejecutado pruebas en PostgreSQL real.
 
 
-## 10. Plataformas de proveedores e identidad canónica de redes
+## 10. Identidad, observaciones y resolución de plataformas de proveedores
 
-La política rectora es `network-identity-resolution-policy.md`. Estas tablas amplían el inventario físico a **31 entidades**. La ampliación es de diseño: no añade filas de redes, plataformas ni mappings.
+La política rectora es `network-identity-resolution-policy.md`. El inventario físico queda en **32 entidades**. Esta ampliación es de diseño: no añade filas de redes, plataformas ni mappings.
 
-**`provider_platforms`** — observación versionada de una entrada de catálogo de un proveedor.
+**`provider_platforms` — identidad estable de una plataforma dentro de un proveedor**
 - `id UUID PK`
 - `data_source_id UUID NOT NULL FK data_sources(id)`
-- `provider_platform_id TEXT NOT NULL` (literal exacto publicado por el proveedor; no es `network_key`).
-- `provider_name TEXT NULL`, `provider_shortname TEXT NULL`, `provider_native_coin_id TEXT NULL` (metadata descriptiva; no son claves de red).
-- `reported_chain_identifier NUMERIC NULL` (valor reportado por el proveedor; NULL se conserva como ausencia, no se imputa).
-- `observed_at TIMESTAMPTZ NOT NULL`
-- `evidence_reference TEXT NOT NULL`, `evidence_sha256 TEXT NULL`
-- UNIQUE `(data_source_id, provider_platform_id, observed_at)`; UNIQUE candidato `(id, data_source_id)` y `(id, data_source_id, provider_platform_id)`.
-- Cada cambio observado crea otra fila. No se sobrescriben los metadatos históricos. Para CoinGecko, `provider_platform_id` corresponde a `asset_platforms[].id`; `reported_chain_identifier` corresponde a `chain_identifier`, que puede ser NULL.
+- `provider_platform_key TEXT NOT NULL` (literal exacto del ID externo; para CoinGecko corresponde a `asset_platforms[].id`).
+- `created_at TIMESTAMPTZ NOT NULL`
+- UNIQUE `(data_source_id, provider_platform_key)`.
+- UNIQUE candidato `(id, data_source_id)` y `(id, data_source_id, provider_platform_key)`.
+- No contiene metadata mutable ni snapshots. El mismo literal en dos proveedores representa dos identidades distintas.
 
-**`provider_platform_resolution_reviews`** — revisión append-only de la correspondencia de una observación de plataforma con una red CCI.
+**`provider_platform_observations` — capturas inmutables de metadata**
 - `id UUID PK`
-- `provider_platform_observation_id UUID NOT NULL`, `data_source_id UUID NOT NULL`; FK compuesta `(provider_platform_observation_id, data_source_id) -> provider_platforms(id, data_source_id)`.
-- `candidate_network_id UUID NULL FK networks(id)`
+- `provider_platform_id UUID NOT NULL`, `data_source_id UUID NOT NULL`; FK compuesta `(provider_platform_id, data_source_id) -> provider_platforms(id, data_source_id)`.
+- `capture_id UUID NOT NULL` (identificador del lote de ingestión, compartido por todas las entradas del mismo snapshot).
+- `observed_at TIMESTAMPTZ NOT NULL`; `recorded_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()`.
+- `provider_name TEXT NULL`, `provider_shortname TEXT NULL`, `provider_native_coin_id TEXT NULL`.
+- `reported_chain_identifier_raw TEXT NULL`, `reported_chain_identifier_json_type TEXT NULL` (literal escalar recibido y tipo JSON; no convertir a NUMERIC hasta confirmar el contrato oficial).
+- `evidence_reference TEXT NOT NULL`, `evidence_sha256 TEXT NULL`.
+- UNIQUE `(provider_platform_id, capture_id)`; UNIQUE candidato `(id, provider_platform_id)` y `(id, provider_platform_id, data_source_id)`.
+- No hay UNIQUE por `observed_at`: dos capturas distintas pueden compartir timestamp. La repetición de una plataforma dentro del mismo lote se rechaza.
+
+**`provider_platform_resolution_reviews` — decisiones append-only sobre la identidad estable**
+- `id UUID PK`
+- `provider_platform_id UUID NOT NULL`, `data_source_id UUID NOT NULL`; FK compuesta `(provider_platform_id, data_source_id) -> provider_platforms(id, data_source_id)`.
+- `based_on_observation_id UUID NULL`; FK compuesta `(based_on_observation_id, provider_platform_id, data_source_id) -> provider_platform_observations(id, provider_platform_id, data_source_id)`.
+- `candidate_network_id UUID NULL FK networks(id)`.
 - `resolution_status TEXT NOT NULL`: CHECK `pending_review, accepted, rejected, ambiguous`.
-- `evidence_reference TEXT NULL`, `decision_reference TEXT NULL`
-- `reviewed_at TIMESTAMPTZ NULL`, `recorded_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()`
-- `valid_from TIMESTAMPTZ NULL`, `valid_until TIMESTAMPTZ NULL` (validez del mapping; semiabierta).
-- `supersedes_review_id UUID NULL` FK compuesta a una revisión de la misma observación/plataforma; no basta una FK simple por ID.
-- CHECK: `accepted` exige exactamente un `candidate_network_id`, evidencia, `reviewed_at` y `valid_from`; CHECK temporal `valid_until IS NULL OR (valid_from IS NOT NULL AND valid_until > valid_from)`.
-- UNIQUE candidato `(id, provider_platform_observation_id, candidate_network_id, resolution_status)`, para que la publicación referencie la revisión accepted exacta.
-- UNIQUE candidato parcial en `supersedes_review_id` (no NULL) para impedir dos sucesoras directas; la ausencia de ciclos y la misma clave se validan mediante función/trigger transaccional.
-- La sucesión debe enlazar observaciones de la misma plataforma y proveedor; no se permite que una observación nueva cree por sí sola un cambio de red. Para que la FK compuesta de revisión use `(provider_platform_observation_id, data_source_id)`, `provider_platforms` declara UNIQUE candidato `(id, data_source_id)` además de la clave candidata que incluye el ID literal. La nueva observación requiere revisión independiente.
-- La publicación accepted y el alta del identificador externo en `network_identifiers` se realizan en una única transacción. Un identificador de proveedor se vincula por FK compuesta a la revisión, observación, red y status accepted exactos.
+- `evidence_reference TEXT NULL`, `decision_reference TEXT NULL`, `reviewed_at TIMESTAMPTZ NULL`.
+- `recorded_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()`.
+- `valid_from TIMESTAMPTZ NULL`, `valid_until TIMESTAMPTZ NULL` (intervalo semiabierto; CHECK `valid_until IS NULL OR (valid_from IS NOT NULL AND valid_until > valid_from)`).
+- `supersedes_review_id UUID NULL`; FK compuesta `(supersedes_review_id, provider_platform_id) -> provider_platform_resolution_reviews(id, provider_platform_id)`.
+- UNIQUE candidato `(id, provider_platform_id)` y `(id, provider_platform_id, candidate_network_id, resolution_status)`.
+- Índices UNIQUE parciales: una sola raíz por `provider_platform_id` (`supersedes_review_id IS NULL`) y una sola sucesora por revisión (`supersedes_review_id IS NOT NULL`).
+- CHECK: `accepted` exige exactamente un `candidate_network_id`, evidencia, `reviewed_at` y `valid_from`.
+- `supersedes_review_id` significa exclusivamente corrección, revocación o sustitución de una decisión; nunca representa la llegada de una observación nueva.
+- La FK compuesta mantiene la cadena en la misma identidad/proveedor; un trigger transaccional impide ciclos.
 
-**`network_identifiers` — reglas ampliadas**
-- `namespace` identifica la especificación o autoridad (por ejemplo, `eip155`, `solana`, o el proveedor bajo su namespace).
-- Para una plataforma CoinGecko aceptada, registrar `namespace = 'coingecko'`, `identifier_type = 'asset_platform_id'` y el literal de `provider_platform_id`. No usar este valor como clave canónica.
-- Para EVM, registrar Chain ID bajo namespace EIP-155 y tipo explícito; no asumir unicidad universal.
-- Para Solana, registrar el Genesis Hash bajo namespace Solana y tipo explícito; no crear un Chain ID numérico.
-- Cada identificador conserva `observed_at` y `evidence_reference`. La unicidad candidata solo puede imponerse tras demostrar que el namespace/tipo define ese ámbito de unicidad.
+**`network_identifiers` — publicación del identificador externo**
+- Los campos de procedencia son `provider_platform_entity_id`, `provider_data_source_id`, `provider_platform_resolution_review_id` y `provider_platform_resolution_status`; todos NULL para identificadores nativos o todos completos para IDs de plataforma.
+- La FK compuesta de plataforma referencia `provider_platforms(id, data_source_id)`; un trigger/servicio transaccional comprueba que `identifier_value = provider_platform_key`.
+- La FK compuesta de revisión referencia `(id, provider_platform_id, candidate_network_id, resolution_status)` y exige destino igual a `network_id) y estado `accepted`.
+- CHECK adicional exige `identifier_type = 'asset_platform_id'`; un trigger verifica que `namespace` coincida con `data_sources.source_key`.
+- La publicación accepted y el mapping se realizan en una única transacción. Las consultas de vigencia deben considerar la cabeza de la cadena, no la mera existencia histórica de una fila accepted.
 
-**Invariantes de resolución**
-1. Una observación de plataforma no equivale a una red ni crea una red automáticamente.
-2. Una revisión accepted apunta a exactamente una red; una revisión pending/rejected/ambiguous no puede habilitar direcciones contractuales.
-3. La plataforma y su proveedor deben coincidir en toda revisión y mapping publicado; FKs compuestas deben impedir cruces de proveedor, observación y destino.
-4. El mapping publicado en `network_identifiers` debe conservar namespace, tipo, literal, fuente y evidencia de la revisión aceptada.
-5. Los cambios de metadata del proveedor generan observaciones nuevas. Una nueva observación no cambia automáticamente la red previamente aceptada; debe comprobarse que la semántica de la plataforma siga siendo la misma.
-6. La resolución de `coingecko:contract_address` solo se habilita si la plataforma concreta tiene una revisión accepted vigente y no ambigua.
-7. La política de direcciones (case sensitivity, checksum y normalización) es específica de familia y versionada; el literal original siempre se conserva.
+### Semántica temporal y concurrencia
 
-### Evidencia mínima por familia
+| Campo | Significado | Inmutable |
+|---|---|---|
+| `observed_at` | Momento al que corresponde la observación del proveedor | Sí |
+| `recorded_at` | Momento en que CCI incorporó observación o decisión | Sí |
+| `valid_from/valid_until` | Periodo real de validez de la decisión | Sí, por fila |
 
-- **EVM:** Chain ID namespaced + documentación oficial de la red + al menos una señal técnica independiente apropiada (por ejemplo, genesis hash/checkpoint, chain spec o endpoint RPC oficial). Si hay colisión, fork o señales discordantes, exigir evidencia discriminante adicional y mantener pending/ambiguous mientras no exista.
-- **Solana:** `getGenesisHash` observado desde un endpoint identificado, corroborado mediante endpoints independientes y documentación oficial del clúster. No inventar Chain ID.
-- **Otras familias:** no reutilizar reglas EVM/Solana; documentar el identificador nativo y su autoridad antes de aceptar.
+- Los intervalos son semiabiertos `[valid_from, valid_until)`. El final efectivo de una decisión anterior se deriva del menor entre su `valid_until` explícito y el `valid_from` de su sucesora; no se actualiza la fila histórica.
+- `recorded_at` permite reconstruir qué sabía CCI en `known_at`; `valid_from/valid_until` permite consultar la validez en `valid_at`.
+- Una captura nueva agrega una observación; no modifica la cabeza de la cadena ni invalida automáticamente una resolución accepted.
+- Se crea una revisión cuando nueva evidencia cambia materialmente la interpretación, contradice la resolución vigente, requiere corrección/revocación o una política explícita exige revalidación.
+- Una cabeza `pending_review` o `ambiguous` no autoriza mappings. Una cabeza `rejected` revoca la autorización anterior. Solo una cabeza `accepted` vigente habilita el mapping.
+- Antes de crear una revisión, la transacción bloquea la fila de identidad `provider_platforms` con `SELECT ... FOR UPDATE`, lee la cabeza y agrega la sucesora. El lock se toma por identidad estable, no por UUID de snapshot.
+- La unicidad de raíz/sucesora evita bifurcaciones; el trigger valida misma identidad y ausencia de ciclos.
 
-Esta sección no autoriza insertar filas ni generar DDL/migraciones. Las restricciones descritas deben probarse posteriormente en PostgreSQL real con fixtures sintéticos.
+### Invariantes de resolución
 
+1. Una identidad de plataforma no equivale a una red ni crea una red automáticamente.
+2. Una observación no equivale a una decisión y no altera el estado de resolución.
+3. Una revisión accepted apunta a exactamente una red; una revisión pending/rejected/ambiguous no habilita mappings.
+4. Una revisión se vincula a una identidad estable; su observación de soporte, si existe, pertenece a esa misma identidad/proveedor.
+5. La sucesión expresa corrección/revocación/cambio de decisión, no ingestión de snapshots.
+6. Los mappings conservan namespace, tipo, literal, fuente y revisión accepted exacta.
+7. La resolución de `coingecko:contract_address` solo se habilita si la cabeza es accepted y su vigencia cubre el instante consultado.
+8. EVM requiere Chain ID namespaced y corroboración independiente cuando corresponda; Solana usa Genesis Hash, sin inventar Chain ID.
+9. El tipo físico definitivo de `chain_identifier` queda pendiente de verificar; se conserva literal escalar y tipo JSON.
 
-## 11. Auditoría de integridad del dominio de plataformas y redes
+### Pruebas negativas requeridas en PostgreSQL real
 
-La auditoría identificó que la versión anterior describía la publicación atómica como regla de proceso, pero no vinculaba relacionalmente la fila de `network_identifiers` con la revisión accepted concreta. También faltaba formalizar la integridad de proveedor/observación en la revisión y la vigencia temporal del mapping.
+- Dos observaciones con mismo `observed_at` y distinto `capture_id`: ambas deben poder insertarse.
+- Misma plataforma repetida dentro de un `capture_id`: la segunda debe fallar.
+- Observación/revisión vinculada a otra identidad o proveedor: debe fallar.
+- Dos raíces para una plataforma o dos sucesoras de una revisión: deben fallar.
+- Crear un ciclo: debe fallar.
+- Nueva observación sin revisión: la resolución accepted anterior permanece.
+- Mapping sin revisión accepted de la cabeza vigente, con destino distinto o literal distinto: debe fallar.
+- Dos transacciones concurrentes que creen sucesoras incompatibles: se serializan y solo una confirma.
+- Publicación parcial de revisión/mapping: rollback atómico.
 
-Correcciones incorporadas en esta versión:
-1. `network_identifiers` conserva opcionalmente la procedencia de plataforma (`provider_platform_observation_id`, `provider_data_source_id`, `provider_platform_resolution_review_id`, `provider_platform_resolution_status`).
-2. FKs compuestas atan el valor externo al `provider_platform_id` literal de la observación y la red al `candidate_network_id` de la revisión accepted.
-3. La revisión referencia la observación y fuente mediante FK compuesta; se incorporan `valid_from/valid_until`.
-4. La sucesión requiere FK compuesta de misma plataforma/proveedor, unicidad de sucesora y trigger para ciclo/clave.
-5. La transacción de publicación sigue siendo necesaria: las FKs validan coherencia, no prueban autoridad ni calidad documental.
+### Estado de implementación
 
-**Hallazgos que siguen requiriendo definición antes de DDL:**
-- Concretar las columnas exactas y claves candidatas de las FKs compuestas sin introducir redundancias inconsistentes.
-- Definir si una revisión nueva para otra observación sustituye a la anterior o si ambas son snapshots paralelos del mismo mapping; la semántica no debe mezclarse con la sucesión de correcciones.
-- Definir política para dos observaciones del mismo platform ID tomadas en el mismo instante, ya que UNIQUE actual no permite duplicado con timestamp idéntico.
-- Definir y probar bloqueo por clave `(data_source_id, provider_platform_id)`, no por UUID de snapshot, para impedir revisiones concurrentes incompatibles.
-- Definir el tipo físico exacto de `chain_identifier` a partir del contrato oficial del endpoint; preservar el literal reportado si el proveedor no garantiza representación numérica canónica.
-
-No se han generado migraciones ni DDL; la auditoría es una corrección de contrato documental.
+Separación documental solamente. No se han creado migraciones, no se ha ejecutado DDL ni se han probado estas restricciones en PostgreSQL real. Las pruebas Python de contratos no sustituyen las pruebas del motor.
