@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import math
 import statistics
@@ -176,13 +177,22 @@ def load_parquet_candles(path: str | Path) -> list[Candle]:
         connection.close()
 
 
-def load_episodes(path: str | Path) -> list[dict[str, Any]]:
+def load_episodes(path: str | Path, *, require_manifest: bool = False) -> list[dict[str, Any]]:
     try:
         raw = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise StudyError(f"No se pudo leer el archivo de episodios: {exc}") from exc
+    if isinstance(raw, dict):
+        try:
+            from scripts.research.episode_manifest import ManifestError, validate_manifest
+            normalized = validate_manifest(raw, require_approved=True)
+        except (ManifestError, ImportError) as exc:
+            raise StudyError(f"Manifiesto de episodios inválido: {exc}") from exc
+        return normalized
+    if require_manifest:
+        raise StudyError("La ejecución del estudio exige el manifiesto canónico versionado; las listas heredadas no son ejecutables")
     if not isinstance(raw, list) or not raw:
-        raise StudyError("El archivo de episodios debe ser una lista JSON no vacía")
+        raise StudyError("El archivo de episodios debe ser una lista JSON no vacía o un manifiesto versionado")
     episodes = []
     seen: set[str] = set()
     for item in raw:
@@ -326,6 +336,14 @@ def study(
     }
 
 
+def _sha256_file(path: str | Path) -> str:
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Estudio descriptivo BTC/USDT desde CSV o Parquet local.")
     parser.add_argument("--input", required=True, help="Archivo CSV o Parquet local; no se realizan descargas")
@@ -334,21 +352,93 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json-out", required=True, help="Ruta de salida del resumen JSON agregado")
     parser.add_argument("--csv-out", required=True, help="Ruta de salida CSV por episodio")
     parser.add_argument("--interval-seconds", type=int, default=3600)
+    parser.add_argument("--experiment-id", help="UUID de research_experiments; activa el registro PostgreSQL")
+    parser.add_argument("--run-key", help="Clave única de ejecución dentro del experimento")
+    parser.add_argument("--code-commit", help="SHA del commit exacto del código ejecutado")
+    parser.add_argument("--protocol-version", default="btc-episode-study-v1")
+    parser.add_argument("--artifact-uri-prefix", default="cci-local://btc-episode-study",
+                        help="Prefijo lógico de referencias a artefactos, no una URL de descarga")
     args = parser.parse_args(argv)
+
+    registry_args = (args.experiment_id, args.run_key, args.code_commit)
+    if any(registry_args) and not all(registry_args):
+        parser.error("--experiment-id, --run-key y --code-commit deben proporcionarse juntos")
+    registry = None
+    run_id = None
     try:
+        if args.experiment_id:
+            from scripts.research.postgres_run_registry import PostgresRunRegistry
+            registry = PostgresRunRegistry()
+            run_id = registry.create_run(
+                experiment_id=args.experiment_id,
+                run_key=args.run_key,
+                code_commit=args.code_commit,
+                protocol_version=args.protocol_version,
+                parameters={
+                    "input_format": args.input_format,
+                    "interval_seconds": args.interval_seconds,
+                    "lookbacks_hours": [24, 72, 168],
+                },
+                input_manifest={
+                    "market": "BTC/USDT",
+                    "input_format": args.input_format,
+                    "input_basename": Path(args.input).name,
+                    "input_sha256": _sha256_file(args.input),
+                    "episodes_basename": Path(args.episodes).name,
+                    "episodes_sha256": _sha256_file(args.episodes),
+                },
+            )
+            registry.transition(run_id, "running")
+
         candles = load_candles(args.input) if args.input_format == "csv" else load_parquet_candles(args.input)
-        result = study(candles, load_episodes(args.episodes), args.interval_seconds)
-        Path(args.json_out).write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        result = study(candles, load_episodes(args.episodes, require_manifest=True), args.interval_seconds)
+        json_path, csv_path = Path(args.json_out), Path(args.csv_out)
+        json_path.parent.mkdir(parents=True, exist_ok=True)
+        csv_path.parent.mkdir(parents=True, exist_ok=True)
+        json_path.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         fields = [k for k, v in result["episodes"][0].items() if k != "pre_event"]
-        with Path(args.csv_out).open("w", encoding="utf-8", newline="") as handle:
+        with csv_path.open("w", encoding="utf-8", newline="") as handle:
             writer = csv.DictWriter(handle, fieldnames=fields)
             writer.writeheader()
             for episode in result["episodes"]:
                 writer.writerow({k: episode[k] for k in fields})
+
+        if registry and run_id:
+            for path, role, media_type, fmt in (
+                (json_path, "summary", "application/json", "json"),
+                (csv_path, "report", "text/csv", "csv"),
+            ):
+                registry.register_artifact(
+                    run_id=run_id,
+                    artifact_role=role,
+                    logical_uri=f"{args.artifact_uri_prefix.rstrip('/')}/{path.name}",
+                    media_type=media_type,
+                    format=fmt,
+                    sha256=_sha256_file(path),
+                    byte_size=path.stat().st_size,
+                    retention_class="research",
+                    schema_version="btc-episode-summary-v1",
+                )
+            registry.transition(run_id, "succeeded", metrics={
+                "episode_count": result["episode_count"],
+                "global_gap_count": result["global_gap_count"],
+                "candle_count": result["candle_count"],
+            })
+
         print(f"Estudio completado: {result['episode_count']} episodios; {result['global_gap_count']} huecos globales.")
+        if run_id:
+            print(f"Run PostgreSQL: {run_id}")
         print(DISCLAIMER)
         return 0
-    except (StudyError, OSError) as exc:
+    except Exception as exc:
+        if registry and run_id:
+            try:
+                registry.transition(
+                    run_id, "failed", error_code=type(exc).__name__,
+                    error_summary=str(exc)[:2000] or type(exc).__name__,
+                )
+            except Exception as registry_exc:
+                print(f"ERROR adicional al registrar el fallo del run {run_id}: {registry_exc}", file=sys.stderr)
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
 

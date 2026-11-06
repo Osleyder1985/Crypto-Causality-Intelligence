@@ -1,0 +1,74 @@
+{
+  "schema_version": "cci.episode-manifest.v1",
+  "manifest_status": "pending_confirmation",
+  "experiment_key": "btc-usdt-directional-episodes-v1",
+  "market": "BTC/USDT",
+  "venue": "binance",
+  "market_type": "spot",
+  "interval_seconds": 3600,
+  "input_timezone": "UTC-05:00",
+  "data_source": {
+    "provider": "Binance Spot REST API",
+    "dataset_id": "binance-spot-klines-BTCUSDT-1h",
+    "acquisition_method": "REST GET /api/v3/klines via data-api.binance.vision; acquisition not enabled"
+  },
+  "data_usage_authorization": {
+    "status": "pending",
+    "evidence_ref": null
+  },
+  "episodes": [
+    {
+      "episode_id": "bear-2025-10",
+      "direction": "bearish",
+      "status": "pending_confirmation",
+      "start_local": "2025-10-06T12:00:00-05:00",
+      "end_local": "2025-11-21T07:00:00-05:00",
+      "start_utc": "2025-10-06T17:00:00Z",
+      "end_utc": "2025-11-21T12:00:00Z"
+    },
+    {
+      "episode_id": "bear-2026-01",
+      "direction": "bearish",
+      "status": "pending_confirmation",
+      "start_local": "2026-01-14T15:00:00-05:00",
+      "end_local": "2026-02-05T19:00:00-05:00",
+      "start_utc": "2026-01-14T20:00:00Z",
+      "end_utc": "2026-02-06T00:00:00Z"
+    },
+    {
+      "episode_id": "bull-2026-02",
+      "direction": "bullish",
+      "status": "pending_confirmation",
+      "start_local": "2026-02-05T19:00:00-05:00",
+      "end_local": "2026-05-06T04:00:00-05:00",
+      "start_utc": "2026-02-06T00:00:00Z",
+      "end_utc": "2026-05-06T09:00:00Z"
+    },
+    {
+      "episode_id": "bear-2026-05",
+      "direction": "bearish",
+      "status": "pending_confirmation",
+      "start_local": "2026-05-06T04:00:00-05:00",
+      "end_local": null,
+      "start_utc": "2026-05-06T09:00:00Z",
+      "end_utc": null
+    },
+    {
+      "episode_id": "bull-2026-08",
+      "direction": "bullish",
+      "status": "pending_confirmation",
+      "start_local": "2026-08-16T16:00:00-05:00",
+      "end_local": "2026-09-21T16:00:00-05:00",
+      "start_utc": "2026-08-16T21:00:00Z",
+      "end_utc": "2026-09-21T21:00:00Z"
+    }
+  ],
+  "pending_boundary_notes": [
+    "Fuente seleccionada: Binance Spot, símbolo BTCUSDT, endpoint REST GET /api/v3/klines, intervalo 1h. La selección identifica la fuente; no autoriza todavía la captura, retención ni publicación de datos.",
+    "Los cinco candidatos transcritos permanecen pending_confirmation hasta la confirmación expresa de la cohorte completa.",
+    "Subida confirmada: 2026-02-05 19:00 UTC-05:00 a 2026-05-06 04:00 UTC-05:00 (2026-02-06 00:00Z a 2026-05-06 09:00Z).",
+    "Caída comunicada: 2026-05-06 04:00 UTC-05:00; falta recuperar y confirmar el límite final.",
+    "Los demás cuatro límites completos son transcripciones de fechas comunicadas anteriormente; permanecen pendientes de confirmación final como parte de la cohorte.",
+    "No deducir ni completar automáticamente límites ausentes."
+  ]
+}

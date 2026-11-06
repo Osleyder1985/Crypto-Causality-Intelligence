@@ -1,0 +1,278 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CCI BTC/USDT Episode Manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "manifest_status",
+    "experiment_key",
+    "market",
+    "venue",
+    "market_type",
+    "interval_seconds",
+    "input_timezone",
+    "data_source",
+    "data_usage_authorization",
+    "episodes"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "cci.episode-manifest.v1"
+    },
+    "manifest_status": {
+      "enum": [
+        "pending_confirmation",
+        "approved"
+      ]
+    },
+    "experiment_key": {
+      "type": "string",
+      "minLength": 1
+    },
+    "market": {
+      "const": "BTC/USDT"
+    },
+    "venue": {
+      "const": "binance"
+    },
+    "market_type": {
+      "enum": [
+        "spot",
+        "perpetual",
+        "future",
+        null
+      ]
+    },
+    "interval_seconds": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "input_timezone": {
+      "const": "UTC-05:00"
+    },
+    "data_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "dataset_id",
+        "acquisition_method"
+      ],
+      "properties": {
+        "provider": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "dataset_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "acquisition_method": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "data_usage_authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "evidence_ref"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "pending",
+            "authorized",
+            "not_authorized"
+          ]
+        },
+        "evidence_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "episodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "episode_id",
+          "direction",
+          "status",
+          "start_local",
+          "end_local",
+          "start_utc",
+          "end_utc"
+        ],
+        "properties": {
+          "episode_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "direction": {
+            "enum": [
+              "bullish",
+              "bearish"
+            ]
+          },
+          "status": {
+            "enum": [
+              "pending_confirmation",
+              "confirmed"
+            ]
+          },
+          "start_local": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "end_local": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "start_utc": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "end_utc": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "pending_boundary_notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "manifest_status": {
+            "const": "approved"
+          }
+        },
+        "required": [
+          "manifest_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "market_type": {
+            "const": "spot"
+          },
+          "data_source": {
+            "properties": {
+              "provider": {
+                "type": "string",
+                "minLength": 1
+              },
+              "dataset_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "acquisition_method": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "data_usage_authorization": {
+            "properties": {
+              "status": {
+                "const": "authorized"
+              },
+              "evidence_ref": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "episodes": {
+            "minItems": 2,
+            "items": {
+              "properties": {
+                "status": {
+                  "const": "confirmed"
+                },
+                "start_local": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "end_local": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "start_utc": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "end_utc": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            },
+            "contains": {
+              "properties": {
+                "direction": {
+                  "const": "bullish"
+                }
+              },
+              "required": [
+                "direction"
+              ]
+            },
+            "minContains": 1,
+            "allOf": [
+              {
+                "contains": {
+                  "properties": {
+                    "direction": {
+                      "const": "bearish"
+                    }
+                  },
+                  "required": [
+                    "direction"
+                  ]
+                },
+                "minContains": 1
+              }
+            ]
+          },
+          "interval_seconds": {
+            "const": 3600
+          }
+        }
+      }
+    }
+  ]
+}

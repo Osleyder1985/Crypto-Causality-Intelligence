@@ -2,6 +2,8 @@
 
 - Issue: #17
 - Estado: implementación inicial; pendiente de ejecutar con un dataset cuyo tratamiento esté autorizado.
+- Fuente seleccionada: Binance Spot, símbolo `BTCUSDT`.
+- Endpoint previsto: `GET /api/v3/klines` en `data-api.binance.vision`.
 - Granularidad inicial: velas de 1 hora.
 - Ventanas de episodio: intervalos UTC semiabiertos [inicio, fin).
 
@@ -72,7 +74,7 @@ Ventanas previas: 24, 72 y 168 horas antes del inicio. Si no hay cobertura compl
 ```bash
 python scripts/research/btc_episode_study.py \
   --input /ruta/local/btcusdt_1h.csv \
-  --episodes /ruta/local/btc_episodes.json \
+  --episodes /ruta/local/btc-usdt-episode-manifest.json \
   --json-out /ruta/local/btc_episode_summary.json \
   --csv-out /ruta/local/btc_episode_summary.csv \
   --interval-seconds 3600
@@ -105,3 +107,33 @@ El Parquet debe contener las mismas columnas canónicas. `open_time_utc` debe se
 DuckDB se ejecuta en memoria y consulta directamente el archivo local. No crea una copia persistente, no escribe tablas temporales al dataset y no realiza conexiones a proveedores. La lectura conserva el orden físico para que los timestamps duplicados o fuera de orden no se oculten mediante ordenación automática. La versión de DuckDB está fijada en `requirements-research.txt`.
 
 Las pruebas crean archivos Parquet temporales con datos sintéticos y verifican equivalencia con el contrato de análisis. No contienen ni requieren datos reales.
+
+
+## Prerregistro del experimento histórico
+
+La pregunta de investigación, hipótesis exploratorias, reglas de cohorte, definiciones de métricas, controles de calidad y condiciones para iniciar el primer run real se especifican en [btc-usdt-first-experiment-preregistration.md](btc-usdt-first-experiment-preregistration.md). Ese prerregistro es la referencia antes de inspeccionar resultados reales. El final de la subida del 2026-05-06 fue confirmado por el operador a las 04:00 UTC-05:00, coincidiendo con el inicio de la caída siguiente. El registro de candidatos está en [btc-usdt-episode-candidates.md](btc-usdt-episode-candidates.md); solo falta el final de esa caída. No completar límites por inferencia.
+
+
+## Manifiesto canónico versionado (preferido)
+
+Para el primer experimento se prefiere el manifiesto versionado frente a la lista JSON heredada. Los archivos de referencia son:
+
+- [Esquema JSON](btc-usdt-episode-manifest.schema.json).
+- [Plantilla pendiente de confirmación](btc-usdt-episode-manifest.template.json).
+- Validador ejecutable: `scripts/research/episode_manifest.py`.
+
+El manifiesto conserva los límites originales en `start_local` y `end_local` con offset explícito `-05:00`, junto con sus equivalentes `start_utc` y `end_utc`. El validador exige que ambos pares representen exactamente los mismos instantes, que los límites estén alineados al intervalo, que los IDs sean únicos y que no existan solapamientos.
+
+El manifiesto solo puede pasar a `approved` cuando se identifiquen un venue y tipo de mercado únicos, la procedencia del dataset, la autorización de uso/retención y todos los episodios confirmados. El CLI rechaza manifiestos `pending_confirmation`, datasets sin autorización y episodios no confirmados. El esquema JSON documenta la estructura; el validador Python aplica además las invariantes temporales y de ejecución.
+
+Las listas JSON heredadas siguen admitidas únicamente por compatibilidad en la función de lectura y en pruebas históricas. El CLI de investigación las rechaza: toda ejecución operativa exige el manifiesto versionado y sus controles de procedencia, zona horaria local y autorización.
+
+
+Antes de disponer de las velas, el manifiesto aprobado puede validarse de forma independiente:
+
+```bash
+python -m scripts.research.episode_manifest \
+  --manifest /ruta/local/btc-usdt-episode-manifest.json
+```
+
+El comando devuelve código distinto de cero si el manifiesto sigue pendiente, carece de autorización o incumple las reglas de cohorte y tiempo. No abre archivos OHLCV ni consulta proveedores.
