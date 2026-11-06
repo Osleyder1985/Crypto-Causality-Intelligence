@@ -2,7 +2,7 @@
 
 ## Estado
 
-Decisiones iniciales para la base de datos de **Historical Market Intelligence**. Estas decisiones establecen un punto de partida y pueden revisarse mediante evidencias y revisión documentadas.
+Decisiones iniciales para los fundamentos de datos de **Historical Market Intelligence**. Estas decisiones establecen un punto de partida y pueden revisarse mediante evidencias y revisión documentadas.
 
 ## ADR-001: Disponibilidad estricta point-in-time
 
