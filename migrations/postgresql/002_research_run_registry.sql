@@ -18,7 +18,6 @@ CREATE TABLE IF NOT EXISTS cci.research_experiment_runs (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (experiment_id, run_key),
     CHECK (finished_at IS NULL OR started_at IS NULL OR finished_at >= started_at),
-    CHECK (finished_at IS NULL OR finished_at >= started_at),
     CHECK ((status IN ('succeeded','failed','cancelled')) = (finished_at IS NOT NULL)),
     CHECK (status <> 'running' OR started_at IS NOT NULL),
     CHECK (status <> 'failed' OR error_summary IS NOT NULL)
