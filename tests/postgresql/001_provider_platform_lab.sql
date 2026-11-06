@@ -358,7 +358,7 @@ RETURNS TABLE (
 LANGUAGE sql
 STABLE
 SET search_path = cci_lab, pg_temp
-AS $
+AS $cci_resolution$
     SELECT
         r.provider_platform_id,
         r.data_source_id,
@@ -380,6 +380,6 @@ AS $
             COALESCE(r.valid_until, 'infinity'::timestamptz),
             COALESCE(s.valid_from, 'infinity'::timestamptz)
           );
-$;
+$cci_resolution$;
 
 COMMIT;
