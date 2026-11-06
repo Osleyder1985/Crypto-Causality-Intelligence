@@ -229,8 +229,7 @@ def main():
                 except Exception as exc:
                     manifest["results"].append({"provider": provider, "asset": asset, "interval": label,
                         "endpoint": BINANCE if provider == "binance" else KRAKEN,
-                        "endpoint": COINGECKO.format(coin_id=ids["coingecko"]),
-                    "status": "error", "error": str(exc)})
+                        "status": "error", "error": str(exc)})
             try:
                 count, raw, request_meta = fetch_coingecko(asset, ids["coingecko"], start_s, end_s, label, out)
                 manifest["results"].append({"provider": "coingecko", "asset": asset, "interval": label,
@@ -241,6 +240,7 @@ def main():
                     "observations_long_format": count, "raw": raw, "status": "downloaded_non_ohlcv"})
             except Exception as exc:
                 manifest["results"].append({"provider": "coingecko", "asset": asset, "interval": label,
+                    "endpoint": COINGECKO.format(coin_id=ids["coingecko"]),
                     "status": "error", "error": str(exc)})
     out.mkdir(parents=True, exist_ok=True)
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
