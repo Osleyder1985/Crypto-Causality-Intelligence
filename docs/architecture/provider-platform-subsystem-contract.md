@@ -96,7 +96,11 @@ Toda modificación posterior debe:
 
 No se permiten cambios semánticos implícitos durante la integración en `cci`.
 
-## 7. Trabajo todavía necesario antes de producción
+## 7. Seguridad PostgreSQL asociada
+
+La propuesta de roles y grants se desarrolla en `postgresql-security-roles-and-grants.md` v0.1. Establece roles de grupo `NOLOGIN`, separación entre `cci_owner` y `cci_api_owner`, interfaces `SECURITY DEFINER` acotadas para revisión/publicación, denegación por defecto y pruebas SEC-01–SEC-16. Es una propuesta documental: no se han creado roles, funciones ni grants.
+
+## 8. Trabajo todavía necesario antes de producción
 
 1. Integrar las cuatro tablas propias del subsistema con las definiciones canónicas de `data_sources` y `networks` en `cci`.
 2. Definir roles separados para migración/propietario, ingestión y revisión/publicación; conceder solo los permisos mínimos. Los roles de aplicación no tendrán `UPDATE` ni `DELETE` sobre observaciones y revisiones.
@@ -106,7 +110,7 @@ No se permiten cambios semánticos implícitos durante la integración en `cci`.
 6. Integrar las 32 entidades y ejecutar migración desde una base vacía en PostgreSQL real con datos sintéticos.
 7. Verificar constraints, FKs, grants, vistas, consultas bitemporales, rollback y concurrencia en el esquema integrado.
 
-## 8. Exclusiones explícitas
+## 9. Exclusiones explícitas
 
 - No es una migración SQL.
 - No debe ejecutarse en una base persistente.
