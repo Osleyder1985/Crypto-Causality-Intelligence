@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from scripts.research.download_validate_market_data import (
     fetch_binance, fetch_binance_metadata, fetch_kraken,
-    fetch_kraken_metadata, utc_epoch, validate_candles,
+    fetch_kraken_metadata, metadata_validation_issues, utc_epoch, validate_candles,
 )
 
 
@@ -70,6 +70,58 @@ class CandleValidationTests(unittest.TestCase):
         self.assertEqual(report["records_outside_window"], 1)
         self.assertEqual(report["misaligned_timestamps"], [1800])
         self.assertEqual(report["zero_base_volume_records"], 1)
+
+    def test_empty_response_is_a_critical_validation_failure(self):
+        report = validate_candles([], 3600, 0, 7200)
+        self.assertEqual(report["records_received"], 0)
+        self.assertFalse(report["validation_passed"])
+        self.assertIn("empty_response", report["critical_violations"])
+
+    def test_unordered_timestamps_are_sorted_only_for_gap_diagnostics(self):
+        report = validate_candles([candle(7200), candle(0)], 3600, 0, 10800)
+        self.assertFalse(report["strictly_ordered"])
+        self.assertEqual(report["gaps"], [{
+            "from": 0, "to": 7200, "missing_intervals": 1,
+        }])
+        self.assertIn("timestamps_not_strictly_ordered", report["critical_violations"])
+
+    def test_unordered_complete_sequence_has_no_false_gap(self):
+        report = validate_candles(
+            [candle(7200), candle(0), candle(3600)], 3600, 0, 10800
+        )
+        self.assertFalse(report["strictly_ordered"])
+        self.assertEqual(report["gaps"], [])
+
+    def test_validation_failure_is_reported_for_critical_quality_errors(self):
+        report = validate_candles(
+            [candle(0), candle(0, open_price="100")], 3600, 0, 7200
+        )
+        self.assertFalse(report["validation_passed"])
+        self.assertIn("duplicate_timestamps", report["critical_violations"])
+
+
+class MetadataValidationTests(unittest.TestCase):
+    def test_binance_requires_both_expected_markets_in_trading_state(self):
+        selected = [
+            {"symbol": "BTCUSDT", "status": "TRADING"},
+            {"symbol": "ETHUSDT", "status": "BREAK"},
+        ]
+        issues = metadata_validation_issues("binance", selected)
+        self.assertEqual(issues, ["market_not_trading:ETHUSDT"])
+
+    def test_kraken_accepts_expected_pair_aliases_and_online_status(self):
+        selected = [
+            {"altname": "XBTUSD", "wsname": "XBT/USD", "status": "online"},
+            {"altname": "ETHUSD", "wsname": "ETH/USD", "status": "online"},
+        ]
+        self.assertEqual(metadata_validation_issues("kraken", selected), [])
+
+    def test_kraken_reports_missing_expected_pair(self):
+        selected = [{"altname": "XBTUSD", "wsname": "XBT/USD", "status": "online"}]
+        self.assertEqual(
+            metadata_validation_issues("kraken", selected),
+            ["missing_market:ETHUSD"],
+        )
 
 
 class ProviderMappingTests(unittest.TestCase):
