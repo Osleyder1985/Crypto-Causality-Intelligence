@@ -109,7 +109,7 @@ Solo una plataforma resuelta a una única red puede habilitar la resolución de 
 - No se impone UNIQUE sobre `observed_at`: dos capturas pueden compartir timestamp.
 - La ausencia de una plataforma en una captura no demuestra que la red haya dejado de existir.
 
-Para CoinGecko, `chain_identifier` se conserva como literal escalar y tipo JSON, incluido NULL, hasta confirmar el contrato y su representación exacta. No se convierte silenciosamente a NUMERIC.
+Para CoinGecko, la referencia oficial de Asset Platforms List declara `chain_identifier` como `number | null`, descrito como Chainlist chain ID. Se conserva como escalar JSONB exacto, sin imponer `integer` ni usar tipos aproximados. El cuerpo HTTP original o su artefacto de evidencia con hash permite conservar el lexema original cuando sea necesario.
 
 ### 6.2 Revisiones independientes de las observaciones
 
@@ -217,3 +217,8 @@ Las fuentes describen campos o mecanismos técnicos; no reemplazan la evaluació
 ## 13. Estado de implementación
 
 Esta entrega cierra el procedimiento documental, no el catálogo. No se han consultado ni guardado filas reales del endpoint, no se han creado registros en `networks`, `network_identifiers`, `provider_platforms` o `provider_platform_observations`, no se han aceptado correspondencias, no se han creado migraciones SQL y no se ha ejecutado PostgreSQL real.
+
+
+### Cierre de NET-06 (2026-11-06)
+
+La referencia oficial de CoinGecko para [Asset Platforms List](https://docs.coingecko.com/reference/asset-platforms-list) declara el tipo `number | null`; la documentación no lo restringe a `integer`. Por ello, el modelo físico conserva el escalar como JSONB, validado a `number` o `null`, sin conversión a punto flotante ni supuesto de integralidad. La validación de entero exacto se aplica únicamente al construir un identificador EVM namespaced. La evidencia HTTP versionada conserva el lexema original si se requiere fidelidad byte a byte.
