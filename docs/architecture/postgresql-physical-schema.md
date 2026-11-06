@@ -188,6 +188,7 @@ La política aplicable se resuelve considerando fuente, endpoint, tipo de dato, 
 - UNIQUE candidato `(id, data_source_id)`.
 - CHECK: `base_asset_id` y `quote_asset_id` son ambos NULL o ambos NOT NULL; si ambos existen deben ser distintos.
 - No guardar estado cambiante ni reglas de negociación en esta tabla de identidad. No declarar UNIQUE global sobre `native_symbol`, ni asumir que `source_instrument_id` siempre existe.
+- Índice parcial único recomendado: `(data_source_id, source_instrument_id, market_type) WHERE source_instrument_id IS NOT NULL`, sujeto a confirmar que la clave nativa es estable y única en cada API Spot.
 
 **`instrument_identifiers`**
 - `id UUID PK`
@@ -409,7 +410,7 @@ Se crearán índices explícitos para FKs usadas en joins y patrones de consulta
 | `ingestion_requests` | `(ingestion_run_id, requested_at)`; `(data_endpoint_id, requested_at DESC)` | Inspección de Run y endpoint. |
 | `datasets` | UNIQUE `(dataset_key, version)`; UNIQUE `checksum_sha256` solo si se decide que no pueden coexistir artefactos idénticos | Versionado y deduplicación opcional. No imponer deduplicación por hash sin decisión. |
 | `run_datasets` | PK compuesta; índice `(dataset_id)` | Recorrido Run→dataset y dataset→Run. |
-| `dataset_sources` | `(dataset_id)`; `(data_source_id, permission_evaluated_at DESC)`; `(source_usage_policy_id)` | Procedencia y auditoría de política. |
+| `dataset_sources` | `(dataset_id)`; `(data_source_id, created_at DESC)`; `(policy_evaluation_id)` | Procedencia y auditoría de política. |
 | `dataset_lineage` | PK; índices por input y output | Recorrido del grafo en ambos sentidos. |
 | `data_validations` | `(dataset_id, checked_at DESC)` | Última validación. |
 | `transformation_runs` | `(transformation_id, started_at DESC)`; `(ingestion_run_id)` | Historial de ejecuciones. |
