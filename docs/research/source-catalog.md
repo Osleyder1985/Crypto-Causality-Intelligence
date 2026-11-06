@@ -6,7 +6,7 @@
 
 ## 1. Propósito
 
-Identificar fuentes que permitan reconstruir el comportamiento histórico del mercado cripto y relacionarlo con eventos verificables. El catálogo separa los registros originados en el mercado o la cadena, los datos agregados por terceros y el contenido contextual.
+Identificar sitios y plataformas que proporcionen datos históricos del mercado y del ecosistema cripto. El catálogo se limita a exchanges, agregadores de mercado, proveedores de datos históricos y fuentes de datos on-chain.
 
 Una fuente no se considera confiable por su popularidad. Cada conjunto de datos debe evaluarse por cobertura, semántica, disponibilidad temporal, procedencia, licencia y limitaciones conocidas.
 
@@ -62,17 +62,6 @@ No elegir una serie agregada como única verdad de mercado. Para episodios relev
 
 Las métricas on-chain suelen ser transformaciones analíticas, no observaciones directas de una entidad económica. Registrar definición, unidad, universo, filtros, método de atribución y versión de la métrica.
 
-### 3.5 Fuentes oficiales, noticias y redes sociales
-
-No se selecciona todavía un proveedor único para esta categoría. El sistema debe admitir fuentes identificadas individualmente:
-
-- Sitios oficiales, blogs, changelogs, repositorios y foros de gobernanza de proyectos.
-- Comunicados regulatorios y publicaciones de autoridades.
-- Feeds RSS y archivos de medios con fecha y URL originales.
-- Publicaciones públicas de cuentas sociales, conservando identificador, autor, URL, hora de publicación y hora de captura cuando sea legal y técnicamente posible.
-
-Una publicación social se registra inicialmente como **afirmación atribuida a una cuenta**, no como hecho confirmado. Para elevar su estado se requiere corroboración independiente o evidencia primaria adicional.
-
 ## 4. Matriz de evaluación
 
 Puntuar cada dimensión de 0 a 3 y adjuntar evidencia. La puntuación es una herramienta de comparación, no una probabilidad de veracidad.
@@ -123,7 +112,7 @@ Propuesta inicial, sujeta a una prueba técnica y revisión de licencias:
 3. **CoinGecko API o CoinMarketCap API** —evaluar uno primero— para contexto agregado, metadatos y cobertura más amplia.
 4. **DefiLlama** para una primera capa de contexto DeFi/on-chain; evaluar Glassnode solo si una pregunta concreta requiere sus métricas especializadas.
 5. **Fuentes oficiales del proyecto y autoridades** para eventos; añadir medios y redes sociales como evidencia contextual atribuida.
-6. **Tardis.dev** queda como candidato especializado si la investigación requiere trades tick-level, order book L2, funding, liquidations o replay histórico que no resulte viable capturar directamente.
+5. **Tardis.dev** queda como candidato especializado si la investigación requiere trades tick-level, order book L2, funding, liquidations o replay histórico que no resulte viable capturar directamente.
 
 Esta propuesta no autoriza compras, suscripciones ni despliegues. Antes de decidir, ejecutar una prueba pequeña sobre BTC y ETH con un periodo común, comparar timestamps, huecos, OHLCV, identificadores y diferencias entre fuentes.
 
