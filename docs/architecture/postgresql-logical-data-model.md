@@ -393,8 +393,9 @@ En particular:
 - Un instrumento pertenece a una fuente y referencia un activo base y uno cotizado.
 - Un Run contiene muchas solicitudes.
 - Una solicitud utiliza un endpoint y puede referirse a un instrumento.
-- Un Run puede producir cero o muchos datasets.
-- Un dataset puede tener varios orígenes y participar en varias transformaciones e investigaciones.
+- Un Run puede producir cero o muchos datasets mediante `run_datasets`.
+- Un dataset puede tener varios orígenes y políticas evaluadas mediante `dataset_sources`, y participar en varias transformaciones e investigaciones.
+- Los identificadores externos de activos se conservan en `asset_identifiers`; las observaciones históricas de metadata de instrumentos se conservan en `instrument_metadata_versions`.
 - Una validación evalúa un dataset.
 - Una transformación tiene muchas ejecuciones.
 - Una ejecución de transformación relaciona datasets de entrada y salida mediante el linaje.
@@ -407,13 +408,18 @@ erDiagram
     DATA_SOURCES ||--o{ DATA_ENDPOINTS : exposes
     DATA_SOURCES ||--o{ SOURCE_USAGE_POLICIES : governed_by
     DATA_SOURCES ||--o{ MARKET_INSTRUMENTS : lists
+    ASSETS ||--o{ ASSET_IDENTIFIERS : identified_by
     ASSETS ||--o{ MARKET_INSTRUMENTS : base_asset
     ASSETS ||--o{ MARKET_INSTRUMENTS : quote_asset
+    MARKET_INSTRUMENTS ||--o{ INSTRUMENT_METADATA_VERSIONS : observes
     DATA_ENDPOINTS ||--o{ INGESTION_REQUESTS : requested_from
     MARKET_INSTRUMENTS o|--o{ INGESTION_REQUESTS : concerns
     INGESTION_RUNS ||--o{ INGESTION_REQUESTS : contains
+    INGESTION_RUNS ||--o{ RUN_DATASETS : produces
+    DATASETS ||--o{ RUN_DATASETS : registered_in
     DATASETS ||--o{ DATASET_SOURCES : has_provenance
     DATA_SOURCES ||--o{ DATASET_SOURCES : contributes
+    SOURCE_USAGE_POLICIES o|--o{ DATASET_SOURCES : authorizes
     DATASETS ||--o{ DATA_VALIDATIONS : validated_by
     TRANSFORMATIONS ||--o{ TRANSFORMATION_RUNS : executed_as
     DATASETS ||--o{ DATASET_LINEAGE : input_or_output
