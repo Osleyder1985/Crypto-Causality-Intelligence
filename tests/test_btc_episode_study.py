@@ -154,6 +154,19 @@ class EpisodeStudyTests(unittest.TestCase):
             with self.assertRaisesRegex(StudyError, "pendiente"):
                 load_episodes(path)
 
+    def test_legacy_episode_list_is_blocked_for_cli_execution(self):
+        legacy = [{
+            "episode_id": "legacy",
+            "direction": "bullish",
+            "start_utc": "2026-01-01T00:00:00Z",
+            "end_utc": "2026-01-02T00:00:00Z",
+        }]
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "episodes.json"
+            path.write_text(json.dumps(legacy), encoding="utf-8")
+            with self.assertRaisesRegex(StudyError, "manifiesto canónico"):
+                load_episodes(path, require_manifest=True)
+
     def test_drawdown_is_explicitly_close_based(self):
         result = study(self.candles, self.episodes)
         episode = result["episodes"][0]
