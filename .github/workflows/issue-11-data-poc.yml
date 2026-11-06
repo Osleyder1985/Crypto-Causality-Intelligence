@@ -33,7 +33,12 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: issue-11-market-data-evidence
-          path: artifacts/issue-11/
+          name: issue-11-exchange-evidence
+          path: |
+            artifacts/issue-11/manifest.json
+            artifacts/issue-11/raw/binance_*.json
+            artifacts/issue-11/raw/kraken_*.json
+            artifacts/issue-11/normalized/binance_*.csv
+            artifacts/issue-11/normalized/kraken_*.csv
           if-no-files-found: warn
           retention-days: 90
