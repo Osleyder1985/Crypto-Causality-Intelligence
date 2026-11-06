@@ -281,6 +281,19 @@ class AssetIdentityResolutionTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             resolve_asset_identity("provider", "ABC", mappings)
 
+    def test_ambiguous_review_blocks_otherwise_accepted_mapping(self):
+        mappings = [
+            {"namespace": "provider", "native_code": "ABC", "network": None,
+             "canonical_asset_key": "asset-a", "status": "accepted",
+             "evidence_reference": "evidence:a"},
+            {"namespace": "provider", "native_code": "ABC", "network": None,
+             "canonical_asset_key": "asset-b", "status": "ambiguous",
+             "evidence_reference": "evidence:conflict"},
+        ]
+        result = resolve_asset_identity("provider", "ABC", mappings)
+        self.assertEqual(result["resolution_status"], "ambiguous")
+        self.assertIsNone(result["canonical_asset_key"])
+
     def test_accepted_mapping_requires_evidence(self):
         mappings = [{
             "namespace": "provider", "native_code": "ABC", "network": None,
