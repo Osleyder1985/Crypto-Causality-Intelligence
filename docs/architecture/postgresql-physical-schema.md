@@ -852,7 +852,7 @@ Antes de declarar las FKs compuestas, deben existir estas claves únicas:
 
 - `provider_platforms_uq_id_source UNIQUE (id, data_source_id)`.
 - `provider_platforms_uq_id_source_key UNIQUE (id, data_source_id, provider_platform_key)`.
-- `provider_platform_observations_uq_id_platform_source UNIQUE (id, provider_platform_id, data_source_id)`.
+- `provider_platform_observations_uq_id_platform UNIQUE (id, provider_platform_id)` y `provider_platform_observations_uq_id_platform_source UNIQUE (id, provider_platform_id, data_source_id)`.
 - `provider_platform_resolution_reviews_uq_id_platform UNIQUE (id, provider_platform_id)`.
 - `provider_platform_resolution_reviews_uq_mapping UNIQUE (id, provider_platform_id, candidate_network_id, resolution_status)`.
 
