@@ -264,3 +264,67 @@ La caída de acciones tecnológicas, el deterioro de metales y los datos laboral
 - **H4, debilidad estructural previa:** sigue siendo consistente con la caída acumulada desde finales de enero, pero requiere métricas de mercado/on-chain adicionales.
 
 **Conclusión:** el episodio no se explica adecuadamente con la frase «la nominación de Warsh provocó la caída del 5 de febrero». La lectura más defendible hoy es un mercado ya debilitado y sometido a repricing y salidas de ETF, seguido por una venta que se aceleró y desencadenó liquidaciones largas masivas. La identificación del detonante inmediato permanece abierta.
+
+
+## 12. Especificación de microestructura para medir presión spot (revisión 2026-11-06)
+
+La documentación oficial del repositorio `binance-public-data` permite precisar qué variable puede extraerse del archivo histórico Spot, sin confundir volumen bruto con presión vendedora.
+
+### 12.1 Campos utilizables en klines Spot
+
+Las velas Spot de Binance contienen, además de OHLCV y número de operaciones:
+
+- `taker buy base asset volume`: volumen BTC de operaciones cuyo comprador fue el taker/agresor.
+- `taker buy quote asset volume`: valor cotizado de esas compras agresoras, en USDT para BTCUSDT.
+
+A partir de esos campos se pueden construir, por intervalo:
+
+```text
+taker_sell_base = total_base_volume - taker_buy_base_volume
+taker_delta_base = taker_buy_base_volume - taker_sell_base
+taker_imbalance = taker_delta_base / total_base_volume
+```
+
+Se calcularán también las versiones en quote volume para evitar interpretar cantidades BTC como valor monetario. Los resultados se agregarán a 1m, 5m y 1h, conservando el dato original de 1m.
+
+**Interpretación:** un `taker_imbalance` negativo indica que el volumen ejecutado por vendedores agresores superó al ejecutado por compradores agresores en ese intervalo. Es una aproximación observable a la presión de órdenes de mercado, no una medida completa de flujo de órdenes: no revela órdenes limitadas no ejecutadas, cancelaciones, profundidad ni la identidad económica de los participantes. Tampoco demuestra por sí sola que esa presión haya causado el movimiento.
+
+### 12.2 Comprobación alternativa con aggTrades
+
+El archivo Spot `aggTrades` contiene timestamp, precio, cantidad y el indicador `was the buyer the maker`. Con esa bandera se puede clasificar la agresión de cada operación agregada:
+
+- buyer maker = true: el comprador aportó liquidez; el vendedor fue el agresor.
+- buyer maker = false: el comprador fue el agresor.
+
+Se calculará el volumen comprador/vendedor agresor a partir de aggTrades y se contrastará con el residual de taker-buy en klines. Las diferencias se investigarán antes de aceptar la serie: agregación de operaciones, límites temporales, precisión, tratamiento de timestamps y cobertura del archivo.
+
+### 12.3 Protocolo temporal y controles
+
+1. Descargar los archivos oficiales mensuales de BTCUSDT para febrero de 2026, tanto klines 1m como aggTrades, y sus archivos de checksum.
+2. Verificar SHA-256 antes de parsear; conservar URL, fecha de descarga, checksum, tamaño, esquema y versión del parser en un manifiesto privado.
+3. Convertir los timestamps Spot de microsegundos a UTC; no aplicar la conversión de milisegundos usada por otros conjuntos de Binance.
+4. Recortar exactamente 2026-02-04T00:00:00Z a 2026-02-07T00:00:00Z y comprobar continuidad, duplicados, huecos y límites del día.
+5. Calcular volumen comprador/vendedor agresor, delta, imbalance, volumen cotizado y número de operaciones por minuto.
+6. Identificar si el imbalance vendedor aparece antes del primer tramo de caída, coincide con él o aumenta después de la aceleración.
+7. Repetir el cálculo con aggTrades como control de consistencia y comparar precio/volumen con Kraken.
+
+### 12.4 Qué no permite concluir este conjunto
+
+- No identifica al participante ni distingue ventas discrecionales, cobertura, arbitraje o liquidaciones.
+- No reconstruye el libro de órdenes histórico ni la liquidez disponible antes de cada operación.
+- No prueba causalidad solo porque el imbalance vendedor anteceda a un retorno negativo; se debe contrastar con futuros, mercados macro y eventos fechados.
+- Un resultado de Binance no se generalizará automáticamente a todo el mercado. Kraken servirá como contraste independiente de precio y volumen, pero su OHLCVT no debe tratarse como equivalente a la clasificación de agresor de Binance.
+
+### Estado de adquisición
+
+- [x] Verificar en documentación oficial la disponibilidad de klines Spot con campos taker-buy.
+- [x] Verificar en documentación oficial el esquema Spot aggTrades y su bandera buyer-maker.
+- [x] Definir métricas de presión compradora/vendedora y controles de consistencia.
+- [ ] Descargar los archivos de febrero de 2026 y validar checksum.
+- [ ] Calcular y revisar las series de imbalance de 1m/5m/1h.
+
+**Estado de evidencia:** esta revisión mejora la especificación de medición, pero todavía no aporta observaciones intradía calculadas. El runtime de esta sesión no pudo resolver el host `data.binance.vision`; por tanto, no se afirma que los ZIP hayan sido descargados ni que la presión vendedora inicial haya quedado medida.
+
+### Referencia técnica primaria
+
+- Binance Public Data, esquema y semántica de Spot klines, Spot aggTrades y timestamps desde 2025: https://github.com/binance/binance-public-data
