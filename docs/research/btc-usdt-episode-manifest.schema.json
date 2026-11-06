@@ -248,7 +248,34 @@
                   "format": "date-time"
                 }
               }
-            }
+            },
+            "contains": {
+              "properties": {
+                "direction": {
+                  "const": "bullish"
+                }
+              },
+              "required": [
+                "direction"
+              ]
+            },
+            "minContains": 1,
+            "additionalItems": true,
+            "allOf": [
+              {
+                "contains": {
+                  "properties": {
+                    "direction": {
+                      "const": "bearish"
+                    }
+                  },
+                  "required": [
+                    "direction"
+                  ]
+                },
+                "minContains": 1
+              }
+            ]
           },
           "interval_seconds": {
             "const": 3600
