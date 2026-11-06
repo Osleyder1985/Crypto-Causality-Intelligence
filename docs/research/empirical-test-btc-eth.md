@@ -99,9 +99,28 @@ La ejecución del script no equivale a aprobar un proveedor. Cada resultado debe
 
 No se rellenan huecos ni se mezclan fuentes en los datos originales. Toda transformación posterior debe producir un artefacto derivado con regla, versión y procedencia explícitas.
 
+## Resultados preliminares observados (2026-11-06)
+
+La primera ejecución con `api.binance.com` devolvió HTTP 451 desde el runner de GitHub Actions. Esto no demuestra una caída del proveedor. Se cambió el host de consulta al endpoint oficial de datos públicos `data-api.binance.vision` y la segunda ejecución obtuvo respuestas válidas de Binance para ambos activos e intervalos.
+
+| Proveedor | Activo | Intervalo | Registros dentro de ventana | Esperados | Cobertura |
+|---|---|---:|---:|---:|---:|
+| Binance | BTC / ETH | 1h | 720 por activo | 720 | 100 % |
+| Binance | BTC / ETH | 1d | 350 por activo | 350 | 100 % |
+| Kraken | BTC / ETH | 1h | 715 por activo | 720 | 99,3056 % |
+| Kraken | BTC / ETH | 1d | 350 por activo | 350 | 100 % |
+
+En los cuatro conjuntos de velas de Binance y los cuatro de Kraken se observaron cero timestamps duplicados, orden cronológico correcto y cero violaciones OHLC/volumen. Kraken no presenta huecos internos en la muestra horaria; la diferencia son las cinco horas iniciales que el endpoint no devolvió al estar limitado a sus 720 registros más recientes. La primera vela horaria recibida fue `2026-10-07T05:00:00Z`, frente al inicio solicitado `2026-10-07T00:00:00Z`. La muestra diaria de Kraken sí cubrió los 350 días.
+
+La primera respuesta de CoinGecko incluyó una observación situada exactamente en el límite final exclusivo (`2026-11-06T00:00:00Z`): 721 observaciones por métrica en la consulta horaria y 351 en la diaria. Se corrigió el script para aplicar explícitamente la ventana `[inicio, fin)` antes de normalizar. Esta corrección debe confirmarse en la siguiente ejecución; los conteos corregidos aún no se consideran verificados.
+
+Las ejecuciones pueden consultarse en [Run #1](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42167079775) y [Run #2](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42167129625). Los artefactos de Actions son temporales; los resultados no deben considerarse evidencia archivada a largo plazo hasta incorporarlos al repositorio o a un almacenamiento persistente.
+
+Estos resultados son controles iniciales de integridad y cobertura, no una aprobación definitiva de las fuentes ni una validación de causalidad de mercado. Sigue pendiente revisar unidades y semántica de volumen, metadatos del mercado, alineación temporal entre proveedores y licencias.
+
 ## Referencias oficiales
 
-- Binance Spot klines: https://developers.binance.com/docs/binance-spot-api-docs/rest-api/market-data-endpoints
+- Binance Spot klines: https://developers.binance.com/docs/binance-spot-api-docs/rest-api/market-data-endpoints (el script usa el host público de datos `data-api.binance.vision`, sin endpoints de trading)
 - Kraken OHLC: https://docs.kraken.com/api/docs/rest-api/get-ohlc-data
 - CoinGecko market chart range: https://docs.coingecko.com/reference/coins-id-market-chart-range
 - Protocolo interno: [data-validation-protocol.md](../../docs/research/data-validation-protocol.md)
