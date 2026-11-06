@@ -52,7 +52,7 @@ El contrato no convierte automáticamente datos agregados de CoinGecko u otro ag
 | `source_key` | string | Sí | Namespace estable de la fuente, por ejemplo `binance_spot` o `kraken_spot`. |
 | `native_symbol` | string | Sí | Símbolo exactamente como lo identifica el proveedor en el contexto del mercado. |
 | `interval_code` | string | Sí | Código canónico del intervalo, por ejemplo `1m`, `5m`, `1h`, `1d`, `1w`, `1M`. |
-| `interval_kind` | enum/string controlado | Sí | `fixed` o `calendar`; evita asumir que todos los intervalos tienen duración fija. |
+| `interval_kind` | enum/string controlado | Sí | `fixed` o `calendar`; evita asumir que todos los intervalos tienen duración fija. |\n| `interval_timezone` | string | Sí | Zona/anclaje solicitado al proveedor para construir las velas; en la primera versión de ambos adapters será `UTC`. Se conserva el parámetro original aunque el instante se normalice a UTC. |
 | `open_time` | timestamp UTC | Sí | Inicio del intervalo de la vela. |
 | `close_time_exclusive` | timestamp UTC | Sí | Límite final exclusivo del intervalo canónico. |
 | `open` | decimal exacto | Sí | Precio de apertura. |
@@ -140,9 +140,9 @@ Una fila representa una observación versionada de los metadatos de un instrumen
 | `quantity_step` | decimal exacto nullable | No | Incremento mínimo de cantidad, si la fuente lo define. |
 | `min_quantity` | decimal exacto nullable | No | Cantidad mínima, si está definida. |
 | `max_quantity` | decimal exacto nullable | No | Cantidad máxima, si está definida. |
-| `min_notional` | decimal exacto nullable | No | Notional mínimo, conservando la unidad y condición aplicable. |
+| `min_notional` | decimal exacto nullable | No | Notional/coste mínimo, conservando la unidad y condición aplicable. |\n| `max_notional` | decimal exacto nullable | No | Notional máximo cuando la fuente lo define, conservando sus condiciones de aplicación. |
 | `price_precision` | int32 nullable | No | Precisión decimal declarada, si la fuente la define; no sustituye `price_tick`. |
-| `quantity_precision` | int32 nullable | No | Precisión de cantidad declarada, si la fuente la define; no sustituye `quantity_step`. |
+| `quantity_precision` | int32 nullable | No | Precisión de cantidad declarada, si la fuente la define; no sustituye `quantity_step`. |\n| `price_minimum` | decimal exacto nullable | No | Precio mínimo permitido, si está definido. |\n| `price_maximum` | decimal exacto nullable | No | Precio máximo permitido, si está definido. |\n| `quantity_maximum` | decimal exacto nullable | No | Cantidad máxima permitida, si está definida. |
 | `listing_time` | timestamp UTC nullable | No | Instante de listado, solo si está documentado por la fuente. |
 | `delisting_time` | timestamp UTC nullable | No | Instante de retiro, solo si está documentado por la fuente. |
 | `observed_at` | timestamp UTC | Sí | Momento en que el sistema observó esta versión de metadata. |
@@ -225,7 +225,7 @@ El siguiente ejemplo muestra la forma del registro, no datos reales de mercado n
 
 Los decimales se muestran como cadenas en JSON para evitar pérdida de precisión por parsers que convierten números JSON a coma flotante binaria. La representación Parquet utilizará decimal lógico con precisión/escala aprobadas.
 
-## 8. Decisiones pendientes antes de implementación
+## 8. Validación documental por proveedor (2026-11-06)\n\nLa matriz de correspondencia y los hallazgos detallados se mantienen en `provider-schema-validation-binance-kraken.md`. La revisión confirma diferencias que afectan directamente al adapter: Kraken REST OHLC incluye VWAP, usa timestamps Unix en segundos en su ejemplo oficial, devuelve siempre una vela actual no confirmada y limita la consulta a 720 entradas; Binance Spot usa una tupla de 12 posiciones con timestamps en milisegundos por defecto, volumen base/cotizado y métricas taker.\n\nPara la primera versión de los adapters se fija `interval_timezone = UTC`. Los intervalos de Binance solicitados con `timeZone` distinto de UTC deberán rechazarse o tratarse como una configuración explícita distinta; no se mezclarán con velas UTC. En Kraken, el `close_time_exclusive` se calcula a partir de `open_time` y del intervalo, porque la respuesta OHLC documentada no incluye un timestamp de cierre independiente.\n\n## 9. Decisiones pendientes antes de implementación
 
 1. Verificar con documentación y muestras autorizadas las convenciones de timestamp y cierre de velas de Binance Spot y Kraken Spot.
 2. Comparar los campos OHLCV disponibles en ambos proveedores y documentar las correspondencias que sean realmente equivalentes.
@@ -236,7 +236,7 @@ Los decimales se muestran como cadenas en JSON para evitar pérdida de precisió
 7. Definir manifiesto de dataset y layout físico sin fijar particiones hasta medir volúmenes.
 8. Revisar permisos y retención aplicables antes de persistir datos reales.
 
-## 9. Criterios de aceptación
+## 10. Criterios de aceptación
 
 - [ ] Las velas de distintos proveedores o instrumentos no pueden confundirse ni deduplicarse entre sí.
 - [ ] Los timestamps preservan semántica de intervalo, UTC, precisión y disponibilidad.
