@@ -167,6 +167,8 @@ Los filtros y reglas de trading específicos del proveedor pueden variar por mer
 
 La identidad de un instrumento está acotada por fuente, mercado y namespace del proveedor. El símbolo por sí solo no es globalmente único. El mapeo a `base_asset_id` y `quote_asset_id` puede quedar sin resolver hasta reunir evidencia suficiente.
 
+La resolución de los activos base y cotizado se rige por `asset-identity-resolution-policy.md`: coincidencia exacta por namespace, código nativo y red cuando aplique; nunca por similitud de ticker. Solo las correspondencias aceptadas con evidencia pueden poblar las FKs canónicas. Los estados pendientes, ambiguos o rechazados no se propagan al instrumento. Los códigos nativos permanecen intactos en todos los casos.
+
 La clave de observación debe permitir múltiples versiones de metadata para el mismo instrumento. No imponer unicidad global sobre `native_symbol`. La restricción concreta se definirá en PostgreSQL cuando se conozcan las reglas de reutilización de identificadores de cada fuente.
 
 ## 5. Representación física inicial
