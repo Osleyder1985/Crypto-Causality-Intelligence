@@ -5,7 +5,7 @@
 - **Fecha:** 2026-11-06.
 - **Alcance:** preparación del catálogo para Binance Spot y Kraken Spot.
 - **Documentos rectores:** `asset-identity-resolution-policy.md` y `asset-representation-domain-model.md`.
-- **PR:** #15.
+- **PR:** #16.
 
 ## 1. Objetivo
 
