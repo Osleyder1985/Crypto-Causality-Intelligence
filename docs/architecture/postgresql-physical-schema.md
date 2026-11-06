@@ -199,7 +199,7 @@ La política aplicable se resuelve considerando fuente, alcance y referencia est
 - `observed_at TIMESTAMPTZ NOT NULL`, `evidence_reference TEXT NOT NULL`.
 - `provider_platform_observation_id UUID NULL`, `provider_data_source_id UUID NULL`, `provider_platform_resolution_review_id UUID NULL` (solo para identificadores originados en una plataforma de proveedor).
 - FK compuesta `(provider_platform_observation_id, provider_data_source_id, identifier_value) -> provider_platforms(id, data_source_id, provider_platform_id)`; obliga a que el valor publicado sea exactamente el ID observado para ese proveedor.
-- FK compuesta `(provider_platform_resolution_review_id, provider_platform_observation_id, network_id, provider_platform_resolution_status) -> provider_platform_resolution_reviews(id, provider_platform_observation_id, candidate_network_id, resolution_status)`, con `provider_platform_resolution_status TEXT NULL`; CHECK exige que los cuatro campos de procedencia sean todos NULL para identificadores nativos, o todos completos y status = `accepted` para identificadores de plataforma.
+- FK compuesta `(provider_platform_resolution_review_id, provider_platform_observation_id, network_id, provider_platform_resolution_status) -> provider_platform_resolution_reviews(id, provider_platform_observation_id, candidate_network_id, resolution_status)`, con `provider_platform_resolution_status TEXT NULL`; CHECK exige que los cuatro campos de procedencia sean todos NULL para identificadores nativos, o todos completos y status = `accepted` para identificadores de plataforma. CHECK adicional exige `identifier_type = 'asset_platform_id'` cuando hay procedencia de plataforma; un trigger verifica que `namespace` coincida con `data_sources.source_key` de `provider_data_source_id`.
 - UNIQUE candidato `(namespace, identifier_type, identifier_value)`, solo tras verificar que el namespace define unicidad en ese ámbito.
 - UNIQUE candidato `(id, network_id)` y las claves candidatas compuestas requeridas por las FKs anteriores.
 - No almacenar un chain ID aislado sin namespace ni asumir que es globalmente único. Una fila con identificador de proveedor no puede existir sin la observación y revisión accepted exactas.
@@ -760,7 +760,7 @@ La política rectora es `network-identity-resolution-policy.md`. Estas tablas am
 - `reported_chain_identifier NUMERIC NULL` (valor reportado por el proveedor; NULL se conserva como ausencia, no se imputa).
 - `observed_at TIMESTAMPTZ NOT NULL`
 - `evidence_reference TEXT NOT NULL`, `evidence_sha256 TEXT NULL`
-- UNIQUE `(data_source_id, provider_platform_id, observed_at)`; UNIQUE candidato `(id, data_source_id, provider_platform_id)`.
+- UNIQUE `(data_source_id, provider_platform_id, observed_at)`; UNIQUE candidato `(id, data_source_id)` y `(id, data_source_id, provider_platform_id)`.
 - Cada cambio observado crea otra fila. No se sobrescriben los metadatos históricos. Para CoinGecko, `provider_platform_id` corresponde a `asset_platforms[].id`; `reported_chain_identifier` corresponde a `chain_identifier`, que puede ser NULL.
 
 **`provider_platform_resolution_reviews`** — revisión append-only de la correspondencia de una observación de plataforma con una red CCI.
@@ -775,7 +775,7 @@ La política rectora es `network-identity-resolution-policy.md`. Estas tablas am
 - CHECK: `accepted` exige exactamente un `candidate_network_id`, evidencia, `reviewed_at` y `valid_from`; CHECK temporal `valid_until IS NULL OR (valid_from IS NOT NULL AND valid_until > valid_from)`.
 - UNIQUE candidato `(id, provider_platform_observation_id, candidate_network_id, resolution_status)`, para que la publicación referencie la revisión accepted exacta.
 - UNIQUE candidato parcial en `supersedes_review_id` (no NULL) para impedir dos sucesoras directas; la ausencia de ciclos y la misma clave se validan mediante función/trigger transaccional.
-- La sucesión debe enlazar observaciones de la misma plataforma y proveedor; no se permite que una observación nueva cree por sí sola un cambio de red. La nueva observación requiere revisión independiente.
+- La sucesión debe enlazar observaciones de la misma plataforma y proveedor; no se permite que una observación nueva cree por sí sola un cambio de red. Para que la FK compuesta de revisión use `(provider_platform_observation_id, data_source_id)`, `provider_platforms` declara UNIQUE candidato `(id, data_source_id)` además de la clave candidata que incluye el ID literal. La nueva observación requiere revisión independiente.
 - La publicación accepted y el alta del identificador externo en `network_identifiers` se realizan en una única transacción. Un identificador de proveedor se vincula por FK compuesta a la revisión, observación, red y status accepted exactos.
 
 **`network_identifiers` — reglas ampliadas**
