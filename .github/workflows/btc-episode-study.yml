@@ -9,6 +9,7 @@ on:
     paths:
       - "scripts/research/**"
       - "tests/test_btc_episode_study.py"
+      - "tests/test_episode_manifest.py"
       - ".github/workflows/btc-episode-study.yml"
       - "requirements-research.txt"
       - "migrations/postgresql/**"
@@ -43,7 +44,9 @@ jobs:
       - name: Instalar dependencia analítica fijada
         run: python -m pip install -r requirements-research.txt
       - name: Ejecutar pruebas con datos sintéticos y sin acceso a proveedores
-        run: python -m unittest discover -s tests -p 'test_btc_episode_study.py' -v
+        run: |
+          python -m unittest discover -s tests -p 'test_btc_episode_study.py' -v
+          python -m unittest discover -s tests -p 'test_episode_manifest.py' -v
 
   postgres-run-registry:
     runs-on: ubuntu-latest
