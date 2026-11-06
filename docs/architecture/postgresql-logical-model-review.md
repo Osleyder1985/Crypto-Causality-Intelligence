@@ -4,7 +4,7 @@
 - **Fecha:** 2026-11-06.
 - **Documento revisado:** `postgresql-logical-data-model.md`.
 - **Decisión relacionada:** ADR-001.
-- **PR de trabajo:** #15.
+- **PR de trabajo:** #16.
 
 ## 1. Dictamen
 
