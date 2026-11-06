@@ -373,7 +373,9 @@ def main(argv: list[str] | None = None) -> int:
                 input_manifest={
                     "market": "BTC/USDT",
                     "input_format": args.input_format,
+                    "input_basename": Path(args.input).name,
                     "input_sha256": _sha256_file(args.input),
+                    "episodes_basename": Path(args.episodes).name,
                     "episodes_sha256": _sha256_file(args.episodes),
                 },
             )
