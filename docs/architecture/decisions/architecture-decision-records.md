@@ -1,75 +1,75 @@
-# Architecture Decision Records
+# Registros de decisiones de arquitectura
 
-## Status
+## Estado
 
-Initial decisions for the Historical Market Intelligence data foundation. These decisions establish a starting point and may be revised through documented evidence and review.
+Decisiones iniciales para la base de datos de **Historical Market Intelligence**. Estas decisiones establecen un punto de partida y pueden revisarse mediante evidencias y revisión documentadas.
 
-## ADR-001: Strict point-in-time availability
+## ADR-001: Disponibilidad estricta point-in-time
 
-**Status:** Accepted
+**Estado:** Aceptada
 
-**Decision:** Research and backtesting datasets use only information demonstrably available by the analysis cutoff. Event time, publication time, capture time, ingestion time, and availability time remain distinct.
+**Decisión:** Los datasets de investigación y backtesting utilizan únicamente información cuya disponibilidad antes del corte de análisis pueda demostrarse. La hora del evento, publicación, captura, ingesta y disponibilidad se mantienen diferenciadas.
 
-**Rationale:** Prevent look-ahead bias and make historical simulations representative of information that could actually have been known.
+**Justificación:** Evitar el look-ahead bias y hacer que las simulaciones históricas representen la información que realmente podría haberse conocido.
 
-**Consequences:** Some records with unknown availability cannot be used in strict point-in-time analysis. Late-arriving data and revisions require explicit handling.
+**Consecuencias:** Algunos registros con disponibilidad desconocida no podrán utilizarse en análisis point-in-time estrictos. Los datos recibidos con retraso y las revisiones requieren un tratamiento explícito.
 
-**Alternatives considered:**
-- Treat event time as availability time: rejected because it backdates later information.
-- Use publication time universally: insufficient when publication timestamps are absent, unreliable, or not independently verifiable.
-- Use capture time universally: conservative and defensible, but may not represent public availability before platform capture. The selected policy records both and applies a declared rule.
+**Alternativas consideradas:**
+- Tratar la hora del evento como hora de disponibilidad: rechazada porque retrotrae información publicada posteriormente.
+- Utilizar siempre la hora de publicación: insuficiente cuando las marcas de publicación no existen, no son confiables o no pueden verificarse de forma independiente.
+- Utilizar siempre la hora de captura: es conservadora y defendible, pero puede no representar la disponibilidad pública anterior a la captura por la plataforma. La política seleccionada registra ambas y aplica una regla declarada.
 
-## ADR-002: Layered data organization
+## ADR-002: Organización de datos por capas
 
-**Status:** Accepted
+**Estado:** Aceptada
 
-**Decision:** Separate raw, normalized, research/evidence, and derived data responsibilities.
+**Decisión:** Separar las responsabilidades de los datos raw, normalized, de investigación/evidencias y derived.
 
-**Rationale:** Preserve original evidence, isolate provider-specific formats, and make transformations auditable.
+**Justificación:** Preservar la evidencia original, aislar los formatos específicos de cada proveedor y hacer auditables las transformaciones.
 
-**Consequences:** Requires lineage metadata and additional storage. The layers are logical boundaries and do not require separate services or databases.
+**Consecuencias:** Se requieren metadatos de linaje y almacenamiento adicional. Las capas son límites lógicos y no exigen servicios o bases de datos separados.
 
-**Alternatives considered:**
-- One mutable unified dataset: rejected because it obscures source fidelity and transformation history.
-- Separate distributed services for every layer: deferred as premature operational complexity.
+**Alternativas consideradas:**
+- Un único dataset unificado y mutable: rechazado porque oculta la fidelidad de las fuentes y el historial de transformaciones.
+- Servicios distribuidos separados para cada capa: pospuesto por introducir una complejidad operativa prematura.
 
-## ADR-003: Broad conceptual model, incremental implementation
+## ADR-003: Modelo conceptual amplio e implementación incremental
 
-**Status:** Accepted
+**Estado:** Aceptada
 
-**Decision:** Define identity, market observations, sources, documents, events, evidence, claims, hypotheses, and lineage in the conceptual model. Implement them incrementally according to validated priorities.
+**Decisión:** Definir identidad, observaciones de mercado, fuentes, documentos, eventos, evidencias, afirmaciones, hipótesis y linaje en el modelo conceptual. Implementarlos progresivamente según prioridades validadas.
 
-**Rationale:** The research domain requires relationships between market behavior and information while preserving the distinction between observations and interpretations.
+**Justificación:** El dominio de investigación requiere relacionar el comportamiento del mercado con la información, preservando la distinción entre observaciones e interpretaciones.
 
-**Consequences:** The initial schema may be broader than the first working ingestion pipeline. Physical schema and implementation sequencing remain open to refinement.
+**Consecuencias:** El esquema inicial puede ser más amplio que el primer pipeline funcional de ingesta. El esquema físico y la secuencia de implementación quedan abiertos a refinamiento.
 
-## ADR-004: Provider-neutral canonical model
+## ADR-004: Modelo canónico independiente del proveedor
 
-**Status:** Accepted
+**Estado:** Aceptada
 
-**Decision:** Use internal identifiers and canonical definitions while retaining source-native identifiers and values. Isolate provider-specific behavior behind adapters.
+**Decisión:** Utilizar identificadores internos y definiciones canónicas, conservando los identificadores y valores nativos de las fuentes. Aislar el comportamiento específico de cada proveedor detrás de adapters.
 
-**Rationale:** Avoid binding the research model to one exchange, vendor, or API.
+**Justificación:** Evitar que el modelo de investigación dependa de un único exchange, proveedor o API.
 
-**Consequences:** Entity resolution and identifier mapping require explicit governance, especially for ambiguous symbols, wrapped assets, and token migrations.
+**Consecuencias:** La resolución de entidades y el mapeo de identificadores requieren gobernanza explícita, especialmente para símbolos ambiguos, activos wrapped y migraciones de tokens.
 
-## ADR-005: No premature infrastructure selection
+## ADR-005: Evitar la selección prematura de infraestructura
 
-**Status:** Accepted
+**Estado:** Aceptada
 
-**Decision:** Defer final database, object storage, streaming, and deployment choices until workload, volume, latency, budget, retention, and query requirements are documented.
+**Decisión:** Posponer las decisiones definitivas sobre base de datos, object storage, streaming y despliegue hasta documentar los requisitos de carga, volumen, latencia, presupuesto, retención y consulta.
 
-**Rationale:** Select the simplest architecture that meets measured requirements rather than introducing infrastructure without evidence.
+**Justificación:** Seleccionar la arquitectura más sencilla que satisfaga los requisitos medidos, en lugar de introducir infraestructura sin evidencias.
 
-**Consequences:** This document defines logical responsibilities, not a final technology stack.
+**Consecuencias:** Este documento define responsabilidades lógicas, no un stack tecnológico definitivo.
 
-## Open questions
+## Cuestiones pendientes
 
-1. Which initial market coverage and candle intervals are required for the first research dataset?
-2. Which source categories can be legally and reliably retained, and at what historical depth?
-3. What are the expected ingestion frequency, data volume, and query patterns?
-4. What retention and reproducibility guarantees are required for raw source material?
-5. Which asset identity and market naming standards should be adopted or mapped?
-6. What policy should govern records whose publication time is known but whose actual public availability cannot be independently verified?
+1. ¿Qué cobertura inicial de mercados e intervalos de velas se necesita para el primer dataset de investigación?
+2. ¿Qué categorías de fuentes pueden conservarse legal y confiablemente, y con qué profundidad histórica?
+3. ¿Cuáles son la frecuencia de ingesta, el volumen de datos y los patrones de consulta esperados?
+4. ¿Qué garantías de retención y reproducibilidad se requieren para el material raw de las fuentes?
+5. ¿Qué estándares de identidad de activos y nomenclatura de mercados deben adoptarse o mapearse?
+6. ¿Qué política debe regir los registros cuya hora de publicación se conoce, pero cuya disponibilidad pública efectiva no puede verificarse de forma independiente?
 
-These questions should be answered before selecting production providers and infrastructure.
+Estas cuestiones deben resolverse antes de seleccionar proveedores e infraestructura de producción.
