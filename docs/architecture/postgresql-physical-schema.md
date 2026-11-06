@@ -59,6 +59,7 @@ Todas las tablas siguientes pertenecen a `cci`.
 | `data_sources` | `id` | Proveedores y sistemas de origen. |
 | `data_endpoints` | `id` | Productos y familias de endpoints. |
 | `source_usage_policies` | `id` | Evidencia versionada de condiciones de uso. |
+| `policy_evaluations` | `id` | Decisión concreta de aplicabilidad de una política a endpoint, uso e instante. |
 | `assets` | `id` | Identidad canónica de activos. |
 | `asset_identifiers` | `id` | Identificadores externos versionables. |
 | `market_instruments` | `id` | Instrumentos específicos de una fuente/mercado. |
@@ -118,7 +119,27 @@ La notación `NULL` indica nulabilidad. Los campos no listados como nullable son
 - `retention_rule TEXT NULL`, `notes TEXT NULL`
 - `created_at TIMESTAMPTZ NOT NULL`
 - FK compuesta `(data_endpoint_id, data_source_id) -> data_endpoints(id, data_source_id)`; cuando `data_endpoint_id` sea NULL, la política tendrá alcance de fuente/producto/tipo según `policy_scope`.
-- UNIQUE candidato `(id, data_source_id, data_endpoint_id)`.
+- UNIQUE candidato `(id, data_source_id)`.
+
+**`policy_evaluations`**
+- `id UUID PK`
+- `source_usage_policy_id UUID NOT NULL`
+- `data_source_id UUID NOT NULL FK data_sources(id)`
+- `data_endpoint_id UUID NOT NULL`
+- `data_type TEXT NOT NULL`
+- `intended_use TEXT NOT NULL`
+- `permission_status TEXT NOT NULL`: CHECK en `allowed, restricted, denied, unknown, pending_confirmation`.
+- `evaluated_at TIMESTAMPTZ NOT NULL`
+- `policy_valid_from_snapshot TIMESTAMPTZ NOT NULL`, `policy_valid_until_snapshot TIMESTAMPTZ NULL`
+- `evidence_sha256 TEXT NULL`
+- `decision_reference TEXT NULL` (identificador de la regla/protocolo que realizó la evaluación).
+- `created_at TIMESTAMPTZ NOT NULL`
+- FK compuesta `(source_usage_policy_id, data_source_id) -> source_usage_policies(id, data_source_id)`.
+- FK compuesta `(data_endpoint_id, data_source_id) -> data_endpoints(id, data_source_id)`.
+- UNIQUE candidato `(id, data_source_id, data_endpoint_id, intended_use)`.
+- CHECK `policy_valid_until_snapshot IS NULL OR policy_valid_until_snapshot > policy_valid_from_snapshot`.
+- Registro append-only. La evaluación materializa la decisión concreta, aunque la política de origen tenga alcance provider/product/data_type y no un endpoint específico.
+- El servicio de autorización comprueba que la política cubra la fuente, endpoint, tipo, uso e instante evaluado. La FK garantiza coherencia referencial, no la validez jurídica de la interpretación.
 - CHECK `valid_until IS NULL OR valid_until > valid_from`.
 - CHECK de coherencia: `policy_scope = 'endpoint'` requiere endpoint no nulo; los demás alcances pueden tenerlo nulo o usarlo para acotar el producto según la definición documental.
 - Filas append-only. Una modificación de condiciones crea una nueva política; no se actualiza evidencia histórica.
@@ -255,25 +276,17 @@ La FK compuesta impide combinar endpoint de una fuente con instrumento de otra. 
 - `data_endpoint_id UUID NULL`
 - `market_instrument_id UUID NULL`
 - `ingestion_request_id UUID NULL`
-- `source_usage_policy_id UUID NOT NULL`
-- `evaluated_intended_use TEXT NOT NULL`
-- `permission_status_snapshot TEXT NOT NULL`: CHECK en `allowed, restricted, denied, unknown, pending_confirmation`.
-- `permission_evaluated_at TIMESTAMPTZ NOT NULL`
-- `policy_valid_from_snapshot TIMESTAMPTZ NOT NULL`
-- `policy_valid_until_snapshot TIMESTAMPTZ NULL`
-- `policy_evidence_sha256 TEXT NULL`
+- `policy_evaluation_id UUID NOT NULL`
+- `evaluated_intended_use TEXT NOT NULL` (debe coincidir con la evaluación).
 - `created_at TIMESTAMPTZ NOT NULL`
 - FK `(data_endpoint_id, data_source_id) -> data_endpoints(id, data_source_id)`.
 - FK `(market_instrument_id, data_source_id) -> market_instruments(id, data_source_id)`.
 - FK `(ingestion_request_id, data_source_id, data_endpoint_id) -> ingestion_requests(id, data_source_id, data_endpoint_id)`. Esta FK se satisface cuando existe solicitud; sin solicitud, los tres campos pueden ser NULL.
-- FK `(source_usage_policy_id, data_source_id, data_endpoint_id) -> source_usage_policies(id, data_source_id, data_endpoint_id)` para políticas específicas de endpoint.
-- Para políticas de alcance superior sin endpoint, se requiere una segunda ruta FK/representación. La migración deberá resolverlo mediante una clave candidata `(id, data_source_id)` y una regla CHECK/FK alternativa, o mediante una tabla de decisión de política. No se acepta debilitar la integridad con una FK solo por id.
-- CHECK de coherencia temporal de snapshots.
-- Índices `(dataset_id)`, `(data_source_id, permission_evaluated_at DESC)` y `(source_usage_policy_id)`.
+- FK `(policy_evaluation_id, data_source_id, data_endpoint_id, evaluated_intended_use) -> policy_evaluations(id, data_source_id, data_endpoint_id, intended_use)`.
+- UNIQUE candidato en `policy_evaluations` para la clave compuesta anterior.
+- Índices `(dataset_id)`, `(data_source_id, created_at DESC)` y `(policy_evaluation_id)`.
 
-**Regla obligatoria de autorización:** una contribución a un dataset persistido debe tener una política evaluada y evidencia identificable. `source_usage_policy_id` es NOT NULL. El registro snapshot conserva qué estado se evaluó, para qué uso y cuándo. Solo `permission_status_snapshot = 'allowed'`, junto con vigencia, alcance y evaluación de aplicación satisfactorios, permite persistir. Los estados `restricted, denied, unknown, pending_confirmation` bloquean la escritura. La FK acredita identidad de la política, no la corrección jurídica de la decisión; esta última es responsabilidad del evaluador y del control previo a escritura.
-
-La FK compuesta de política queda expresamente marcada como punto que debe cerrarse antes de generar DDL: las políticas con alcance provider/product/data_type pueden no tener `data_endpoint_id`, mientras que una FK con NULL no valida igualdad del endpoint. La solución preferida es una entidad `policy_evaluations` que materialice la decisión aplicada a fuente + endpoint/tipo + uso, referencie la política y almacene el snapshot. Si se adopta, deberá sustituir los campos snapshot duplicados en `dataset_sources` y convertirse en la referencia obligatoria. No se generarán migraciones hasta resolver esta bifurcación.
+**Regla obligatoria de autorización:** cada contribución de origen a un dataset persistido referencia una evaluación concreta. El servicio solo permite escribir si la evaluación devuelve `allowed` y comprueba alcance, vigencia, tipo de dato, endpoint y uso. Los estados `restricted, denied, unknown, pending_confirmation` bloquean la persistencia. La evaluación y su snapshot son append-only; una nueva revisión genera otra evaluación. La FK impide mezclar fuentes/endpoints/usos entre contribución y evaluación, pero no sustituye el juicio de aplicabilidad que debe realizar el servicio de autorización.
 
 ### 4.5 Linaje, validaciones y transformaciones
 
@@ -355,6 +368,7 @@ Se crearán índices explícitos para FKs usadas en joins y patrones de consulta
 | `data_sources` | UNIQUE `source_key` | Resolución estable de fuente. |
 | `data_endpoints` | UNIQUE `(data_source_id, endpoint_key)`; UNIQUE `(id, data_source_id)` | Búsqueda por fuente y FKs compuestas. |
 | `source_usage_policies` | `(data_source_id, valid_from DESC)`; parcial por endpoint | Resolver política aplicable e historial. |
+| `policy_evaluations` | `(data_source_id, data_endpoint_id, intended_use, evaluated_at DESC)`; FK índices | Consultar decisión concreta por endpoint y uso. |
 | `asset_identifiers` | `(namespace, network, external_identifier)` | Resolver identificadores externos. |
 | `market_instruments` | `(data_source_id, native_symbol)`; UNIQUE candidato `(id, data_source_id)` | Catálogo por fuente y FKs compuestas. |
 | `instrument_metadata_versions` | `(market_instrument_id, observed_at DESC)` | Recuperar última observación conocida. |
@@ -414,13 +428,14 @@ Las migraciones serán versionadas, secuenciales, revisables y ejecutables desde
 1. Crear esquema `cci` y convenciones mínimas.
 2. Crear `data_sources`, `assets`, `ingestion_runs`, `transformations`, `research_experiments`.
 3. Crear `data_endpoints`, `source_usage_policies`, `asset_identifiers`, `market_instruments`.
-4. Crear `datasets` antes de las tablas que lo referencian.
-5. Crear `ingestion_requests`, `run_datasets`, `dataset_sources` y sus FKs compuestas una vez resuelto el diseño de evaluación de políticas.
-6. Crear `instrument_metadata_versions`, `data_validations`, `transformation_runs`.
-7. Crear `dataset_lineage` y `experiment_datasets`.
-8. Crear `research_hypotheses`.
-9. Crear índices adicionales, triggers de inmutabilidad y funciones de transición solo después de probar su necesidad.
-10. Registrar versión de migración y probar migración desde cero, actualización desde versión previa y reversión controlada.
+4. Crear `policy_evaluations` con sus FKs compuestas y reglas de evaluación.
+5. Crear `datasets` antes de las tablas que lo referencian.
+6. Crear `ingestion_requests`, `run_datasets` y `dataset_sources` con FK compuestas.
+7. Crear `instrument_metadata_versions`, `data_validations`, `transformation_runs`.
+8. Crear `dataset_lineage` y `experiment_datasets`.
+9. Crear `research_hypotheses`.
+10. Crear índices adicionales, triggers de inmutabilidad y funciones de transición solo después de probar su necesidad.
+11. Registrar versión de migración y probar migración desde cero, actualización desde versión previa y reversión controlada.
 
 Las migraciones no deben depender de datos reales ni de llamadas de red. La reversión de DDL no autoriza borrar artefactos Parquet; la base y el almacenamiento se gestionan por separado.
 
@@ -445,13 +460,12 @@ Las pruebas unitarias existentes de parsers (13/13 en la ejecución CI documenta
 
 ## 10. Decisiones pendientes que bloquean el DDL
 
-1. **Evaluación de políticas:** adoptar la entidad explícita `policy_evaluations` para representar la decisión efectiva (fuente, endpoint/tipo, uso, instante, política y snapshot) y referenciarla desde `dataset_sources`. Es la opción recomendada para garantizar integridad sin FK ambigua para políticas de distintos alcances.
-2. **Identidad de instrumentos:** cerrar las claves únicas con la matriz real de Binance Spot y Kraken Spot; no fijar una unicidad global por símbolo.
-3. **Identificadores externos temporales:** definir cómo se representan observaciones corregidas y periodos solapados antes de añadir índices únicos parciales definitivos.
-4. **Auditoría de cambios administrativos:** definir si se añade `audit_events` y qué operaciones requieren actor, motivo y evidencia.
-5. **Almacenamiento Parquet:** seleccionar el backend concreto antes de definir validación de URI, publicación atómica y reconciliación.
+1. **Identidad de instrumentos:** cerrar las claves únicas con la matriz real de Binance Spot y Kraken Spot; no fijar una unicidad global por símbolo.
+2. **Identificadores externos temporales:** definir cómo se representan observaciones corregidas y periodos solapados antes de añadir índices únicos parciales definitivos.
+3. **Auditoría de cambios administrativos:** definir si se añade `audit_events` y qué operaciones requieren actor, motivo y evidencia.
+4. **Almacenamiento Parquet:** seleccionar el backend concreto antes de definir validación de URI, publicación atómica y reconciliación.
 
-La primera decisión es un bloqueo P0. Las demás pueden cerrarse en iteraciones previas a las migraciones que dependan de ellas. No se debe generar DDL final mientras la integridad de evaluación de políticas permanezca ambigua.
+La evaluación de políticas queda modelada mediante `policy_evaluations`; sus reglas de aplicabilidad y el flujo de autorización deberán probarse antes de permitir escrituras. Las demás decisiones pueden cerrarse en iteraciones previas a las migraciones que dependan de ellas.
 
 ## 11. Secuencia de trabajo posterior
 
