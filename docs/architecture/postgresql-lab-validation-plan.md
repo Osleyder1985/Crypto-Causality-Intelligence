@@ -1,9 +1,9 @@
 # Plan de laboratorio para validación real de PostgreSQL
 
-- **Estado:** plan de ejecución; entorno local no disponible en la sesión actual.
-- **Fecha:** 2026-11-06.
+- **Estado:** primer incremento ejecutado correctamente; matriz PG-NET-01–PG-NET-25 pendiente.
+- **Fecha de actualización:** 2026-11-06.
 - **Ámbito:** validación del subsistema de identidad de plataformas y redes (NET-04/NET-05/NET-06).
-- **PR:** #16.
+- **PR:** #16 (permanece Draft).
 - **Restricción:** solo datos sintéticos; no se conecta a Binance, Kraken ni CoinGecko.
 
 ## 1. Objetivo
@@ -23,22 +23,22 @@ La auditoría restante del DDL deberá comprobar también las claves candidatas 
 
 ## 3. Disponibilidad del entorno
 
-En el entorno de ejecución disponible para esta sesión no se encontraron `psql`, servidor `postgres`, Docker, Podman ni el driver Python `psycopg`. Por tanto, no es posible afirmar ni ejecutar aquí pruebas contra un motor PostgreSQL.
+En el entorno interactivo de esta sesión no se encontraron `psql`, servidor `postgres`, Docker, Podman ni el driver Python `psycopg`. Por ello, la validación de motor se realizó mediante un servicio PostgreSQL efímero de GitHub Actions.
 
-La vía reproducible prevista es un servicio PostgreSQL efímero de GitHub Actions. El servicio se crea para cada ejecución, recibe únicamente fixtures sintéticos y se destruye al terminar. La CI de contratos Python seguirá separada de la CI de motor PostgreSQL.
+El servicio se crea para cada ejecución, recibe únicamente fixtures sintéticos y se destruye al terminar. La CI de contratos Python sigue separada de la CI de motor PostgreSQL.
 
 ## 4. Alcance del laboratorio
 
-El primer laboratorio incluirá únicamente las tablas y dependencias mínimas para PG-NET-01 a PG-NET-25:
+El primer laboratorio incluye únicamente las tablas y dependencias mínimas del subsistema:
 
 - `data_sources` y `networks` como catálogos mínimos sintéticos.
 - `provider_platforms`.
 - `provider_platform_observations`.
 - `provider_platform_resolution_reviews`.
-- `network_identifiers).
+- `network_identifiers`.
 - Índices, FKs, CHECKs, triggers, funciones y vistas del subsistema.
 
-El DDL residirá en `tests/postgresql/` y se ejecutará dentro de una base de datos de CI aislada. No se reutilizará como migración productiva sin una revisión y decisión separadas.
+El DDL reside en `tests/postgresql/` y se ejecuta dentro de una base de datos de CI aislada. No se reutilizará como migración productiva sin una revisión y decisión separadas.
 
 ## 5. Estrategia de pruebas
 
@@ -70,19 +70,53 @@ Una ejecución de tests Python sin conexión PostgreSQL no satisface estos crite
 - Consultas a APIs de proveedores.
 - Fusión del PR #16.
 
-## 9. Primer incremento implementado
+## 8. Primer incremento implementado y ejecutado
 
-Se añadieron los siguientes artefactos de laboratorio:
+Artefactos versionados en la rama `architecture/issue-14-storage-resynced`:
 
-- `tests/postgresql/001_provider_platform_lab.sql`: DDL aislado de las seis tablas mínimas, claves candidatas, FKs compuestas, CHECKs, índices parciales, triggers y vistas.
-- `tests/test_postgresql_lab.py`: pruebas iniciales de smoke/integración para JSONB number/null, unicidad de captura, resolución accepted, visibilidad pending, inmutabilidad, literal/namespace y procedencia parcial.
+- `tests/postgresql/001_provider_platform_lab.sql`: DDL aislado de las seis tablas mínimas, claves candidatas, FKs compuestas, CHECKs, índices, triggers y vistas.
+- `tests/test_postgresql_lab.py`: siete pruebas de integración contra PostgreSQL real.
 - `.github/workflows/postgresql-lab.yml`: workflow separado con servicio efímero PostgreSQL 16 y driver psycopg fijado.
 
-Durante la revisión estática del DDL se detectó una sutileza de SQL: en PostgreSQL un CHECK que evalúa a NULL no rechaza la fila. Se reforzó explícitamente la condición `provider_platform_resolution_status IS NOT NULL` para impedir que una procedencia parcialmente nula eluda la validación.
+### Evidencia de ejecución
 
-**Estado de ejecución:** los archivos están versionados en la rama, pero no hay todavía una ejecución de workflow PostgreSQL confirmada para el HEAD inspeccionado. Por tanto, el DDL y las pruebas aún no están validados en el motor. La suite inicial es un primer subconjunto de smoke tests; no sustituye la matriz completa PG-NET-01–PG-NET-25.
+- **Workflow:** [Pruebas reales de PostgreSQL — Run #7](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42291704131).
+- **Evento:** `pull_request`, asociado al PR #16.
+- **HEAD del PR:** `cf996df815b625a50f87f3520023edcade8a15cc`.
+- **Commit merge probado por el runner:** `5cb8fcae67accef15471d735183ac026fc79ace1`.
+- **Servicio:** imagen `postgres:16`; logs del servidor identifican PostgreSQL **16.15**.
+- **Job:** `postgresql-lab`, conclusión `success`.
+- **Resultado:** **7/7 pruebas aprobadas**.
 
+Casos ejecutados:
+1. JSON number y JSON null aceptados; string rechazado.
+2. `capture_id` único y `observed_at` repetible con capturas distintas.
+3. Una revisión accepted publica el mapping vigente.
+4. Una revisión `pending_review` es visible, pero no publica mapping.
+5. Los snapshots de observaciones son inmutables.
+6. La procedencia parcial de un identificador es rechazada.
+7. Literal y namespace de mapping incorrectos son rechazados.
 
-## 10. Próximo paso
+Los errores SQL visibles en los logs corresponden a las operaciones negativas esperadas por las pruebas; las siete pruebas finalizaron `ok`. No se detectó fallo de DDL, infraestructura ni de pruebas en esta ejecución.
 
-Implementar el DDL desechable del subsistema NET en `tests/postgresql/`, añadir fixtures sintéticos y crear un workflow separado de GitHub Actions con servicio PostgreSQL. Después se ejecutará la matriz PG-NET-01 a PG-NET-25 y se corregirá el SQL a partir de resultados observados.
+Durante la revisión estática del DDL se había detectado una sutileza de SQL: en PostgreSQL un CHECK que evalúa a NULL no rechaza la fila. Se reforzó explícitamente la condición `provider_platform_resolution_status IS NOT NULL`; la prueba de procedencia parcial confirma ahora el rechazo real del motor.
+
+### Límites de esta evidencia
+
+Esta ejecución valida el primer subconjunto de siete comportamientos en PostgreSQL 16.15. No demuestra todavía la matriz completa PG-NET-01–PG-NET-25, la concurrencia entre conexiones independientes, la atomicidad de publicación bajo fallos ni la consulta bitemporal. Tampoco valida el esquema completo de 32 entidades ni constituye una migración productiva.
+
+## 9. Próximo paso
+
+Ampliar el laboratorio hasta cubrir de forma trazable PG-NET-01–PG-NET-25. Prioridad inmediata:
+
+1. FKs compuestas y sus casos de identidad cruzada.
+2. Cadena de revisiones: raíz única, sucesor único, rechazo de bifurcación, sucesor no-head y retroceso temporal.
+3. Vigencia semiabierta y vistas con sucesora futura.
+4. Mapping accepted, rechazo de mapping no accepted o de una revisión que dejó de ser head.
+5. Atomicidad: rollback cuando falla la inserción del mapping después de insertar la revisión.
+6. Concurrencia con dos conexiones independientes y sincronización determinista; demostrar que no puede formarse una bifurcación.
+7. Consulta bitemporal con `valid_at` y `known_at`, una vez implementada en el laboratorio o en la capa de repositorio que corresponda.
+
+Cada caso tendrá identificador, precondiciones, operación, resultado esperado, SQLSTATE/constraint cuando aplique y prueba automatizada. Se corregirá el SQL a partir de evidencia de PostgreSQL, no de inferencias estáticas.
+
+El PR #16 permanece Draft. No se crearán migraciones productivas ni se fusionará el PR como parte de esta etapa.
