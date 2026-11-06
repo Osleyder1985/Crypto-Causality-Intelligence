@@ -1,8 +1,13 @@
+import contextlib
+import io
+import json
+import tempfile
 import unittest
+from pathlib import Path
 from copy import deepcopy
 from datetime import datetime, timezone
 
-from scripts.research.episode_manifest import ManifestError, validate_manifest
+from scripts.research.episode_manifest import ManifestError, main, validate_manifest
 
 
 def approved_manifest():
@@ -42,6 +47,16 @@ def approved_manifest():
 
 
 class EpisodeManifestTests(unittest.TestCase):
+    def test_standalone_cli_reports_approved_manifest(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "manifest.json"
+            path.write_text(json.dumps(approved_manifest()), encoding="utf-8")
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                result = main(["--manifest", str(path)])
+        self.assertEqual(result, 0)
+        self.assertIn("bullish=1, bearish=1", output.getvalue())
+
     def test_valid_manifest_normalizes_to_utc(self):
         episodes = validate_manifest(approved_manifest())
         self.assertEqual(episodes[0]["start"], datetime(2026, 1, 1, 5, tzinfo=timezone.utc))
