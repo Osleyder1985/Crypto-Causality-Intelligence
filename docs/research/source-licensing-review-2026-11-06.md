@@ -137,3 +137,11 @@ El repositorio sigue siendo público y el workflow de Run #13 archivó archivos 
 - Kraken Spot: uso personal privado no comercial no queda automáticamente incluido en la categoría de permiso comercial no personal; publicación de datasets en repositorio público no debe asumirse autorizada.
 - CoinGecko: persistencia nueva desactivada; retención de artefactos antiguos pendiente de validar contra el plan aplicable.
 - Repositorio público: no equivale a entorno de investigación privado. Los artefactos de Actions con valores deben considerarse expuestos públicamente mientras no se demuestre lo contrario.
+
+## Control preventivo aplicado en el workflow
+
+A partir del commit que introduce este control, el workflow de GitHub Actions publica únicamente `artifacts/issue-11/manifest.json`. Ya no adjunta respuestas JSON originales ni CSV normalizados de Binance o Kraken. Los datos descargados para calcular validaciones permanecen en el entorno efímero del runner y no se incorporan al artefacto publicado.
+
+El manifiesto conserva trazabilidad técnica (endpoints, parámetros, tiempos, estados HTTP, hashes, conteos y resultados de validación), pero no incluye los valores OHLCV. Se mantiene esta separación hasta aclarar los derechos de almacenamiento y exposición pública.
+
+**Evidencia histórica:** el artefacto creado por Run #13 se generó antes de este cambio y sí contiene archivos JSON/CSV de Binance/Kraken. No se ha eliminado ni alterado. La decisión sobre su eliminación debe tomarse expresamente, tras considerar la retención y la trazabilidad del experimento.
