@@ -1,8 +1,8 @@
 # Revisión técnica del modelo lógico de PostgreSQL
 
-- **Estado:** reconciliación documental v0.4 parcial; pendiente de validación automatizada y PostgreSQL real. No autoriza todavía migraciones.
+- **Estado:** reconciliación documental v0.5 parcial; pendiente de validación automatizada y PostgreSQL real. No autoriza todavía migraciones.
 - **Fecha:** 2026-11-06.
-- **Documentos:** `postgresql-logical-data-model.md` v0.4 y `postgresql-physical-schema.md` v0.3.
+- **Documentos:** `postgresql-logical-data-model.md` v0.5 y `postgresql-physical-schema.md` v0.4.
 - **Decisión relacionada:** ADR-001.
 - **PR de trabajo:** #16.
 
