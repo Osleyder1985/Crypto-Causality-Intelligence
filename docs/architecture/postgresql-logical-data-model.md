@@ -158,3 +158,12 @@ El diagrama muestra relaciones conceptuales; nulabilidad, claves compuestas y re
 ## 7. Fuera de alcance
 
 Este contrato no crea DDL, migraciones, infraestructura ni credenciales. Tampoco autoriza persistir datos de mercado de terceros. La siguiente fase, una vez aprobada la reconciliación documental, será generar DDL y probarlo en una instancia PostgreSQL temporal con datos exclusivamente sintéticos.
+
+
+### 3.2.1 Namespaces iniciales y separación de dominios externos
+
+La revisión documental de CoinGecko permite definir dos namespaces candidatos: `coingecko:coin_id` (global, destino `asset`, campo `id` de `/coins/list`) y `coingecko:contract_address` (por red, destino `representation`, direcciones bajo `platforms`). El primero identifica un registro del catálogo de CoinGecko, no una identidad económica universal; el segundo identifica una representación contractual y exige resolver el ID de plataforma a una entidad interna `networks` con evidencia independiente.
+
+Los campos Binance Spot `baseAsset`/`quoteAsset` y Kraken Spot `base_asset`/`quote_asset` son códigos de activo dentro de metadata de pares. No se aceptan como namespaces canónicos de activos sin evidencia adicional de unicidad, estabilidad y semántica. Los símbolos de pares y alias REST/WebSocket se registran en `market_instruments` e `instrument_identifiers`. Los códigos nativos permanecen como metadata del instrumento hasta una resolución explícita; nunca se deduce equivalencia por ticker.
+
+La aprobación de los namespaces CoinGecko es documental y no equivale a poblar `identity_namespaces`, validar todos los valores ni probar su estabilidad temporal. Véase la sección 9 de `postgresql-physical-schema.md` para la matriz de decisión y evidencia.
