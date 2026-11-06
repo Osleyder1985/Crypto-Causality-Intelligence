@@ -346,6 +346,32 @@ class BitemporalAssetIdentityResolutionTests(unittest.TestCase):
         self.assertEqual(result["resolution_status"], "unresolved")
         self.assertIsNone(result["canonical_asset_key"])
 
+    def test_later_recorded_correction_is_used_only_after_known_at(self):
+        correction = {
+            "namespace": "provider",
+            "native_code": "ABC",
+            "network": None,
+            "canonical_asset_key": "asset-corrected",
+            "status": "accepted",
+            "evidence_reference": "evidence:correction",
+            "valid_from": "2020-01-01T00:00:00Z",
+            "valid_until": "2024-01-01T00:00:00Z",
+            "recorded_at": "2025-01-01T00:00:00Z",
+        }
+        mappings = [self.mappings[0], correction]
+        before_correction = resolve_asset_identity(
+            "provider", "ABC", mappings,
+            valid_at="2022-06-01T00:00:00Z",
+            known_at="2024-12-31T23:59:59Z",
+        )
+        after_correction = resolve_asset_identity(
+            "provider", "ABC", mappings,
+            valid_at="2022-06-01T00:00:00Z",
+            known_at="2025-01-02T00:00:00Z",
+        )
+        self.assertEqual(before_correction["canonical_asset_key"], "asset-old")
+        self.assertEqual(after_correction["canonical_asset_key"], "asset-corrected")
+
     def test_validity_interval_is_half_open(self):
         result = resolve_asset_identity(
             "provider", "ABC", self.mappings,
