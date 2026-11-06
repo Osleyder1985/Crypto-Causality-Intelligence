@@ -1,475 +1,157 @@
 # Modelo lógico de PostgreSQL — Crypto Causality Intelligence
 
-- **Estado:** Propuesta revisada v0.2; no implementada.
+- **Estado:** contrato lógico reconciliado v0.3; propuesta, no implementada.
 - **Fecha:** 2026-11-06.
 - **Decisión relacionada:** ADR-001.
-- **Issue relacionado:** #14.
-- **PR de trabajo:** #16.
+- **Issue / PR:** #14 / #16.
+- **Especificación física vinculada:** `postgresql-physical-schema.md` v0.2.
 
 ## 1. Propósito y límites
 
-Este documento define el modelo lógico del catálogo relacional y del registro operativo. No define todavía migraciones SQL, índices físicos definitivos, despliegue ni credenciales.
+Este documento define el significado del dominio relacional y sus relaciones. La especificación física vinculada define los tipos PostgreSQL, nombres exactos de columnas, claves candidatas, restricciones, índices y reglas de implementación. Ambos documentos forman un único contrato: no se deben crear migraciones si divergen.
 
-PostgreSQL registrará fuentes, instrumentos, ejecuciones, solicitudes, datasets, validaciones, transformaciones y experimentos. Los valores históricos de mercado no se almacenarán como tablas OHLCV duplicadas: los datasets se conservarán en Parquet cuando la persistencia esté autorizada. DuckDB consultará esos archivos.
+PostgreSQL mantiene catálogo, identidades, metadata, operaciones, autorizaciones evaluadas, procedencia, linaje e investigación. Los valores históricos de mercado permanecen fuera de PostgreSQL: los datasets autorizados se almacenan en Parquet y se consultan con DuckDB. Las pruebas del esquema usarán exclusivamente datos sintéticos.
 
-El modelo debe permitir rastrear una conclusión de investigación hasta los datasets utilizados, las transformaciones aplicadas y las ejecuciones que obtuvieron los datos.
-
-## 2. Convenciones generales
-
-- Identificadores internos: UUID generados por la aplicación o por PostgreSQL.
-- Fechas y horas: TIMESTAMPTZ; los instantes canónicos se expresan en UTC.
-- Cantidades, precios y volúmenes: NUMERIC cuando se almacenen metadatos numéricos operativos. No usar FLOAT para valores financieros que requieran exactitud decimal.
-- Datos flexibles no centrales: JSONB, con validación de aplicación y sin secretos ni credenciales.
-- Estados: texto restringido mediante CHECK inicialmente; evitar enums nativos hasta que el vocabulario sea estable.
-- Nombres técnicos de tablas y columnas: snake_case, en inglés.
-- Los identificadores externos de proveedores se conservarán junto con el identificador interno; nunca se asumirá que un símbolo es globalmente único.
-- Las relaciones históricas relevantes no se sobrescribirán: los cambios de condiciones, metadatos o permisos deben quedar fechados y trazables.
-- Las tablas operativas incluirán created_at y, cuando tenga sentido, updated_at.
+## 2. Convenciones
 
-## 3. Dominios y entidades
+- Las tablas y columnas físicas usan los nombres exactos en inglés y `snake_case` indicados aquí y en la especificación física.
+- Identificadores internos UUID; instantes TIMESTAMPTZ interpretados en UTC; cantidades financieras NUMERIC; extensiones variables JSONB.
+- Los intervalos temporales de validez son semiabiertos `[valid_from, valid_until)`.
+- Se distinguen tiempo de validez del dato y tiempo en que CCI lo observó/registró.
+- Las entidades históricas y las decisiones de autorización son append-only desde los servicios autorizados.
+- No se infiere identidad por ticker, alias, chain ID aislado ni dirección sin namespace/red.
+- Las FKs históricas usan RESTRICT salvo excepción explícita para relaciones puramente asociativas.
+- Los vocabularios y restricciones físicas son los definidos en la especificación física; no se permiten vocabularios divergentes entre capas.
 
-### 3.1 Registro de fuentes
-
-#### data_sources
-
-Un proveedor o sistema de origen, por ejemplo Binance Spot, Kraken Spot o CoinGecko.
-
-Campos principales:
-- id UUID PK
-- source_key TEXT UNIQUE NOT NULL: identificador interno estable, por ejemplo binance_spot.
-- display_name TEXT NOT NULL
-- source_type TEXT NOT NULL: exchange, aggregator, on_chain, news, calendar u otro valor controlado.
-- documentation_url TEXT
-- status TEXT NOT NULL: active, paused, deprecated.
-- created_at TIMESTAMPTZ NOT NULL
-- updated_at TIMESTAMPTZ NOT NULL
+## 3. Catálogo canónico de entidades
 
-Restricciones: source_key no cambia cuando cambia el nombre comercial. Una fuente retirada no se elimina si existen ejecuciones o datasets que la referencian.
-
-#### data_endpoints
-
-Representa una interfaz o producto de datos concreto de una fuente. No equivale necesariamente a una URL única: puede representar una familia de endpoints con semántica y condiciones comunes.
-
-Campos principales:
-- id UUID PK
-- data_source_id UUID FK → data_sources.id
-- endpoint_key TEXT NOT NULL
-- base_url TEXT
-- resource_path TEXT
-- data_type TEXT NOT NULL: ohlcv, trades, ticker, market_metadata, aggregate_price, news, event, calendar, etc.
-- documentation_url TEXT
-- status TEXT NOT NULL
-- created_at TIMESTAMPTZ NOT NULL
+### 3.1 Fuentes, interfaces y políticas
 
-Restricción única: (data_source_id, endpoint_key). No guardar API keys, tokens ni cabeceras de autenticación.
+**`data_sources`** — proveedor o sistema de origen. Atributos: `id`, `source_key`, `display_name`, `source_type`, `documentation_url`, `status`, `created_at`, `updated_at`. `source_key` identifica de forma estable al proveedor.
 
-#### source_usage_policies
+**`data_endpoints`** — producto/interfaz de datos de una fuente. Atributos: `id`, `data_source_id`, `endpoint_key`, `base_url`, `resource_path`, `data_type`, `documentation_url`, `status`, `created_at`. Un endpoint pertenece a una sola fuente; `(data_source_id, endpoint_key)` es único y `(id, data_source_id)` es clave candidata para integridad compuesta.
 
-Registra la evidencia y el alcance de las condiciones de uso, almacenamiento y retención. Separa la fuente técnica de la autorización para un uso concreto.
-
-Campos principales:
-- id UUID PK
-- data_source_id UUID FK → data_sources.id
-- data_endpoint_id UUID NULL FK → data_endpoints.id
-- policy_scope TEXT NOT NULL: provider, product, endpoint o data_type.
-- intended_use TEXT NOT NULL: private_research, public_display, redistribution, commercial_use, etc.
-- permission_status TEXT NOT NULL: allowed, restricted, denied, unknown, pending_confirmation.
-- evidence_url TEXT
-- evidence_reference TEXT
-- reviewed_at TIMESTAMPTZ
-- valid_from TIMESTAMPTZ
-- valid_until TIMESTAMPTZ NULL
-- retention_rule TEXT
-- notes TEXT
-- created_at TIMESTAMPTZ NOT NULL
-
-Regla crítica: una política desconocida, vencida o no aplicable al endpoint, tipo de dato y uso solicitado no habilita persistencia. La evaluación debe ser de denegación por defecto: una política general del proveedor no se interpretará automáticamente como autorización específica del endpoint o producto. La aplicación debe resolver y registrar la política aplicable antes de escribir valores en Parquet. Los cambios de política generan nuevos registros; no se reescribe la evidencia anterior.
-
-### 3.2 Catálogo de activos e instrumentos
-
-#### assets
-
-Identidad canónica de un activo, independientemente de cómo lo nombre cada proveedor.
-
-Campos principales:
-- id UUID PK
-- canonical_code TEXT UNIQUE NOT NULL: código interno estable, no necesariamente el ticker.
-- display_name TEXT NOT NULL
-- asset_type TEXT NOT NULL: crypto, fiat, stablecoin, tokenized_asset u otro tipo controlado.
-- network TEXT NULL
-- external_identifiers JSONB NOT NULL DEFAULT '{}'
-- created_at TIMESTAMPTZ NOT NULL
-
-No se debe identificar un activo únicamente por su ticker. Cuando la identidad sea ambigua, se mantendrá sin resolver hasta disponer de evidencia suficiente.
-
-#### asset_identifiers
-
-Identificadores externos de un activo dentro del namespace de un proveedor o red.
-
-Campos principales:
-- id UUID PK
-- asset_id UUID FK → assets.id
-- namespace TEXT NOT NULL
-- network TEXT NULL
-- external_identifier TEXT NOT NULL
-- valid_from TIMESTAMPTZ NULL
-- valid_until TIMESTAMPTZ NULL
-- evidence_reference TEXT NULL
-- created_at TIMESTAMPTZ NOT NULL
-
-Restricción única propuesta: (namespace, network, external_identifier, valid_from). La aplicación debe validar solapamientos de vigencia; no asumir que un identificador externo sin namespace es globalmente único.
-
-#### market_instruments
-
-Representa un instrumento negociado en un mercado concreto de un proveedor.
-
-Campos principales:
-- id UUID PK
-- data_source_id UUID FK → data_sources.id
-- external_instrument_id TEXT NULL
-- native_symbol TEXT NOT NULL
-- base_asset_id UUID FK → assets.id
-- quote_asset_id UUID FK → assets.id
-- market_type TEXT NOT NULL: spot, perpetual, future, option u otro valor controlado.
-- instrument_status TEXT NOT NULL
-- valid_from TIMESTAMPTZ NULL
-- valid_until TIMESTAMPTZ NULL
-- metadata JSONB NOT NULL DEFAULT '{}'
-- created_at TIMESTAMPTZ NOT NULL
-
-La identidad de un instrumento es específica del proveedor y mercado. La restricción única definitiva debe considerar el segmento/mercado y la vigencia; no asumir que (data_source_id, native_symbol, market_type) basta para todos los proveedores. Se conserva la distinción entre cotizaciones como USD y USDT.
-
-#### instrument_metadata_versions
-
-Historial inmutable de observaciones y versiones de metadata de un instrumento.
-
-Campos principales:
-- id UUID PK
-- market_instrument_id UUID FK → market_instruments.id
-- source_dataset_id UUID NULL FK → datasets.id
-- observed_at TIMESTAMPTZ NOT NULL
-- valid_from TIMESTAMPTZ NULL
-- valid_until TIMESTAMPTZ NULL
-- instrument_status TEXT NOT NULL
-- metadata JSONB NOT NULL DEFAULT '{}'
-- created_at TIMESTAMPTZ NOT NULL
-
-Separar el tiempo de observación (cuándo el proyecto conoció el valor) del tiempo de validez (cuándo la regla aplica en el mercado). Las nuevas observaciones generan nuevas filas; no sobrescribir versiones anteriores.
-
-### 3.3 Adquisición y ejecución
-
-#### ingestion_runs
-
-Una ejecución lógica de adquisición, equivalente a un Run del proyecto.
-
-Campos principales:
-- id UUID PK
-- run_key TEXT UNIQUE NOT NULL: identificador legible, por ejemplo run-014.
-- started_at TIMESTAMPTZ NOT NULL
-- finished_at TIMESTAMPTZ NULL
-- status TEXT NOT NULL: queued, running, succeeded, partial, failed, cancelled.
-- code_version TEXT
-- protocol_version TEXT
-- configuration JSONB NOT NULL DEFAULT '{}'
-- trigger_type TEXT
-- notes TEXT
-- created_at TIMESTAMPTZ NOT NULL
-
-La configuración almacenada debe excluir secretos y datos sensibles. Una ejecución finalizada no se edita para cambiar su resultado; las correcciones se registran como nuevas ejecuciones o eventos de auditoría.
-
-#### ingestion_requests
-
-Una solicitud HTTP/API o intento de adquisición ejecutado dentro de un Run.
-
-Campos principales:
-- id UUID PK
-- ingestion_run_id UUID FK → ingestion_runs.id
-- data_endpoint_id UUID FK → data_endpoints.id
-- market_instrument_id UUID NULL FK → market_instruments.id
-- attempt_number INTEGER NOT NULL
-- requested_at TIMESTAMPTZ NOT NULL
-- completed_at TIMESTAMPTZ NULL
-- http_status INTEGER NULL
-- response_status TEXT NOT NULL: succeeded, rate_limited, rejected, timeout, network_error, invalid_response.
-- request_parameters JSONB NOT NULL DEFAULT '{}'
-- response_headers_safe JSONB NOT NULL DEFAULT '{}'
-- response_hash TEXT NULL
-- records_received BIGINT NULL
-- error_code TEXT NULL
-- error_message TEXT NULL
-
-No almacenar cuerpos de respuesta en PostgreSQL. Si una respuesta original puede conservarse legalmente, se gestiona como artefacto con política y procedencia explícitas. Restricción única propuesta: (ingestion_run_id, data_endpoint_id, attempt_number, requested_at).
-
-### 3.4 Catálogo de datasets y trazabilidad
-
-#### datasets
-
-Un artefacto lógico versionado, que puede corresponder a una captura original autorizada, datos normalizados o datos derivados.
-
-Campos principales:
-- id UUID PK
-- dataset_key TEXT NOT NULL
-- version INTEGER NOT NULL
-- stage TEXT NOT NULL: source_capture, normalized, derived, analytical_result.
-- data_format TEXT NOT NULL: parquet, json, csv u otro formato permitido por la política.
-- schema_name TEXT NOT NULL
-- schema_version TEXT NOT NULL
-- storage_uri TEXT NOT NULL: ruta lógica; no presupone almacenamiento cloud.
-- checksum_sha256 TEXT NOT NULL
-- file_size_bytes BIGINT NULL
-- record_count BIGINT NULL
-- time_start TIMESTAMPTZ NULL
-- time_end TIMESTAMPTZ NULL
-- created_at TIMESTAMPTZ NOT NULL
-- retention_status TEXT NOT NULL: active, pending_review, expired, deletion_pending, deleted.
-- metadata JSONB NOT NULL DEFAULT '{}'
-
-Restricciones: (dataset_key, version) único; tamaño y conteo no negativos; time_end posterior a time_start cuando ambos existan. El registro puede conservarse como tombstone después de eliminar un archivo, sin retener los valores eliminados.
-
-#### run_datasets
-
-Relación explícita entre una ejecución y los datasets que produjo o registró. Es independiente de la procedencia de proveedores y del linaje de transformaciones.
-
-Campos principales:
-- ingestion_run_id UUID FK → ingestion_runs.id
-- dataset_id UUID FK → datasets.id
-- dataset_role TEXT NOT NULL: source_capture, normalized, validation_report, derived, analytical_result.
-- created_at TIMESTAMPTZ NOT NULL
-
-Clave primaria: (ingestion_run_id, dataset_id, dataset_role). El vocabulario de roles se restringirá mediante CHECK o catálogo controlado.
-
-#### dataset_sources
-
-Relación muchos-a-muchos entre datasets y las fuentes/endpoints que contribuyeron a ellos.
-
-Campos:
-- id UUID PK
-- dataset_id UUID FK → datasets.id
-- data_source_id UUID FK → data_sources.id
-- data_endpoint_id UUID NULL FK → data_endpoints.id
-- market_instrument_id UUID NULL FK → market_instruments.id
-- ingestion_request_id UUID NULL FK → ingestion_requests.id
-- source_usage_policy_id UUID NULL FK → source_usage_policies.id
-- evaluated_intended_use TEXT NOT NULL
-- permission_evaluated_at TIMESTAMPTZ NOT NULL
-- Restricción de unicidad parcial para evitar duplicar la misma relación cuando exista ingestion_request_id; las filas sin solicitud se controlan mediante una clave de procedencia explícita.
-
-La política referenciada debe ser la que la aplicación evaluó para esa contribución y uso. La FK no demuestra por sí sola que la política estuviera vigente o autorizara la persistencia; la decisión debe comprobarse antes de escribir el artefacto y conservar evidencia suficiente para auditarla.
-
-Permite datasets derivados de más de una fuente sin ocultar la procedencia. No se mezclan proveedores en la capa original; una combinación, si se realiza, pertenece a la capa derivada y documenta cada entrada.
-
-#### dataset_lineage
-
-Registra relaciones entre datasets de entrada y salida.
-
-Campos:
-- input_dataset_id UUID FK → datasets.id
-- output_dataset_id UUID FK → datasets.id
-- transformation_run_id UUID FK → transformation_runs.id
-- created_at TIMESTAMPTZ NOT NULL
-
-Clave primaria compuesta: (input_dataset_id, output_dataset_id, transformation_run_id). Se prohíbe que un dataset sea su propio antecesor. La aplicación debe prevenir ciclos en el grafo de linaje.
-
-### 3.5 Validaciones y transformaciones
-
-#### data_validations
-
-Una ejecución de un conjunto de controles sobre un dataset.
-
-Campos principales:
-- id UUID PK
-- dataset_id UUID FK → datasets.id
-- ingestion_run_id UUID NULL FK → ingestion_runs.id
-- validation_suite TEXT NOT NULL
-- validation_version TEXT NOT NULL
-- status TEXT NOT NULL: passed, failed, warning, skipped.
-- checked_at TIMESTAMPTZ NOT NULL
-- checks_total INTEGER NOT NULL
-- checks_passed INTEGER NOT NULL
-- checks_failed INTEGER NOT NULL
-- report_uri TEXT NULL
-- report_hash TEXT NULL
-- details JSONB NOT NULL DEFAULT '{}'
-
-Los detalles deben permitir distinguir duplicados, huecos, desalineación temporal, cobertura, violaciones OHLC/volumen y otros controles aplicables. Los resultados de validación son históricos y no se sobrescriben.
-
-#### transformations
-
-Define una transformación versionada, no cada ejecución individual.
-
-Campos principales:
-- id UUID PK
-- transformation_key TEXT NOT NULL
-- version TEXT NOT NULL
-- description TEXT NOT NULL
-- code_reference TEXT
-- parameters_schema JSONB NOT NULL DEFAULT '{}'
-- created_at TIMESTAMPTZ NOT NULL
-
-Restricción única: (transformation_key, version).
-
-#### transformation_runs
-
-Una ejecución concreta de una transformación.
-
-Campos principales:
-- id UUID PK
-- transformation_id UUID FK → transformations.id
-- ingestion_run_id UUID NULL FK → ingestion_runs.id
-- started_at TIMESTAMPTZ NOT NULL
-- finished_at TIMESTAMPTZ NULL
-- status TEXT NOT NULL
-- parameters JSONB NOT NULL DEFAULT '{}'
-- code_commit TEXT
-- error_summary TEXT NULL
-
-Los datasets de entrada y salida se relacionan mediante dataset_lineage, que referencia la ejecución concreta de la transformación (transformation_run_id), no solamente su definición versionada.
-
-### 3.6 Investigación
-
-#### research_experiments
-
-Una investigación reproducible con objetivo, protocolo y estado propios.
-
-Campos principales:
-- id UUID PK
-- experiment_key TEXT UNIQUE NOT NULL
-- title TEXT NOT NULL
-- objective TEXT NOT NULL
-- methodology_version TEXT
-- status TEXT NOT NULL: planned, running, completed, inconclusive, rejected.
-- started_at TIMESTAMPTZ NULL
-- finished_at TIMESTAMPTZ NULL
-- code_version TEXT
-- protocol JSONB NOT NULL DEFAULT '{}'
-- conclusion_summary TEXT NULL
-- created_at TIMESTAMPTZ NOT NULL
-
-#### research_hypotheses
-
-Hipótesis explícitas asociadas a un experimento.
-
-Campos principales:
-- id UUID PK
-- experiment_id UUID FK → research_experiments.id
-- hypothesis_key TEXT NOT NULL
-- statement TEXT NOT NULL
-- alternative_explanations JSONB NOT NULL DEFAULT '[]'
-- falsification_criteria TEXT
-- status TEXT NOT NULL: proposed, testing, supported, not_supported, inconclusive.
-- created_at TIMESTAMPTZ NOT NULL
-
-Restricción única: (experiment_id, hypothesis_key). El estado supported no debe interpretarse como prueba causal automática.
-
-#### experiment_datasets
-
-Asocia los datasets utilizados en un experimento y su función.
-
-Campos:
-- experiment_id UUID FK → research_experiments.id
-- dataset_id UUID FK → datasets.id
-- dataset_role TEXT NOT NULL: input, benchmark, validation, output.
-- created_at TIMESTAMPTZ NOT NULL
-
-Clave primaria: (experiment_id, dataset_id, dataset_role).
-
-## 4. Integridad relacional y restricciones transversales
-
-Las claves foráneas simples no bastan para garantizar que una solicitud, su endpoint y su instrumento pertenezcan a la misma fuente. El diseño físico deberá incorporar claves candidatas compuestas y FKs compuestas (por ejemplo, (id, data_source_id)) donde corresponda, o eliminar atributos redundantes cuya consistencia no pueda imponerse.
-
-En particular:
-- Una ingestion_request debe vincular un endpoint y, si aplica, un instrumento del mismo data_source.
-- Cada dataset_sources debe vincular una contribución coherente: fuente, endpoint, instrumento, solicitud y política evaluada deben ser compatibles.
-- Las relaciones de un dataset derivado con varias fuentes se representan mediante varias filas de procedencia, no mediante una fuente única ficticia.
-- Definir ON DELETE RESTRICT para entidades históricas y reservar CASCADE para relaciones puente cuya eliminación no destruya evidencia.
-- Añadir CHECK para vigencias, tiempos de inicio/fin, intentos positivos y conteos/tamaños no negativos.
-- Los ciclos del grafo dataset_lineage no se evitan con FKs; deben prevenirse mediante lógica transaccional explícita.
-- La aplicación debe validar transiciones de estado y evitar reabrir ejecuciones finalizadas.
-
-## 5. Relaciones principales
-
-- Una fuente tiene muchos endpoints, políticas, instrumentos y solicitudes indirectamente asociadas.
-- Un endpoint pertenece a una fuente.
-- Un instrumento pertenece a una fuente y referencia un activo base y uno cotizado.
-- Un Run contiene muchas solicitudes.
-- Una solicitud utiliza un endpoint y puede referirse a un instrumento.
-- Un Run puede producir cero o muchos datasets mediante `run_datasets`.
-- Un dataset puede tener varios orígenes y políticas evaluadas mediante `dataset_sources`, y participar en varias transformaciones e investigaciones.
-- Los identificadores externos de activos se conservan en `asset_identifiers`; las observaciones históricas de metadata de instrumentos se conservan en `instrument_metadata_versions`.
-- Una validación evalúa un dataset.
-- Una transformación tiene muchas ejecuciones.
-- Una ejecución de transformación relaciona datasets de entrada y salida mediante el linaje.
-- Un experimento contiene hipótesis y utiliza datasets.
-
-## 5. Diagrama entidad-relación
+**`source_usage_policies`** — evidencia versionada de condiciones de uso. Atributos: `id`, `data_source_id`, `data_endpoint_id` nullable, `policy_scope`, `scope_reference` nullable, `intended_use`, `permission_status`, `evidence_url`, `evidence_reference`, `evidence_sha256`, `reviewed_at`, `valid_from`, `valid_until`, `retention_rule`, `notes`, `created_at`. El alcance puede ser proveedor, producto/plan, endpoint o tipo de dato. Para `product`, `scope_reference` identifica el producto/plan mediante una clave estable; para `data_type`, contiene el valor canónico del tipo; para `provider` y `endpoint` queda NULL. En alcance endpoint, `data_endpoint_id` debe identificar el endpoint de la misma fuente. Una modificación de evidencia crea otra fila.
+
+**`policy_evaluations`** — decisión inmutable de aplicabilidad de una política a una contribución concreta. Atributos: `id`, `source_usage_policy_id`, `data_source_id`, `data_endpoint_id`, `data_type`, `intended_use`, `permission_status`, `evaluated_at`, `policy_valid_from_snapshot`, `policy_valid_until_snapshot`, `evidence_sha256`, `decision_reference`, `created_at`. Materializa el resultado, el tipo de dato, el uso, el endpoint y el snapshot de vigencia. La evaluación debe comprobar que la política cubra fuente, producto/plan cuando aplique, endpoint, tipo, uso e instante. Solo `allowed` habilita persistencia; la FK no sustituye esta decisión de negocio.
+
+### 3.2 Activos, redes e instrumentos
+
+**`assets`** — identidad canónica del activo económico/técnico, no de una representación concreta. Atributos: `id`, `canonical_code`, `display_name`, `asset_type`, `issuer_key`, `issuer_name`, `external_identifiers`, `created_at`. No contiene `network`.
+
+**`networks`** — identidad canónica de una red. Atributos: `id`, `network_key`, `display_name`, `network_family`, `environment`, `created_at`.
+
+**`network_identifiers`** — identificadores namespaced de una red. Atributos: `id`, `network_id`, `namespace`, `identifier_type`, `identifier_value`, `observed_at`, `evidence_reference`. Un chain ID no es global sin namespace.
+
+**`asset_representations`** — unidad nativa o despliegue contractual de un activo en una red. Atributos: `id`, `asset_id`, `network_id`, `representation_kind`, `native_asset_key`, `contract_address`, `address_normalization`, `token_standard`, `decimals`, `issuer_key`, `valid_from`, `valid_until`, `observed_at`, `evidence_reference`. Una representación pertenece a un activo y una red; los datos nativos y contractuales son mutuamente excluyentes.
+
+**`asset_relationships`** — relación dirigida y evidenciada entre activos distintos. Atributos: `id`, `subject_asset_id`, `object_asset_id`, `relationship_type`, `directionality`, `valid_from`, `valid_until`, `evidence_reference`, `observed_at`, `recorded_at`. No establece equivalencia ni transitividad automática.
+
+**`asset_identity_resolution_reviews`** — historial de decisiones de identidad. Atributos: `id`, `namespace`, `network_id`, `external_identifier`, `candidate_asset_id`, `candidate_asset_representation_id`, `resolution_status`, `evidence_reference`, `decision_reference`, `observed_at`, `reviewed_at`, `recorded_at`, `valid_from`, `valid_until`, `supersedes_review_id`. Una decisión aceptada apunta exactamente a un activo o representación, nunca a ambos; una ambigüedad no se publica como mapping aceptado.
+
+**`asset_identifiers`** — mapping externo aceptado a nivel de activo. Atributos: `id`, `asset_id`, `namespace`, `external_identifier`, `valid_from`, `valid_until`, `recorded_at`, `evidence_reference`, `resolution_review_id`.
+
+**`asset_representation_identifiers`** — mapping externo aceptado a nivel de representación. Atributos: `id`, `asset_representation_id`, `namespace`, `external_identifier`, `valid_from`, `valid_until`, `recorded_at`, `evidence_reference`, `resolution_review_id`.
+
+**`market_instruments`** — identidad de un instrumento de mercado de una fuente. Atributos: `id`, `data_source_id`, `source_instrument_id`, `native_symbol`, `native_base_asset_code`, `native_quote_asset_code`, `base_asset_id`, `quote_asset_id`, `canonical_symbol`, `market_type`, `created_at`. Los activos canónicos base/cotizado pueden permanecer sin resolver (ambos NULL); si se resuelven, ambos deben existir y ser distintos. USD y USDT son activos diferentes.
+
+**`instrument_identifiers`** — alias nativos por namespace/interfaz. Atributos: `id`, `market_instrument_id`, `identifier_namespace`, `identifier_value`, `is_primary`, `valid_from`, `valid_until`, `observed_at`, `created_at`. Los alias REST/WebSocket no se colapsan sin evidencia.
+
+**`instrument_metadata_versions`** — observaciones históricas de metadata. Atributos: `id`, `market_instrument_id`, `source_dataset_id`, `observed_at`, `valid_from`, `valid_until`, `source_status`, `normalized_status`, `price_precision`, `quantity_precision`, `pair_decimals`, `lot_decimals`, `provider_metadata`, `mapping_version`, `schema_version`, `created_at`. `observed_at` es tiempo de conocimiento; `valid_from/valid_until` describen vigencia declarada.
+
+**`instrument_trading_rules`** — reglas de negociación vinculadas a una versión de metadata. Atributos: `id`, `metadata_version_id`, `rule_namespace`, `rule_scope`, `parameters`, `applicability`, `created_at`. Los parámetros decimales se conservan como strings; no se sintetiza un step universal si el proveedor distingue ámbitos.
+
+### 3.3 Ejecución y adquisición
+
+**`ingestion_runs`** — ejecución lógica. Atributos: `id`, `run_key`, `started_at`, `finished_at`, `status`, `code_version`, `protocol_version`, `configuration`, `trigger_type`, `notes`, `created_at`. Una ejecución terminal no se reabre.
+
+**`ingestion_requests`** — intento de adquisición de un endpoint dentro de un Run. Atributos: `id`, `ingestion_run_id`, `data_source_id`, `data_endpoint_id`, `market_instrument_id`, `attempt_number`, `requested_at`, `completed_at`, `http_status`, `response_status`, `request_parameters`, `response_headers_safe`, `response_hash`, `records_received`, `error_code`, `error_message`, `created_at`. La fuente redundante permite imponer FKs compuestas que impiden mezclar endpoint e instrumento de proveedores distintos. No se almacenan cuerpos de respuesta ni secretos.
+
+### 3.4 Datasets, procedencia y linaje
+
+**`datasets`** — artefacto lógico versionado. Atributos: `id`, `dataset_key`, `version`, `stage`, `data_format`, `schema_name`, `schema_version`, `storage_uri`, `checksum_sha256`, `file_size_bytes`, `record_count`, `time_start`, `time_end`, `created_at`, `retention_status`, `metadata`. La versión publicada es inmutable; la eliminación de Parquet puede dejar un tombstone mínimo permitido.
+
+**`run_datasets`** — asociación entre Run y dataset. Atributos: `ingestion_run_id`, `dataset_id`, `dataset_role`, `created_at`. Su PK es `(ingestion_run_id, dataset_id, dataset_role)`. No sustituye ni la procedencia ni el linaje.
+
+**`dataset_sources`** — contribución de una fuente a un dataset. Atributos: `id`, `dataset_id`, `data_source_id`, `data_endpoint_id`, `data_type`, `market_instrument_id`, `ingestion_request_id`, `policy_evaluation_id`, `evaluated_intended_use`, `created_at`. Cada fila identifica una contribución coherente y referencia la evaluación concreta de la misma fuente, endpoint, tipo de dato y uso. `data_type` forma parte de la clave referencial compuesta hacia `policy_evaluations`; no puede quedar implícito ni diferir de la evaluación. Para una contribución sin solicitud, `ingestion_request_id` es NULL; cuando existe, su fuente y endpoint deben coincidir.
+
+**`dataset_lineage`** — dependencia dirigida entre datasets. Atributos: `input_dataset_id`, `output_dataset_id`, `transformation_run_id`, `created_at`. PK compuesta por las tres claves; se prohíben auto-relaciones y los ciclos se previenen transaccionalmente.
+
+### 3.5 Validación, transformación e investigación
+
+**`data_validations`** — resultado histórico de una suite sobre un dataset. Atributos: `id`, `dataset_id`, `ingestion_run_id`, `validation_suite`, `validation_version`, `status`, `checked_at`, `checks_total`, `checks_passed`, `checks_failed`, `report_uri`, `report_hash`, `details`, `created_at`.
+
+**`transformations`** — definición versionada. Atributos: `id`, `transformation_key`, `version`, `description`, `code_reference`, `parameters_schema`, `created_at`.
+
+**`transformation_runs`** — ejecución concreta. Atributos: `id`, `transformation_id`, `ingestion_run_id`, `started_at`, `finished_at`, `status`, `parameters`, `code_commit`, `error_summary`, `created_at`.
+
+**`research_experiments`** — experimento reproducible. Atributos: `id`, `experiment_key`, `title`, `objective`, `methodology_version`, `status`, `started_at`, `finished_at`, `code_version`, `protocol`, `conclusion_summary`, `created_at`.
+
+**`research_hypotheses`** — hipótesis y criterios de falsación. Atributos: `id`, `experiment_id`, `hypothesis_key`, `statement`, `alternative_explanations`, `falsification_criteria`, `status`, `created_at`.
+
+**`experiment_datasets`** — asociación experimento/dataset/rol. Atributos: `experiment_id`, `dataset_id`, `dataset_role`, `created_at`.
+
+## 4. Relaciones e integridad que forman parte del contrato
+
+1. Fuente → endpoints, políticas, instrumentos y solicitudes; cada endpoint e instrumento pertenece a una fuente.
+2. Política → evaluaciones; cada evaluación referencia la política de la misma fuente y el endpoint de esa fuente.
+3. Evaluación → contribución de dataset mediante coincidencia exacta de fuente, endpoint, tipo de dato y uso previsto.
+4. Run → solicitudes y, mediante `run_datasets`, datasets producidos/registrados.
+5. Activo → representaciones; representación → red; red → identificadores namespaced.
+6. Instrumento → versiones de metadata → reglas de negociación.
+7. Dataset → procedencias, validaciones, linaje y asociaciones con experimentos.
+8. Transformación → ejecuciones; cada arista de linaje referencia una ejecución concreta.
+9. Revisión de identidad aceptada → mapping de activo o representación del mismo destino.
+10. Las FKs compuestas de la especificación física son obligatorias cuando garantizan coherencia de fuente/endpoint/instrumento/política. No pueden sustituirse por validaciones solo en Python.
+
+Las restricciones locales incluyen intervalos temporales válidos, marcas de tiempo de finalización no anteriores al inicio, intentos positivos, contadores y tamaños no negativos, hashes SHA-256 con formato definido y estados dentro de vocabularios controlados. Los solapamientos temporales, ciclos de linaje, transiciones de estado y decisiones de aplicabilidad requieren lógica transaccional adicional cuando un CHECK/FK no sea suficiente.
+
+## 5. Diagrama de relaciones
 
 ```mermaid
 erDiagram
     DATA_SOURCES ||--o{ DATA_ENDPOINTS : exposes
     DATA_SOURCES ||--o{ SOURCE_USAGE_POLICIES : governed_by
+    SOURCE_USAGE_POLICIES ||--o{ POLICY_EVALUATIONS : evaluated_as
+    DATA_ENDPOINTS ||--o{ POLICY_EVALUATIONS : scoped_to
     DATA_SOURCES ||--o{ MARKET_INSTRUMENTS : lists
+    ASSETS ||--o{ ASSET_REPRESENTATIONS : represented_by
+    NETWORKS ||--o{ ASSET_REPRESENTATIONS : hosts
+    NETWORKS ||--o{ NETWORK_IDENTIFIERS : identified_by
     ASSETS ||--o{ ASSET_IDENTIFIERS : identified_by
-    ASSETS ||--o{ MARKET_INSTRUMENTS : base_asset
-    ASSETS ||--o{ MARKET_INSTRUMENTS : quote_asset
-    MARKET_INSTRUMENTS ||--o{ INSTRUMENT_METADATA_VERSIONS : observes
-    DATA_ENDPOINTS ||--o{ INGESTION_REQUESTS : requested_from
-    MARKET_INSTRUMENTS o|--o{ INGESTION_REQUESTS : concerns
+    ASSET_REPRESENTATIONS ||--o{ ASSET_REPRESENTATION_IDENTIFIERS : identified_by
+    ASSETS ||--o{ ASSET_RELATIONSHIPS : related
+    MARKET_INSTRUMENTS ||--o{ INSTRUMENT_IDENTIFIERS : aliases
+    MARKET_INSTRUMENTS ||--o{ INSTRUMENT_METADATA_VERSIONS : observed
+    INSTRUMENT_METADATA_VERSIONS ||--o{ INSTRUMENT_TRADING_RULES : defines
     INGESTION_RUNS ||--o{ INGESTION_REQUESTS : contains
-    INGESTION_RUNS ||--o{ RUN_DATASETS : produces
-    DATASETS ||--o{ RUN_DATASETS : registered_in
-    DATASETS ||--o{ DATASET_SOURCES : has_provenance
-    DATA_SOURCES ||--o{ DATASET_SOURCES : contributes
-    SOURCE_USAGE_POLICIES o|--o{ DATASET_SOURCES : authorizes
-    DATASETS ||--o{ DATA_VALIDATIONS : validated_by
-    TRANSFORMATIONS ||--o{ TRANSFORMATION_RUNS : executed_as
-    DATASETS ||--o{ DATASET_LINEAGE : input_or_output
+    DATA_ENDPOINTS ||--o{ INGESTION_REQUESTS : requested_from
+    INGESTION_RUNS ||--o{ RUN_DATASETS : registers
+    DATASETS ||--o{ RUN_DATASETS : registered
+    DATASETS ||--o{ DATASET_SOURCES : provenance
+    POLICY_EVALUATIONS ||--o{ DATASET_SOURCES : authorizes
+    DATASETS ||--o{ DATA_VALIDATIONS : validated
+    TRANSFORMATIONS ||--o{ TRANSFORMATION_RUNS : executed
     TRANSFORMATION_RUNS ||--o{ DATASET_LINEAGE : produces
+    DATASETS ||--o{ DATASET_LINEAGE : input_output
     RESEARCH_EXPERIMENTS ||--o{ RESEARCH_HYPOTHESES : tests
     RESEARCH_EXPERIMENTS ||--o{ EXPERIMENT_DATASETS : uses
-    DATASETS ||--o{ EXPERIMENT_DATASETS : included_in
+    DATASETS ||--o{ EXPERIMENT_DATASETS : included
 ```
 
-El diagrama es conceptual. La cardinalidad opcional y las restricciones compuestas deberán concretarse en el diseño físico y las migraciones.
+El diagrama muestra relaciones conceptuales; nulabilidad, claves compuestas y restricciones exactas se definen en la especificación física.
 
-## 6. Reglas de integridad transversales
+## 6. Criterios de aceptación previos a migraciones
 
-1. No insertar un dataset con valores de proveedor si el estado de autorización aplicable no permite la persistencia.
-2. No borrar en cascada ejecuciones, políticas, validaciones ni metadatos de procedencia que deban conservarse para auditoría.
-3. La eliminación de archivos Parquet debe seguir la política de retención del proveedor y registrar el resultado en el catálogo.
-4. Un dataset publicado en el catálogo debe tener checksum, esquema, versión y ubicación lógica.
-5. Un dataset derivado debe tener linaje suficiente para identificar todas sus entradas y transformaciones.
-6. Una ejecución no puede finalizar antes de su inicio; los contadores de validación no pueden ser negativos.
-7. Los estados y transiciones se validarán en la capa de aplicación y, cuando sea apropiado, mediante restricciones SQL.
-8. La ausencia de datos no se convertirá automáticamente en cero ni se imputará sin una transformación explícita.
-9. Los valores de mercado deben mantener su unidad, activo cotizado, intervalo y semántica original.
-10. No se almacenarán claves API, contraseñas, tokens ni cabeceras sensibles en columnas JSONB, mensajes de error o manifiestos.
+- El inventario de entidades de este documento coincide exactamente con el inventario físico.
+- Cada atributo lógico tiene correspondencia física; no quedan atributos obsoletos como `assets.network` ni `dataset_sources.source_usage_policy_id`.
+- `dataset_sources.data_type` forma parte de la FK compuesta a `policy_evaluations`.
+- El alcance de producto/plan y de tipo de dato en `source_usage_policies` tiene referencia estructurada y CHECKs coherentes.
+- Las FKs compuestas impiden cruces incompatibles entre fuentes, endpoints, instrumentos, solicitudes y evaluaciones.
+- El diagrama, el diccionario lógico y la especificación física describen las mismas relaciones.
+- Las reglas temporales, estados, borrado e inmutabilidad están definidas con claridad.
+- La implementación desde cero supera pruebas reales en PostgreSQL con fixtures sintéticos. Las pruebas Python de contratos no satisfacen este criterio.
 
-## 7. Decisiones físicas aplazadas
+## 7. Fuera de alcance
 
-No se fijan aún:
-- UUID v4 frente a UUID v7.
-- Estrategia definitiva de índices y particionamiento de tablas PostgreSQL.
-- Tipos enumerados nativos frente a tablas de referencia.
-- Política de borrado físico frente a tombstones para cada clase de metadato.
-- Esquemas JSON Schema definitivos para columnas JSONB.
-- Ubicación local, volumen dedicado o almacenamiento de objetos para Parquet.
-- Estrategia de copias de seguridad y recuperación.
-
-Estas decisiones requieren conocer el entorno de ejecución, las cargas esperadas y las condiciones de retención.
-
-## 8. Criterios de aceptación del modelo lógico
-
-- [ ] Toda ejecución identifica fuente, endpoint, parámetros no sensibles, versión de código y estado.
-- [ ] Todo instrumento identifica proveedor, símbolo nativo, activo base y activo cotizado.
-- [ ] USD y USDT se representan como activos/cotizaciones diferentes.
-- [ ] Todo dataset tiene versión, etapa, esquema, checksum y referencia de almacenamiento.
-- [ ] Todo dataset permite reconstruir su procedencia y linaje.
-- [ ] Las políticas de uso y retención se registran con evidencia y vigencia.
-- [ ] Las autorizaciones desconocidas o no aplicables bloquean la persistencia.
-- [ ] Los experimentos identifican hipótesis, criterios de refutación y datasets utilizados.
-- [ ] El modelo admite fuentes futuras de noticias, eventos y calendarios sin mezclarlas con datos de mercado.
-- [ ] No se requiere almacenar valores OHLCV en PostgreSQL.
-
-## 9. Próximo paso
-
-Tras revisar este modelo, preparar el esquema SQL inicial y migraciones, acompañado de pruebas de restricciones y relaciones sobre datos sintéticos. La integración con Runs históricos se hará únicamente después de validar las políticas de retención y la correspondencia de los identificadores existentes.
+Este contrato no crea DDL, migraciones, infraestructura ni credenciales. Tampoco autoriza persistir datos de mercado de terceros. La siguiente fase, una vez aprobada la reconciliación documental, será generar DDL y probarlo en una instancia PostgreSQL temporal con datos exclusivamente sintéticos.
