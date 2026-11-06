@@ -5,7 +5,7 @@
 - **Modelo lógico:** `postgresql-logical-data-model.md`, propuesta v0.2.
 - **Revisión:** `postgresql-logical-model-review.md`.
 - **Decisión relacionada:** `ADR-001-storage-and-analytics-architecture.md`.
-- **Issue / PR:** #14 / #15.
+- **Issue / PR:** #14 / #16.
 
 ## 1. Objetivo y límites
 
@@ -609,7 +609,7 @@ La evaluación de políticas queda modelada mediante `policy_evaluations`; sus r
 3. Contrastar restricciones con los contratos canónicos OHLCV y metadata.
 4. Preparar migración inicial SQL y pruebas de integridad con PostgreSQL temporal.
 5. Revisar el SQL y la evidencia de pruebas antes de considerar la implementación aceptada.
-6. Mantener PR #15 en Draft hasta cerrar las brechas de validación empírica y permisos ya documentadas.
+6. Mantener PR #16 en Draft hasta cerrar las brechas de validación empírica y permisos ya documentadas.
 
 ## 12. Referencias internas
 
