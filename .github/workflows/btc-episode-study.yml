@@ -1,0 +1,32 @@
+name: Pruebas del estudio de episodios BTC
+
+on:
+  push:
+    branches:
+      - research/issue-17-btc-episode-study
+    paths:
+      - "scripts/research/**"
+      - "tests/test_btc_episode_study.py"
+      - ".github/workflows/btc-episode-study.yml"
+  pull_request:
+    paths:
+      - "scripts/research/**"
+      - "tests/test_btc_episode_study.py"
+      - ".github/workflows/btc-episode-study.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Obtener el repositorio
+        uses: actions/checkout@v4
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Ejecutar pruebas con datos sintéticos y sin acceso a proveedores
+        run: python -m unittest discover -s tests -p 'test_btc_episode_study.py' -v
