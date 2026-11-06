@@ -61,7 +61,8 @@ Todas las tablas siguientes pertenecen a `cci`.
 | `source_usage_policies` | `id` | Evidencia versionada de condiciones de uso. |
 | `policy_evaluations` | `id` | Decisión concreta de aplicabilidad de una política a endpoint, uso e instante. |
 | `assets` | `id` | Identidad canónica de activos. |
-| `asset_identifiers` | `id` | Identificadores externos con correspondencia canónica aceptada. |\n| `asset_identity_resolution_reviews` | `id` | Candidatos, decisiones y evidencia de resolución, incluidas ambigüedad y pendientes. |
+| `asset_identifiers` | `id` | Identificadores externos con correspondencia canónica aceptada. |
+| `asset_identity_resolution_reviews` | `id` | Candidatos, decisiones y evidencia de resolución, incluidas ambigüedad y pendientes. |
 | `market_instruments` | `id` | Identidad estable de instrumentos específicos de una fuente/mercado. |
 | `instrument_identifiers` | `id` | Claves y alias nativos del instrumento por interfaz/namespace. |
 | `instrument_metadata_versions` | `id` | Observaciones históricas de metadata y estado. |
@@ -421,7 +422,8 @@ Se crearán índices explícitos para FKs usadas en joins y patrones de consulta
 | `data_endpoints` | UNIQUE `(data_source_id, endpoint_key)`; UNIQUE `(id, data_source_id)` | Búsqueda por fuente y FKs compuestas. |
 | `source_usage_policies` | `(data_source_id, valid_from DESC)`; parcial por endpoint | Resolver política aplicable e historial. |
 | `policy_evaluations` | `(data_source_id, data_endpoint_id, intended_use, evaluated_at DESC)`; FK índices | Consultar decisión concreta por endpoint y uso. |
-| `asset_identity_resolution_reviews` | `(namespace, network, external_identifier, observed_at DESC)`; parcial por candidato | Auditar resoluciones pendientes, ambiguas, aceptadas y rechazadas. |\n| `asset_identifiers` | `(namespace, network, external_identifier)` | Resolver solo identificadores con correspondencia aprobada. |
+| `asset_identity_resolution_reviews` | `(namespace, network, external_identifier, observed_at DESC)`; parcial por candidato | Auditar resoluciones pendientes, ambiguas, aceptadas y rechazadas. |
+| `asset_identifiers` | `(namespace, network, external_identifier)` | Resolver solo identificadores con correspondencia aprobada. |
 | `market_instruments` | `(data_source_id, native_symbol)` no único; UNIQUE candidato `(id, data_source_id)` | Búsqueda por símbolo conservando alias y ambigüedad. |
 | `instrument_identifiers` | `(identifier_namespace, identifier_value)`; `(market_instrument_id, observed_at DESC)` | Resolver alias nativos y símbolos por interfaz. |
 | `instrument_metadata_versions` | `(market_instrument_id, observed_at DESC)` | Recuperar la última observación conocida. |
@@ -481,7 +483,7 @@ Las migraciones serán versionadas, secuenciales, revisables y ejecutables desde
 
 1. Crear esquema `cci` y convenciones mínimas.
 2. Crear `data_sources`, `assets`, `ingestion_runs`, `transformations`, `research_experiments`.
-3. Crear `data_endpoints`, `source_usage_policies`, `asset_identifiers`, `market_instruments`.
+3. Crear `data_endpoints`, `source_usage_policies`, `assets` y `asset_identity_resolution_reviews`.\n4. Crear `asset_identifiers` (solo correspondencias aceptadas), `market_instruments` e `instrument_identifiers`.
 4. Crear `instrument_identifiers` y `policy_evaluations` con sus FKs compuestas.
 5. Crear `datasets` antes de las tablas que lo referencian.
 6. Crear `ingestion_requests`, `run_datasets` y `dataset_sources` con FK compuestas.
