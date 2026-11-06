@@ -153,16 +153,26 @@ Un proveedor y recurso se considerarán validados solo cuando:
 
 La validación global de OHLCV no se completa hasta cumplir los criterios para ambos proveedores. La validación de metadata se registra por separado de la validación OHLCV.
 
-## 8. Matriz inicial de estado
+## 8. Matriz de evidencia existente y brechas
 
-| Proveedor/recurso | Estado previo | Evidencia pendiente |
+La revisión del historial del repositorio identificó evidencia empírica anterior que debe reutilizarse; no corresponde repetirla como si no existiera.
+
+| Proveedor/recurso | Evidencia existente | Estado y brecha para este contrato |
 |---|---|---|
-| Binance `exchangeInfo` | Inspección puntual de payload público real realizada | Captura reproducible y pruebas de contrato |
-| Binance `klines` | Documentación revisada; payload real legible no obtenido en la sesión previa | Captura real y pruebas de contrato |
-| Kraken `AssetPairs` | Documentación revisada; payload real legible no obtenido en la sesión previa | Captura real y pruebas de contrato |
-| Kraken `OHLC` | Documentación revisada; payload real legible no obtenido en la sesión previa | Captura real y pruebas de contrato |
+| Binance `exchangeInfo` | Run #13: HTTP 200, respuesta original archivada con SHA-256 y resumen BTCUSDT/ETHUSDT; Run #14: HTTP 200 y manifiesto técnico | Captura empírica existente. Falta verificar explícitamente el mapeo campo a campo contra el esquema canónico de metadata y sus filtros. |
+| Binance `klines` | Runs #10, #13 y #14: extracción real BTC/ETH, intervalos 1h y 1d; Run #14 valida cobertura y manifiesto sin publicar series | Evidencia empírica OHLCV existente. Falta probar el contrato canónico con casos de 1m, close time inclusivo, unidad de timestamp y semántica `is_final`. |
+| Kraken `AssetPairs` | Run #13: HTTP 200, respuesta original archivada con SHA-256 y resumen XBT/USD y ETH/USD; Run #14: HTTP 200 y manifiesto técnico | Captura empírica existente. Falta verificar el mapeo campo a campo, aliases, códigos internos y reglas de precisión contra el esquema canónico. |
+| Kraken `OHLC` | Runs #10, #13 y #14: extracción real BTC/ETH, intervalos 1h y 1d; Run #14 valida cobertura y manifiesto sin publicar series | Evidencia empírica OHLCV existente. Falta probar explícitamente el parser canónico de la fila de 8 campos, cálculo de cierre exclusivo y última vela provisional. |
 
-Esta matriz describe el estado conocido al redactar el protocolo; debe actualizarse solo con evidencia nueva.
+### Evidencia y retención conocidas
+
+- Run #13 obtuvo HTTP 200 para `exchangeInfo` y `AssetPairs`; las respuestas originales se archivaron con SHA-256. También ejecutó 11 pruebas unitarias, todas aprobadas. Su artefacto incluía respuestas originales y CSV, con retención configurada de 90 días.
+- Run #14 volvió a ejecutar extracción y validaciones. Se descargó e inspeccionó el ZIP: contiene exclusivamente `manifest.json`, sin JSON originales ni CSV OHLCV.
+- Los resultados empíricos de Run #13/14 registran series BTC/ETH horarias y diarias, controles de duplicados, huecos internos, alineación temporal y reglas OHLC/volumen. Para Kraken 1h la cobertura observada fue 706/720 en Run #13/14 debido al límite de 720 filas y al momento de consulta; no se detectaron huecos internos en el tramo recibido.
+- La evidencia de Runs #10, #13 y #14 demuestra que sí hubo capturas reales. No demuestra automáticamente que todos los campos del nuevo contrato canónico estén cubiertos por las pruebas existentes.
+- La retención de los artefactos previos, especialmente Run #13 y los Runs #1–#8 que incluyen valores de CoinGecko, sigue sujeta a la revisión de permisos correspondiente. Este protocolo no autoriza su reutilización, redistribución ni extensión de retención.
+
+La brecha prioritaria ya no es conseguir por primera vez datos reales de ambos exchanges. Es ejecutar pruebas de contrato explícitas sobre la evidencia existente cuando esté disponible legítimamente y completar únicamente los casos semánticos que las pruebas anteriores no acreditan.
 
 ## 9. Secuencia de implementación
 
