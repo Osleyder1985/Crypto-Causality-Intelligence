@@ -195,11 +195,7 @@
             "minLength": 1
           },
           "market_type": {
-            "enum": [
-              "spot",
-              "perpetual",
-              "future"
-            ]
+            "const": "spot"
           },
           "data_source": {
             "properties": {
@@ -229,7 +225,7 @@
             }
           },
           "episodes": {
-            "minItems": 1,
+            "minItems": 2,
             "items": {
               "properties": {
                 "status": {
@@ -253,6 +249,9 @@
                 }
               }
             }
+          },
+          "interval_seconds": {
+            "const": 3600
           }
         }
       }
