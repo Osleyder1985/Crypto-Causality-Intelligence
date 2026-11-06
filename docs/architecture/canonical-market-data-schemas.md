@@ -5,7 +5,7 @@
 - **Fecha:** 2026-11-06.
 - **Decisión relacionada:** ADR-001.
 - **Modelo relacional relacionado:** `postgresql-logical-data-model.md`.
-- **PR de trabajo:** #15.
+- **PR de trabajo:** #16.
 
 ## 1. Propósito
 
