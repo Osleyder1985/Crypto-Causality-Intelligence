@@ -72,6 +72,10 @@ def validate_manifest(document: Any, *, require_approved: bool = True) -> list[d
         raise ManifestError("data_usage_authorization.status inválido")
     if require_approved and authorization["status"] != "authorized":
         raise ManifestError("El uso/retención del dataset no está autorizado")
+    if authorization["status"] == "authorized" and not (
+        isinstance(authorization.get("evidence_ref"), str) and authorization["evidence_ref"].strip()
+    ):
+        raise ManifestError("La autorización requiere evidence_ref no vacío")
     episodes = document["episodes"]
     if not isinstance(episodes, list) or not episodes:
         raise ManifestError("episodes debe contener al menos un episodio confirmado")
