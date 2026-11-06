@@ -75,48 +75,83 @@ Una ejecución de tests Python sin conexión PostgreSQL no satisface estos crite
 Artefactos versionados en la rama `architecture/issue-14-storage-resynced`:
 
 - `tests/postgresql/001_provider_platform_lab.sql`: DDL aislado de las seis tablas mínimas, claves candidatas, FKs compuestas, CHECKs, índices, triggers y vistas.
-- `tests/test_postgresql_lab.py`: siete pruebas de integración contra PostgreSQL real.
+- `tests/test_postgresql_lab.py`: suite de integración ejecutada contra PostgreSQL real.
 - `.github/workflows/postgresql-lab.yml`: workflow separado con servicio efímero PostgreSQL 16 y driver psycopg fijado.
 
-### Evidencia de ejecución
+La primera ejecución fue [Run #7](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42291704131): PostgreSQL 16.15, 7/7 pruebas aprobadas. Ese resultado confirmó que el DDL inicial se aplicaba en el motor y que el primer subconjunto de restricciones funcionaba.
 
-- **Workflow:** [Pruebas reales de PostgreSQL — Run #7](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42291704131).
-- **Evento:** `pull_request`, asociado al PR #16.
-- **HEAD del PR:** `cf996df815b625a50f87f3520023edcade8a15cc`.
-- **Commit merge probado por el runner:** `5cb8fcae67accef15471d735183ac026fc79ace1`.
-- **Servicio:** imagen `postgres:16`; logs del servidor identifican PostgreSQL **16.15**.
+## 9. Segundo incremento: cobertura PG-NET-01–PG-NET-25
+
+Se amplió el laboratorio y se ejecutó la matriz completa de 25 condiciones. La suite contiene **28 métodos de prueba** porque algunos requisitos requieren más de una operación o una comprobación independiente.
+
+### Evidencia de CI
+
+- **Workflow:** [Pruebas reales de PostgreSQL — Run #21](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42292792250).
+- **Evento:** `pull_request`, PR #16.
+- **HEAD del PR:** `1bc65146a66149aea651230a882d4f59445347a4`.
 - **Job:** `postgresql-lab`, conclusión `success`.
-- **Resultado:** **7/7 pruebas aprobadas**.
+- **Motor:** PostgreSQL **16.15**.
+- **Suite:** `python -m unittest discover -s tests -p 'test_postgresql_lab.py' -v`.
+- **Resultado:** **28/28 pruebas aprobadas** en 1.959 segundos.
+- **CI de contratos Python:** ejecución separada, también aprobada; no se contabiliza como prueba del motor.
 
-Casos ejecutados:
-1. JSON number y JSON null aceptados; string rechazado.
-2. `capture_id` único y `observed_at` repetible con capturas distintas.
-3. Una revisión accepted publica el mapping vigente.
-4. Una revisión `pending_review` es visible, pero no publica mapping.
-5. Los snapshots de observaciones son inmutables.
-6. La procedencia parcial de un identificador es rechazada.
-7. Literal y namespace de mapping incorrectos son rechazados.
+### Cobertura de los 25 requisitos
 
-Los errores SQL visibles en los logs corresponden a las operaciones negativas esperadas por las pruebas; las siete pruebas finalizaron `ok`. No se detectó fallo de DDL, infraestructura ni de pruebas en esta ejecución.
+| Requisito | Verificación ejecutada |
+|---|---|
+| PG-NET-01 | FK compuesta plataforma/fuente en observaciones |
+| PG-NET-02 | Duplicado de `capture_id` rechazado |
+| PG-NET-03 | Igual `observed_at` con capturas distintas aceptado |
+| PG-NET-04 | FK compuesta de observación de soporte |
+| PG-NET-05 | Índice parcial: una sola raíz |
+| PG-NET-06 | Índice parcial: una sola sucesora |
+| PG-NET-07 | Sucesión entre plataformas rechazada por FK |
+| PG-NET-08 | Sucesor de una revisión que ya no es head rechazado |
+| PG-NET-09 | Autorreferencia de cadena rechazada |
+| PG-NET-10 | UPDATE/DELETE de observaciones y revisiones rechazado |
+| PG-NET-11 | Procedencia parcialmente NULL rechazada |
+| PG-NET-12 | Mapping con status no accepted rechazado |
+| PG-NET-13 | Mapping con red distinta de la revisión rechazado |
+| PG-NET-14 | Literal distinto de `provider_platform_key` rechazado |
+| PG-NET-15 | Namespace distinto de `source_key:asset_platform_id` rechazado |
+| PG-NET-16 | Nueva observación no revoca mapping vigente |
+| PG-NET-17 | Sucesora rejected efectiva retira la resolución/mapping de las vistas |
+| PG-NET-18 | Sucesora futura no termina prematuramente la revisión actual |
+| PG-NET-19 | Fallo al insertar mapping revierte también la revisión |
+| PG-NET-20 | Dos sesiones no pueden crear sucesoras competidoras |
+| PG-NET-21 | Dos sesiones no pueden publicar mappings incompatibles |
+| PG-NET-22 | JSONB acepta number/null y rechaza string/boolean/object/array |
+| PG-NET-23 | Valor numérico JSON con exponente conserva valor decimal exacto |
+| PG-NET-24 | Consulta bitemporal reconstruye lo conocido antes/después de una sucesora |
+| PG-NET-25 | Consulta respeta el intervalo semiabierto `[valid_from, effective_valid_until)` |
 
-Durante la revisión estática del DDL se había detectado una sutileza de SQL: en PostgreSQL un CHECK que evalúa a NULL no rechaza la fila. Se reforzó explícitamente la condición `provider_platform_resolution_status IS NOT NULL`; la prueba de procedencia parcial confirma ahora el rechazo real del motor.
+### Cambios técnicos incorporados
 
-### Límites de esta evidencia
+1. Se añadió la función de laboratorio `provider_platform_resolution_as_known(valid_at, known_at)`, que filtra decisiones por `recorded_at` y calcula el final efectivo con la sucesora conocida en el instante consultado.
+2. Las pruebas de concurrencia usan dos conexiones PostgreSQL independientes y un bloqueo explícito de la fila de identidad antes de insertar la sucesora/publicar el mapping.
+3. Cada prueba reconstruye el esquema desechable `cci_lab` desde cero. Esto evita que los commits intencionales de los tests concurrentes contaminen fixtures posteriores.
+4. Los tests de índices parciales aíslan el índice deshabilitando temporalmente el trigger de cadena dentro de un savepoint; otros casos comprueban por separado el rechazo del trigger.
+5. Las pruebas negativas verifican clases de error PostgreSQL concretas (FK, UNIQUE, CHECK o inmutabilidad), no una excepción genérica.
 
-Esta ejecución valida el primer subconjunto de siete comportamientos en PostgreSQL 16.15. No demuestra todavía la matriz completa PG-NET-01–PG-NET-25, la concurrencia entre conexiones independientes, la atomicidad de publicación bajo fallos ni la consulta bitemporal. Tampoco valida el esquema completo de 32 entidades ni constituye una migración productiva.
+### Límites de la evidencia
 
-## 9. Próximo paso
+La cobertura PG-NET-01–PG-NET-25 está ejecutada en el DDL reducido del laboratorio, con datos sintéticos y PostgreSQL 16.15. Esto **no** equivale a:
 
-Ampliar el laboratorio hasta cubrir de forma trazable PG-NET-01–PG-NET-25. Prioridad inmediata:
+- validar las 32 entidades del esquema físico completo;
+- aplicar migraciones productivas desde una base vacía;
+- validar roles/permisos de producción o resistencia frente al propietario/superusuario;
+- implementar la función bitemporal en la capa productiva de repositorio;
+- validar integraciones o capturas reales de Binance, Kraken o CoinGecko.
 
-1. FKs compuestas y sus casos de identidad cruzada.
-2. Cadena de revisiones: raíz única, sucesor único, rechazo de bifurcación, sucesor no-head y retroceso temporal.
-3. Vigencia semiabierta y vistas con sucesora futura.
-4. Mapping accepted, rechazo de mapping no accepted o de una revisión que dejó de ser head.
-5. Atomicidad: rollback cuando falla la inserción del mapping después de insertar la revisión.
-6. Concurrencia con dos conexiones independientes y sincronización determinista; demostrar que no puede formarse una bifurcación.
-7. Consulta bitemporal con `valid_at` y `known_at`, una vez implementada en el laboratorio o en la capa de repositorio que corresponda.
+El laboratorio no es una migración productiva y no se han insertado datos reales de proveedores.
 
-Cada caso tendrá identificador, precondiciones, operación, resultado esperado, SQLSTATE/constraint cuando aplique y prueba automatizada. Se corregirá el SQL a partir de evidencia de PostgreSQL, no de inferencias estáticas.
+## 10. Próximo paso
+
+Antes de considerar cerrado el subsistema, corresponde una revisión de coherencia entre el DDL del laboratorio y la sección 13 del modelo físico, con atención a:
+
+1. Confirmar que cada constraint, índice, trigger y vista del laboratorio coincide con su nombre y semántica normativa.
+2. Revisar el procedimiento de publicación y los locks bajo aislamiento PostgreSQL `READ COMMITTED`; conservar evidencia de las pruebas de dos sesiones.
+3. Determinar qué partes del laboratorio se trasladarán al DDL productivo y qué partes deben convertirse en pruebas de integración de la capa de repositorio.
+4. Mantener separadas las pruebas del motor y las pruebas de contratos Python.
 
 El PR #16 permanece Draft. No se crearán migraciones productivas ni se fusionará el PR como parte de esta etapa.
