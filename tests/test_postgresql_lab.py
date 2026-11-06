@@ -56,19 +56,19 @@ class PostgreSQLProviderPlatformLabTests(unittest.TestCase):
         self.conn.rollback()
         self.conn.close()
 
-    def insert_observation(self, capture_id=None, observed_at=None, chain_json="137"):
+    def insert_observation(self, capture_id=None, observed_at=None, chain_json="137", evidence_sha256=None):
         observation_id = uuid.uuid4()
         self.conn.execute(
             """
             INSERT INTO cci_lab.provider_platform_observations (
                 id, provider_platform_id, data_source_id, capture_id,
-                observed_at, reported_chain_identifier_json, evidence_reference
-            ) VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s)
+                observed_at, reported_chain_identifier_json, evidence_reference, evidence_sha256
+            ) VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s, %s)
             """,
             (
                 observation_id, self.platform_id, self.source_id,
                 capture_id or uuid.uuid4(), observed_at or self.now,
-                chain_json, "synthetic://evidence/observation",
+                chain_json, "synthetic://evidence/observation", evidence_sha256,
             ),
         )
         return observation_id
@@ -706,6 +706,16 @@ class PostgreSQLProviderPlatformLabTests(unittest.TestCase):
         ).fetchone()[0]
         self.assertEqual(at_start, 1)
         self.assertEqual(at_end, 0)
+
+
+
+    def test_evidence_sha256_requires_lowercase_64_character_hex(self):
+        self.insert_observation(evidence_sha256="a" * 64)
+        for invalid_hash in ("A" * 64, "g" * 64, "a" * 63, "a" * 65):
+            with self.subTest(invalid_hash=invalid_hash):
+                with self.assertRaises(errors.CheckViolation):
+                    with self.conn.transaction():
+                        self.insert_observation(evidence_sha256=invalid_hash)
 
 
 if __name__ == "__main__":
