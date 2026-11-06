@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Descriptive BTC/USDT episode study; reads local CSV and never downloads market data."""
+"""Descriptive BTC/USDT episode study; reads local CSV/Parquet, never downloads data."""
 from __future__ import annotations
 
 import argparse
@@ -85,6 +85,90 @@ def load_candles(path: str | Path) -> list[Candle]:
     if not candles:
         raise StudyError("El CSV no contiene velas")
     return candles
+
+
+
+def load_parquet_candles(path: str | Path) -> list[Candle]:
+    """Read a local Parquet file through in-memory DuckDB; never writes a copy."""
+    try:
+        import duckdb
+    except ImportError as exc:
+        raise StudyError(
+            "Para leer Parquet instala la dependencia fijada en requirements-research.txt"
+        ) from exc
+
+    file_path = Path(path).expanduser().resolve()
+    if not file_path.is_file():
+        raise StudyError(f"No existe el archivo Parquet: {file_path}")
+
+    connection = duckdb.connect(database=":memory:")
+    try:
+        # DESCRIBE validates the schema before reading rows. The file path is
+        # passed as a bound parameter rather than interpolated into SQL.
+        description = connection.execute(
+            "DESCRIBE SELECT * FROM read_parquet(?)", [str(file_path)]
+        ).fetchall()
+        available = {row[0] for row in description}
+        missing = [name for name in REQUIRED_COLUMNS if name not in available]
+        if missing:
+            raise StudyError(f"Parquet: faltan columnas obligatorias: {', '.join(missing)}")
+        columns = list(REQUIRED_COLUMNS)
+        if "quote_volume" in available:
+            columns.append("quote_volume")
+        projection = ", ".join('"' + name + '"' for name in columns)
+        rows = connection.execute(
+            f"SELECT {projection} FROM read_parquet(?) ORDER BY open_time_utc",
+            [str(file_path)],
+        ).fetchall()
+        candles: list[Candle] = []
+        for line, row in enumerate(rows, start=1):
+            values = dict(zip(columns, row))
+            raw_timestamp = values["open_time_utc"]
+            if isinstance(raw_timestamp, datetime):
+                timestamp_text = raw_timestamp.isoformat()
+            elif isinstance(raw_timestamp, str):
+                timestamp_text = raw_timestamp
+            else:
+                raise StudyError(
+                    f"Parquet fila {line}: open_time_utc debe ser timestamp UTC o texto ISO-8601"
+                )
+            timestamp = parse_utc(timestamp_text, f"Parquet fila {line} open_time_utc")
+            numeric: dict[str, float] = {}
+            for name in ("open", "high", "low", "close", "volume"):
+                value = values[name]
+                if value is None:
+                    raise StudyError(f"Parquet fila {line}: {name} es null")
+                try:
+                    numeric[name] = float(value)
+                except (TypeError, ValueError) as exc:
+                    raise StudyError(f"Parquet fila {line}: {name} no es numérico") from exc
+                if not math.isfinite(numeric[name]):
+                    raise StudyError(f"Parquet fila {line}: {name} no es finito")
+            quote_volume = values.get("quote_volume")
+            if quote_volume is not None:
+                quote_volume = float(quote_volume)
+                if not math.isfinite(quote_volume):
+                    raise StudyError(f"Parquet fila {line}: quote_volume no es finito")
+            candle = Candle(timestamp=timestamp, **numeric, quote_volume=quote_volume)
+            if min(candle.open, candle.high, candle.low, candle.close) <= 0:
+                raise StudyError(f"Parquet fila {line}: OHLC debe ser estrictamente positivo")
+            if candle.volume < 0 or (candle.quote_volume is not None and candle.quote_volume < 0):
+                raise StudyError(f"Parquet fila {line}: el volumen no puede ser negativo")
+            if candle.low > min(candle.open, candle.close) or candle.high < max(candle.open, candle.close) or candle.low > candle.high:
+                raise StudyError(f"Parquet fila {line}: OHLC inconsistente")
+            if candles and timestamp <= candles[-1].timestamp:
+                reason = "duplicado" if timestamp == candles[-1].timestamp else "fuera de orden"
+                raise StudyError(f"Parquet fila {line}: timestamp {reason}")
+            candles.append(candle)
+        if not candles:
+            raise StudyError("El Parquet no contiene velas")
+        return candles
+    except StudyError:
+        raise
+    except Exception as exc:
+        raise StudyError(f"No se pudo leer Parquet: {exc}") from exc
+    finally:
+        connection.close()
 
 
 def load_episodes(path: str | Path) -> list[dict[str, Any]]:
@@ -238,15 +322,17 @@ def study(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Estudio descriptivo de episodios BTC/USDT desde un CSV local.")
-    parser.add_argument("--input", required=True, help="CSV local; no se realizan descargas")
+    parser = argparse.ArgumentParser(description="Estudio descriptivo BTC/USDT desde CSV o Parquet local.")
+    parser.add_argument("--input", required=True, help="Archivo CSV o Parquet local; no se realizan descargas")
+    parser.add_argument("--input-format", choices=("csv", "parquet"), default="csv", help="Formato de entrada (por defecto: csv)")
     parser.add_argument("--episodes", required=True, help="JSON con ventanas UTC [inicio, fin)")
     parser.add_argument("--json-out", required=True, help="Ruta de salida del resumen JSON agregado")
     parser.add_argument("--csv-out", required=True, help="Ruta de salida CSV por episodio")
     parser.add_argument("--interval-seconds", type=int, default=3600)
     args = parser.parse_args(argv)
     try:
-        result = study(load_candles(args.input), load_episodes(args.episodes), args.interval_seconds)
+        candles = load_candles(args.input) if args.input_format == "csv" else load_parquet_candles(args.input)
+        result = study(candles, load_episodes(args.episodes), args.interval_seconds)
         Path(args.json_out).write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         fields = [k for k, v in result["episodes"][0].items() if k != "pre_event"]
         with Path(args.csv_out).open("w", encoding="utf-8", newline="") as handle:
