@@ -55,6 +55,9 @@ Las diferencias de precio y porcentaje entre publicaciones no se tratarán como 
 - The Block, episodio intradía y liquidaciones: https://www.theblock.co/news/markets/2026-02-05-bitcoin-sees-flash-crash-60000-388759
 - Bitwise, análisis del flash crash: https://bitwiseinvestments.eu/blog/crypto-research/2026-02-06-Flash-Crash-Market-Update/
 - Bloomberg, contexto de ventas cross-asset: https://www.bloomberg.com/news/articles/2026-02-05/wall-street-s-favorite-trades-collapse-as-market-selloff-deepens
+- Binance Public Data (documentación oficial del archivo): https://github.com/binance/binance-public-data
+- Binance USDⓈ-M Futures, estadísticas históricas de open interest: https://developers.binance.com/docs/derivatives/usds-margined-futures/market-data/rest-api/Open-Interest-Statistics
+- Binance USDⓈ-M Futures, historial de funding: https://developers.binance.com/docs/derivatives/usds-margined-futures/market-data/rest-api/Get-Funding-Rate-History
 
 ## 5. Diseño de datos para la reconstrucción
 
@@ -108,7 +111,7 @@ No se incorporará una variable solo porque esté disponible. Se registrarán pr
 - [x] Seleccionar un episodio dentro de la ventana histórica diaria del proyecto.
 - [x] Localizar fuentes públicas iniciales y formular hipótesis competidoras.
 - [x] Definir ventanas de reconstrucción y variables a contrastar.
-- [ ] Recuperar y analizar OHLCV diario de Binance y Kraken para el periodo de contexto.
+- [x] Contrastar OHLCV diario de Binance y Kraken para el periodo de contexto.
 - [ ] Recuperar velas intradía de Binance y el archivo histórico intradía de Kraken.
 - [ ] Obtener series verificables de derivados, ETF y mercados macro.
 - [ ] Construir cronología de eventos con timestamps originales.
@@ -120,7 +123,6 @@ No se incorporará una variable solo porque esté disponible. Se registrarán pr
 ## 8. Restricciones de publicación
 
 Este caso es parte de investigación privada. El repositorio GitHub es público, por lo que no se deben añadir payloads, series descargadas, datos licenciados ni derivados cuya publicación no esté autorizada. El repositorio puede contener metodología, hashes, metadatos técnicos no sensibles y conclusiones cuya publicación esté permitida. Los artefactos de análisis deberán permanecer en almacenamiento privado conforme a las condiciones de cada proveedor.
-
 
 ## 9. Primera comprobación empírica con el artefacto Run #13
 
@@ -151,3 +153,43 @@ Esta diferencia explica por qué un artículo puede reportar el mínimo cercano 
 ### Restricción de datos
 
 Los valores OHLCV y las métricas calculadas a partir de ellos no se reproducen en este documento público. El artefacto histórico se utilizó para análisis interno; la política de publicación del proyecto exige mantener fuera del repositorio público los valores de mercado cuya redistribución no esté autorizada.
+
+## 10. Auditoría de disponibilidad histórica de datos intradía y derivados
+
+Se revisó la documentación oficial disponible de Binance para evitar depender de endpoints que ya no conservan el periodo investigado.
+
+### Binance Spot: OHLCV histórico
+
+Binance documenta un archivo público de klines por símbolo, intervalo y mes. Para BTCUSDT, las rutas mensuales oficiales siguen el patrón:
+
+- `https://data.binance.vision/data/spot/monthly/klines/BTCUSDT/1m/BTCUSDT-1m-2026-02.zip`
+- `https://data.binance.vision/data/spot/monthly/klines/BTCUSDT/5m/BTCUSDT-5m-2026-02.zip`
+- `https://data.binance.vision/data/spot/monthly/klines/BTCUSDT/1h/BTCUSDT-1h-2026-02.zip`
+
+La documentación oficial confirma que el archivo ofrece klines Spot en múltiples intervalos y archivos ZIP con checksum acompañante. Desde 2025-01-01, los timestamps de Spot están expresados en microsegundos, detalle que debe manejar el parser. La existencia del mecanismo oficial está documentada; **la descarga de estos ZIP no se completó en este entorno**, cuyo runtime no pudo resolver el dominio externo. No se declarará que los archivos fueron recuperados hasta validar su descarga y checksum.
+
+### Binance USDⓈ-M Futures: límite crítico de open interest
+
+La documentación oficial del endpoint `/futures/data/openInterestHist` indica que solo conserva estadísticas del último mes, aunque permite periodos de 5m a 1d y un máximo de 500 registros por consulta. A fecha de esta auditoría (2026-11-06), ese endpoint no puede devolver febrero de 2026. Por tanto:
+
+- No usaremos una consulta actual de ese endpoint para inferir el open interest del episodio de febrero.
+- La serie histórica de OI deberá proceder de un archivo histórico independiente o proveedor que demuestre cobertura de esa fecha.
+- Si no aparece una fuente con cobertura verificable, H3 quedará parcialmente no identificada; no se sustituirá OI histórico por estimaciones retrospectivas sin metodología.
+
+### Funding y liquidaciones
+
+El historial de funding tiene un endpoint separado (`/fapi/v1/fundingRate`), pero antes de usarlo se comprobarán cobertura efectiva, paginación y disponibilidad del intervalo de febrero. No se inferirá que funding y open interest comparten la misma retención.
+
+El endpoint de liquidaciones/force orders no se considerará un archivo histórico completo. Se necesitará documentar su alcance temporal, autenticación, límites y sesgo de cobertura antes de tratar sus resultados como el total de liquidaciones del mercado.
+
+### Resultado de la auditoría de fuentes
+
+- [x] Identificar el archivo oficial de Binance Spot para reconstrucción 1m/5m/1h.
+- [x] Identificar el cambio de unidad temporal de milisegundos a microsegundos para Spot desde 2025.
+- [x] Confirmar que el endpoint oficial de estadísticas de OI de USDⓈ-M Futures solo ofrece el último mes.
+- [ ] Descargar y verificar los ZIP Spot de febrero de 2026.
+- [ ] Descargar y validar el archivo OHLCVT histórico de Kraken para Q1 2026.
+- [ ] Validar cobertura histórica real de funding y liquidaciones.
+- [ ] Encontrar una fuente histórica independiente de OI para febrero de 2026, o declarar explícitamente que no está disponible.
+
+**Implicación metodológica:** el precio y el volumen spot se pueden reconstruir con archivos históricos oficiales; el OI intradía de febrero no se puede recuperar mediante el endpoint público actual de estadísticas de Binance. Esta asimetría debe reflejarse en el nivel de confianza de cualquier conclusión sobre liquidaciones y desapalancamiento.
