@@ -559,6 +559,13 @@ class AssetRepresentationFixtureTests(unittest.TestCase):
             {item["asset_key"] for item in abc},
             {"token_abc_alpha", "token_abc_beta"},
         )
+        assets_by_key = {
+            item["asset_key"]: item for item in self.fixture["assets"]
+        }
+        self.assertEqual(
+            {assets_by_key[item["asset_key"]]["symbol"] for item in abc},
+            {"ABC"},
+        )
         self.assertEqual(len({item["contract_address"] for item in abc}), 2)
 
     def test_duplicate_contract_on_same_network_is_rejected(self):
@@ -570,6 +577,16 @@ class AssetRepresentationFixtureTests(unittest.TestCase):
         catalog["representations"].append(duplicate)
         with self.assertRaises(ValueError):
             validate_asset_representation_catalog(catalog)
+
+    def test_same_contract_literal_can_exist_on_different_networks(self):
+        catalog = json.loads(json.dumps(self.fixture))
+        extra = dict(catalog["representations"][1])
+        extra["representation_key"] = "wbtc_other_network_synthetic"
+        extra["network_key"] = "tron_mainnet_synthetic"
+        extra["contract_address"] = catalog["representations"][1]["contract_address"]
+        catalog["representations"].append(extra)
+        result = validate_asset_representation_catalog(catalog)
+        self.assertEqual(result["representations_count"], 7)
 
     def test_wrapped_asset_remains_distinct_from_underlying_asset(self):
         result = validate_asset_representation_catalog(self.fixture)
