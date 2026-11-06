@@ -1,0 +1,32 @@
+name: Pruebas de contratos canónicos
+
+on:
+  push:
+    branches:
+      - docs/issue-14-storage-architecture-decision
+    paths:
+      - "scripts/validation/**"
+      - "tests/test_market_contracts.py"
+      - ".github/workflows/contract-tests.yml"
+  pull_request:
+    paths:
+      - "scripts/validation/**"
+      - "tests/test_market_contracts.py"
+      - ".github/workflows/contract-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  contract-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Obtener el repositorio
+        uses: actions/checkout@v4
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Ejecutar pruebas de contrato sin acceso a proveedores
+        run: python -m unittest discover -s tests -p 'test_market_contracts.py' -v

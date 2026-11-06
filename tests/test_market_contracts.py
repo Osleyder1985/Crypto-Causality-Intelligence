@@ -4,6 +4,11 @@ from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
+from scripts.validation.asset_representation_contracts import (
+    validate_asset_representation,
+    validate_asset_representation_catalog,
+)
+
 from scripts.validation.market_contracts import (
     map_binance_instrument_metadata,
     map_kraken_instrument_metadata,
@@ -393,6 +398,40 @@ class BitemporalAssetIdentityResolutionTests(unittest.TestCase):
                 known_at="2025-01-01T00:00:00Z",
             )
 
+    def test_conflicting_latest_temporal_reviews_are_ambiguous(self):
+        mappings = [
+            {
+                "namespace": "provider",
+                "native_code": "ABC",
+                "network": None,
+                "canonical_asset_key": "asset-one",
+                "status": "accepted",
+                "evidence_reference": "evidence:one",
+                "valid_from": "2020-01-01T00:00:00Z",
+                "valid_until": None,
+                "recorded_at": "2025-01-01T00:00:00Z",
+            },
+            {
+                "namespace": "provider",
+                "native_code": "ABC",
+                "network": None,
+                "canonical_asset_key": "asset-two",
+                "status": "accepted",
+                "evidence_reference": "evidence:two",
+                "valid_from": "2020-01-01T00:00:00Z",
+                "valid_until": None,
+                "recorded_at": "2025-01-01T00:00:00Z",
+            },
+        ]
+        result = resolve_asset_identity(
+            "provider", "ABC", mappings,
+            valid_at="2024-06-01T00:00:00Z",
+            known_at="2025-01-02T00:00:00Z",
+        )
+        self.assertEqual(result["resolution_status"], "ambiguous")
+        self.assertIsNone(result["canonical_asset_key"])
+        self.assertIsNone(result["evidence_reference"])
+
     def test_mapping_without_documented_valid_from_is_not_resolved_temporally(self):
         mapping = dict(self.mappings[1])
         mapping["valid_from"] = None
@@ -449,6 +488,157 @@ class InitialAssetCatalogFixtureTests(unittest.TestCase):
             mapping["status"] == "accepted"
             for mapping in self.fixture["mappings"]
         ))
+
+
+
+
+class AssetRepresentationFixtureTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        fixture_path = (
+            Path(__file__).parent
+            / "fixtures"
+            / "asset_identity"
+            / "asset_representations.json"
+        )
+        cls.fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    def test_synthetic_catalog_is_structurally_valid(self):
+        result = validate_asset_representation_catalog(self.fixture)
+        self.assertEqual(result["assets_count"], 5)
+        self.assertEqual(result["networks_count"], 3)
+        self.assertEqual(result["representations_count"], 6)
+        self.assertEqual(result["relationships_count"], 1)
+
+    def test_one_asset_can_have_representations_on_multiple_networks(self):
+        result = validate_asset_representation_catalog(self.fixture)
+        tether = [
+            item for item in result["representations"]
+            if item["asset_key"] == "tether_usd_synthetic"
+        ]
+        self.assertEqual(len(tether), 2)
+        self.assertEqual(
+            {item["network_key"] for item in tether},
+            {"ethereum_mainnet_synthetic", "tron_mainnet_synthetic"},
+        )
+
+    def test_native_representation_has_no_contract(self):
+        bitcoin = next(
+            item for item in self.fixture["representations"]
+            if item["representation_key"] == "bitcoin_native"
+        )
+        result = validate_asset_representation(bitcoin)
+        self.assertEqual(result["representation_kind"], "native")
+        self.assertIsNone(result["contract_address"])
+        self.assertEqual(result["native_asset_key"], "BTC_NATIVE_SYNTHETIC")
+
+    def test_native_representation_rejects_contract_address(self):
+        item = dict(self.fixture["representations"][0])
+        item["contract_address"] = "0xSYNTHETIC_CONTRACT"
+        with self.assertRaises(ValueError):
+            validate_asset_representation(item)
+
+    def test_token_contract_requires_contract_and_rejects_native_key(self):
+        item = dict(self.fixture["representations"][1])
+        item["contract_address"] = None
+        with self.assertRaises(ValueError):
+            validate_asset_representation(item)
+        item["contract_address"] = "0xSYNTHETIC_CONTRACT"
+        item["native_asset_key"] = "BTC"
+        with self.assertRaises(ValueError):
+            validate_asset_representation(item)
+
+    def test_same_ticker_does_not_merge_distinct_contract_assets(self):
+        result = validate_asset_representation_catalog(self.fixture)
+        abc = [
+            item for item in result["representations"]
+            if item["representation_key"].startswith("abc_")
+        ]
+        self.assertEqual(len(abc), 2)
+        self.assertEqual(
+            {item["asset_key"] for item in abc},
+            {"token_abc_alpha", "token_abc_beta"},
+        )
+        assets_by_key = {
+            item["asset_key"]: item for item in self.fixture["assets"]
+        }
+        self.assertEqual(
+            {assets_by_key[item["asset_key"]]["symbol"] for item in abc},
+            {"ABC"},
+        )
+        self.assertEqual(
+            assets_by_key["token_abc_alpha"]["symbol"],
+            assets_by_key["token_abc_beta"]["symbol"],
+        )
+        self.assertEqual(len({item["contract_address"] for item in abc}), 2)
+
+    def test_duplicate_contract_on_same_network_is_rejected(self):
+        catalog = json.loads(json.dumps(self.fixture))
+        duplicate = dict(catalog["representations"][-1])
+        duplicate["representation_key"] = "abc_beta_duplicate"
+        duplicate["asset_key"] = "token_abc_alpha"
+        duplicate["contract_address"] = catalog["representations"][-2]["contract_address"]
+        catalog["representations"].append(duplicate)
+        with self.assertRaises(ValueError):
+            validate_asset_representation_catalog(catalog)
+
+    def test_same_contract_literal_can_exist_on_different_networks(self):
+        catalog = json.loads(json.dumps(self.fixture))
+        extra = dict(catalog["representations"][1])
+        extra["representation_key"] = "wbtc_other_network_synthetic"
+        extra["network_key"] = "tron_mainnet_synthetic"
+        extra["contract_address"] = catalog["representations"][1]["contract_address"]
+        catalog["representations"].append(extra)
+        result = validate_asset_representation_catalog(catalog)
+        self.assertEqual(result["representations_count"], 7)
+
+    def test_wrapped_asset_remains_distinct_from_underlying_asset(self):
+        result = validate_asset_representation_catalog(self.fixture)
+        assets = {item["asset_key"] for item in self.fixture["assets"]}
+        self.assertIn("bitcoin", assets)
+        self.assertIn("wbtc_synthetic", assets)
+        self.assertNotEqual("bitcoin", "wbtc_synthetic")
+        self.assertEqual(
+            self.fixture["relationships"][0]["relationship_type"],
+            "wrapped_representation_of",
+        )
+        self.assertEqual(result["relationships_count"], 1)
+
+    def test_unknown_asset_or_network_reference_is_rejected(self):
+        catalog = json.loads(json.dumps(self.fixture))
+        catalog["representations"][0]["network_key"] = "unknown_network"
+        with self.assertRaises(ValueError):
+            validate_asset_representation_catalog(catalog)
+        catalog = json.loads(json.dumps(self.fixture))
+        catalog["representations"][0]["asset_key"] = "unknown_asset"
+        with self.assertRaises(ValueError):
+            validate_asset_representation_catalog(catalog)
+
+    def test_relationship_cannot_be_self_referential_or_unsupported(self):
+        catalog = json.loads(json.dumps(self.fixture))
+        catalog["relationships"][0]["object_asset_key"] = "wbtc_synthetic"
+        with self.assertRaises(ValueError):
+            validate_asset_representation_catalog(catalog)
+        catalog = json.loads(json.dumps(self.fixture))
+        catalog["relationships"][0]["relationship_type"] = "same_as"
+        with self.assertRaises(ValueError):
+            validate_asset_representation_catalog(catalog)
+
+    def test_invalid_or_timezone_naive_validity_interval_is_rejected(self):
+        item = dict(self.fixture["representations"][1])
+        item["valid_until"] = "2019-01-01T00:00:00Z"
+        with self.assertRaises(ValueError):
+            validate_asset_representation(item)
+        item["valid_from"] = "2020-01-01T00:00:00"
+        item["valid_until"] = None
+        with self.assertRaises(ValueError):
+            validate_asset_representation(item)
+
+    def test_contract_address_is_preserved_without_global_normalization(self):
+        item = dict(self.fixture["representations"][1])
+        item["contract_address"] = "0xAbCd_SYNTHETIC"
+        result = validate_asset_representation(item)
+        self.assertEqual(result["contract_address"], "0xAbCd_SYNTHETIC")
 
 
 if __name__ == "__main__":
