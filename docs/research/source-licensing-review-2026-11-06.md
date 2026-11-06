@@ -55,22 +55,31 @@ Desde Run #9, el script cuenta las observaciones de CoinGecko en memoria y regis
 
 Las ejecuciones anteriores (Runs #1–#8) sí incluyeron respuestas y CSV de CoinGecko en sus artefactos. El Run #8 tiene retención configurada hasta el 4 de febrero de 2027. No redistribuir ni reutilizar esos archivos hasta confirmar que el plan y las condiciones aplicables permiten esa conservación. Si no lo permiten, el propietario del repositorio debe eliminar los artefactos anteriores desde GitHub Actions.
 
-## Regla provisional del proyecto
+## Decisión del propietario: investigación privada
 
-Hasta que se confirme el uso previsto y se revisen las condiciones contractuales:
+El propietario ha confirmado el 6 de noviembre de 2026 que el proyecto se destina a **investigación privada y no comercial**. Esta decisión reemplaza la pregunta pendiente sobre el modelo de explotación.
 
-1. La PoC se limita a evaluación técnica e investigación interna.
-2. No publicar datasets descargados, ni revender, sublicenciar o retransmitir datos de proveedores.
-3. No lanzar una aplicación, API, newsletter de pago ni servicio comercial que dependa de estos datos.
-4. Registrar por proveedor el plan, la fecha de revisión, el permiso, la atribución exigida y las restricciones de almacenamiento/retención.
-5. No comprar planes ni solicitar acuerdos en nombre del propietario sin autorización expresa.
+### Alcance autorizado para esta fase
 
-## Decisión pendiente
+1. Utilizar los datos únicamente para análisis e investigación interna, sin ofrecer un producto o servicio comercial.
+2. No publicar, revender, sublicenciar ni retransmitir datasets o valores de mercado obtenidos de los proveedores.
+3. No asumir que el carácter privado/no comercial elimina las condiciones de cada proveedor: se deben respetar límites de almacenamiento, retención, atribución y uso aplicables.
+4. Mantener CoinGecko en modo de consulta y conteo en memoria, sin archivar valores, hasta confirmar que la licencia/plan vigente permite conservarlos para investigación.
+5. Mantener los datos originales y normalizados de Binance/Kraken bajo acceso controlado y sin redistribución.
+6. No contratar planes ni solicitar permisos en nombre del propietario sin autorización expresa.
 
-Antes de seleccionar definitivamente los proveedores, el propietario debe definir si Crypto Causality Intelligence será:
+### Estado de aptitud
 
-- investigación personal/no comercial;
-- proyecto público de código abierto sin monetización;
-- producto o servicio comercial.
+- **Binance Spot:** candidato técnico para investigación privada; revisar y conservar referencia de los términos aplicables al endpoint REST.
+- **Kraken Spot:** candidato técnico para investigación privada; su requisito de permiso previo para ciertos usos comerciales no personales no debe extrapolarse automáticamente a investigación privada. Aun así, respetar los términos generales y pedir aclaración si el uso evoluciona o queda ambiguo.
+- **CoinGecko:** candidato de referencia agregada; mantener sin persistencia de valores hasta confirmar el plan y las condiciones de almacenamiento aplicables.
 
-La categoría de uso cambia los permisos y la selección de fuentes. Hasta entonces, las tres fuentes permanecen técnicamente probadas, pero no aprobadas para explotación comercial.
+La decisión de investigación privada no constituye asesoría legal ni una garantía de que cualquier descarga o almacenamiento esté permitido. Es la clasificación de uso adoptada por el proyecto para esta etapa.
+
+### Nota importante sobre la visibilidad del repositorio
+
+El repositorio GitHub actualmente tiene visibilidad **pública**. “Investigación privada” describe el uso previsto de los datos y resultados, pero no hace privado el código, la documentación, los issues, los pull requests ni los artefactos que se publiquen en GitHub. No cambiaré la visibilidad del repositorio sin autorización expresa del propietario. Si el objetivo es confidencialidad real del proyecto, habrá que convertir el repositorio en privado y revisar también los artefactos históricos de Actions.
+
+### Medida pendiente sobre artefactos históricos
+
+Los artefactos de Runs #1–#8 incluyen respuestas y CSV de CoinGecko, con retención configurada hasta febrero de 2027. No deben redistribuirse ni reutilizarse hasta confirmar que el plan y las condiciones aplicables permiten esa retención. El propietario puede eliminarlos desde GitHub Actions si no desea conservarlos o si los términos no lo permiten.
