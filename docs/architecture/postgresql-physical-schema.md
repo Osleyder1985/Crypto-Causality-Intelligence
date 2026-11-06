@@ -62,8 +62,10 @@ Todas las tablas siguientes pertenecen a `cci`.
 | `policy_evaluations` | `id` | Decisión concreta de aplicabilidad de una política a endpoint, uso e instante. |
 | `assets` | `id` | Identidad canónica de activos. |
 | `asset_identifiers` | `id` | Identificadores externos versionables. |
-| `market_instruments` | `id` | Instrumentos específicos de una fuente/mercado. |
-| `instrument_metadata_versions` | `id` | Observaciones históricas de metadata. |
+| `market_instruments` | `id` | Identidad estable de instrumentos específicos de una fuente/mercado. |
+| `instrument_identifiers` | `id` | Claves y alias nativos del instrumento por interfaz/namespace. |
+| `instrument_metadata_versions` | `id` | Observaciones históricas de metadata y estado. |
+| `instrument_trading_rules` | `id` | Reglas de negociación versionadas por tipo y ámbito. |
 | `ingestion_runs` | `id` | Ejecuciones lógicas. |
 | `ingestion_requests` | `id` | Solicitudes e intentos a endpoints. |
 | `datasets` | `id` | Catálogo de artefactos versionados. |
@@ -174,32 +176,62 @@ La política aplicable se resuelve considerando fuente, endpoint, tipo de dato, 
 **`market_instruments`**
 - `id UUID PK`
 - `data_source_id UUID NOT NULL FK data_sources(id)`
-- `external_instrument_id TEXT NULL`
-- `native_symbol TEXT NOT NULL`
-- `base_asset_id UUID NOT NULL FK assets(id)`
-- `quote_asset_id UUID NOT NULL FK assets(id)`
+- `source_instrument_id TEXT NULL` (identificador estable del proveedor cuando exista; no se inventa si el proveedor no lo ofrece).
+- `native_symbol TEXT NOT NULL` (símbolo de referencia conservado literalmente; no se considera globalmente único).
+- `native_base_asset_code TEXT NOT NULL`
+- `native_quote_asset_code TEXT NOT NULL`
+- `base_asset_id UUID NULL FK assets(id)`
+- `quote_asset_id UUID NULL FK assets(id)`
+- `canonical_symbol TEXT NULL` (solo presentación; nunca clave).
 - `market_type TEXT NOT NULL`: CHECK en `spot, perpetual, future, option, other`.
-- `instrument_status TEXT NOT NULL`
-- `valid_from TIMESTAMPTZ NULL`, `valid_until TIMESTAMPTZ NULL`
-- `metadata JSONB NOT NULL DEFAULT '{}'`
 - `created_at TIMESTAMPTZ NOT NULL`
 - UNIQUE candidato `(id, data_source_id)`.
-- CHECK `base_asset_id <> quote_asset_id`.
+- CHECK: `base_asset_id` y `quote_asset_id` son ambos NULL o ambos NOT NULL; si ambos existen deben ser distintos.
+- No guardar estado cambiante ni reglas de negociación en esta tabla de identidad. No declarar UNIQUE global sobre `native_symbol`, ni asumir que `source_instrument_id` siempre existe.
+
+**`instrument_identifiers`**
+- `id UUID PK`
+- `market_instrument_id UUID NOT NULL FK market_instruments(id)`
+- `identifier_namespace TEXT NOT NULL` (por ejemplo `rest_pair_key`, `rest_altname`, `rest_wsname`, `websocket_symbol`, `provider_id`).
+- `identifier_value TEXT NOT NULL` (conservado exactamente).
+- `is_primary BOOLEAN NOT NULL DEFAULT false`
+- `valid_from TIMESTAMPTZ NULL`, `valid_until TIMESTAMPTZ NULL`
+- `observed_at TIMESTAMPTZ NOT NULL`
+- `created_at TIMESTAMPTZ NOT NULL`
 - CHECK `valid_until IS NULL OR valid_from IS NULL OR valid_until > valid_from`.
-- No declarar UNIQUE global sobre `native_symbol`: la identidad debe considerar fuente, segmento/mercado y vigencia. Las restricciones exactas por proveedor se cerrarán con la matriz de instrumentos y sus contratos.
+- Índice `(identifier_namespace, identifier_value)` y `(market_instrument_id, observed_at DESC)`.
+- Los alias de Kraken no se colapsan: la clave interna de AssetPairs, `altname` y `wsname` pueden ser valores distintos para el mismo mercado. Los símbolos de distintas interfaces tampoco se consideran equivalentes sin mapeo explícito.
 
 **`instrument_metadata_versions`**
 - `id UUID PK`
 - `market_instrument_id UUID NOT NULL FK market_instruments(id)`
 - `source_dataset_id UUID NULL FK datasets(id)`
 - `observed_at TIMESTAMPTZ NOT NULL` (tiempo de conocimiento/observación).
-- `valid_from TIMESTAMPTZ NULL`, `valid_until TIMESTAMPTZ NULL` (tiempo de validez en el mercado).
-- `instrument_status TEXT NOT NULL`
-- `metadata JSONB NOT NULL DEFAULT '{}'`
+- `valid_from TIMESTAMPTZ NULL`, `valid_until TIMESTAMPTZ NULL` (tiempo de validez declarado/defendible).
+- `source_status TEXT NOT NULL` (estado nativo sin pérdida).
+- `normalized_status TEXT NULL` (mapeo canónico documentado y versionado).
+- `price_precision INTEGER NULL`, `quantity_precision INTEGER NULL` (precisión decimal declarada; no equivale a tick/step).
+- `pair_decimals INTEGER NULL`, `lot_decimals INTEGER NULL` (campos nativos de Kraken cuando estén presentes; no se generalizan como reglas de incremento).
+- `provider_metadata JSONB NOT NULL DEFAULT '{}'` (extensiones no normalizadas y campos originales permitidos).
+- `mapping_version TEXT NOT NULL`
+- `schema_version TEXT NOT NULL`
 - `created_at TIMESTAMPTZ NOT NULL`
 - CHECK `valid_until IS NULL OR valid_from IS NULL OR valid_until > valid_from`.
+- CHECK de precisiones no negativas cuando no sean NULL.
 - Índice `(market_instrument_id, observed_at DESC)`.
-- Tabla append-only. Se crea después de `datasets` en la migración inicial por su FK opcional.
+- Tabla append-only. Una nueva observación o corrección genera otra fila.
+
+**`instrument_trading_rules`**
+- `id UUID PK`
+- `metadata_version_id UUID NOT NULL FK instrument_metadata_versions(id)`
+- `rule_namespace TEXT NOT NULL` (por ejemplo `PRICE_FILTER`, `LOT_SIZE`, `MARKET_LOT_SIZE`, `MIN_NOTIONAL`, `NOTIONAL`, `kraken_pair_rules`).
+- `rule_scope TEXT NOT NULL`: CHECK en `price, limit_quantity, market_quantity, notional, order, asset, exchange, other`.
+- `parameters JSONB NOT NULL` (valores decimales conservados como strings decimales; no convertir a float).
+- `applicability JSONB NOT NULL DEFAULT '{}'` (por ejemplo applyToMarket, applyMinToMarket, applyMaxToMarket y avgPriceMins).
+- `created_at TIMESTAMPTZ NOT NULL`
+- UNIQUE `(metadata_version_id, rule_namespace, rule_scope)`.
+- Cada fila representa una regla diferenciada y su ámbito; no se sintetiza un `quantity_step` universal cuando la fuente tiene reglas distintas para mercado y órdenes límite o cuando solo publica decimales de presentación.
+- Las reglas no reconocidas se conservan como extensiones tipadas por adapter y no se descartan.
 
 ### 4.3 Runs y solicitudes
 
@@ -370,8 +402,10 @@ Se crearán índices explícitos para FKs usadas en joins y patrones de consulta
 | `source_usage_policies` | `(data_source_id, valid_from DESC)`; parcial por endpoint | Resolver política aplicable e historial. |
 | `policy_evaluations` | `(data_source_id, data_endpoint_id, intended_use, evaluated_at DESC)`; FK índices | Consultar decisión concreta por endpoint y uso. |
 | `asset_identifiers` | `(namespace, network, external_identifier)` | Resolver identificadores externos. |
-| `market_instruments` | `(data_source_id, native_symbol)`; UNIQUE candidato `(id, data_source_id)` | Catálogo por fuente y FKs compuestas. |
-| `instrument_metadata_versions` | `(market_instrument_id, observed_at DESC)` | Recuperar última observación conocida. |
+| `market_instruments` | `(data_source_id, native_symbol)` no único; UNIQUE candidato `(id, data_source_id)` | Búsqueda por símbolo conservando alias y ambigüedad. |
+| `instrument_identifiers` | `(identifier_namespace, identifier_value)`; `(market_instrument_id, observed_at DESC)` | Resolver alias nativos y símbolos por interfaz. |
+| `instrument_metadata_versions` | `(market_instrument_id, observed_at DESC)` | Recuperar la última observación conocida. |
+| `instrument_trading_rules` | UNIQUE `(metadata_version_id, rule_namespace, rule_scope)`; índice `(metadata_version_id)` | Recuperar reglas por versión y ámbito.
 | `ingestion_requests` | `(ingestion_run_id, requested_at)`; `(data_endpoint_id, requested_at DESC)` | Inspección de Run y endpoint. |
 | `datasets` | UNIQUE `(dataset_key, version)`; UNIQUE `checksum_sha256` solo si se decide que no pueden coexistir artefactos idénticos | Versionado y deduplicación opcional. No imponer deduplicación por hash sin decisión. |
 | `run_datasets` | PK compuesta; índice `(dataset_id)` | Recorrido Run→dataset y dataset→Run. |
@@ -428,10 +462,10 @@ Las migraciones serán versionadas, secuenciales, revisables y ejecutables desde
 1. Crear esquema `cci` y convenciones mínimas.
 2. Crear `data_sources`, `assets`, `ingestion_runs`, `transformations`, `research_experiments`.
 3. Crear `data_endpoints`, `source_usage_policies`, `asset_identifiers`, `market_instruments`.
-4. Crear `policy_evaluations` con sus FKs compuestas y reglas de evaluación.
+4. Crear `instrument_identifiers` y `policy_evaluations` con sus FKs compuestas.
 5. Crear `datasets` antes de las tablas que lo referencian.
 6. Crear `ingestion_requests`, `run_datasets` y `dataset_sources` con FK compuestas.
-7. Crear `instrument_metadata_versions`, `data_validations`, `transformation_runs`.
+7. Crear `instrument_metadata_versions`, `instrument_trading_rules`, `data_validations` y `transformation_runs`.
 8. Crear `dataset_lineage` y `experiment_datasets`.
 9. Crear `research_hypotheses`.
 10. Crear índices adicionales, triggers de inmutabilidad y funciones de transición solo después de probar su necesidad.
@@ -460,7 +494,7 @@ Las pruebas unitarias existentes de parsers (13/13 en la ejecución CI documenta
 
 ## 10. Decisiones pendientes que bloquean el DDL
 
-1. **Identidad de instrumentos:** cerrar las claves únicas con la matriz real de Binance Spot y Kraken Spot; no fijar una unicidad global por símbolo.
+1. **Resolución de identidad de activos:** decidir los criterios documentales para asociar los códigos nativos de base/cotización con `assets`; el diseño admite identidad aún no resuelta.
 2. **Identificadores externos temporales:** definir cómo se representan observaciones corregidas y periodos solapados antes de añadir índices únicos parciales definitivos.
 3. **Auditoría de cambios administrativos:** definir si se añade `audit_events` y qué operaciones requieren actor, motivo y evidencia.
 4. **Almacenamiento Parquet:** seleccionar el backend concreto antes de definir validación de URI, publicación atómica y reconciliación.
@@ -470,7 +504,7 @@ La evaluación de políticas queda modelada mediante `policy_evaluations`; sus r
 ## 11. Secuencia de trabajo posterior
 
 1. Aceptar o corregir esta especificación física.
-2. Resolver el diseño de `policy_evaluations` y las claves candidatas de instrumentos.
+2. Resolver la identidad canónica de activos y las restricciones temporales de alias.
 3. Contrastar restricciones con los contratos canónicos OHLCV y metadata.
 4. Preparar migración inicial SQL y pruebas de integridad con PostgreSQL temporal.
 5. Revisar el SQL y la evidencia de pruebas antes de considerar la implementación aceptada.
