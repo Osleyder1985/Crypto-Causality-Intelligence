@@ -768,7 +768,7 @@ La política rectora es `network-identity-resolution-policy.md`. El inventario f
 - `capture_id UUID NOT NULL` (identificador del lote de ingestión, compartido por todas las entradas del mismo snapshot).
 - `observed_at TIMESTAMPTZ NOT NULL`; `recorded_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()` (sustituye a `created_at` como instante inmutable de incorporación).
 - `provider_name TEXT NULL`, `provider_shortname TEXT NULL`, `provider_native_coin_id TEXT NULL`.
-- `reported_chain_identifier_json JSONB NOT NULL` (escalar JSON `number` o `null`, validado con `jsonb_typeof`; conserva el valor numérico exacto de PostgreSQL `numeric`, sin imponer que sea entero ni confundir JSON `null` con SQL NULL). La evidencia del cuerpo HTTP y su hash permiten conservar el lexema original cuando la fidelidad byte a byte sea necesaria.
+- `reported_chain_identifier_json JSONB NOT NULL` (escalar JSON `number` o `null`; CHECK `jsonb_typeof(reported_chain_identifier_json) IN ('number','null')`; conserva el valor numérico exacto de PostgreSQL `numeric`, sin imponer que sea entero ni confundir JSON `null` con SQL NULL). La evidencia del cuerpo HTTP y su hash permiten conservar el lexema original cuando la fidelidad byte a byte sea necesaria.
 - `evidence_reference TEXT NOT NULL`, `evidence_sha256 TEXT NULL`.
 - UNIQUE `(provider_platform_id, capture_id)`; UNIQUE candidato `(id, provider_platform_id)` y `(id, provider_platform_id, data_source_id)`.
 - No hay UNIQUE por `observed_at`: dos capturas distintas pueden compartir timestamp. La repetición de una plataforma dentro del mismo lote se rechaza.
@@ -894,7 +894,7 @@ La FK auto-referencial compuesta impide sucesión entre plataformas. El índice 
 
 1. `trg_provider_platform_observations_immutable`: BEFORE UPDATE OR DELETE; rechaza cualquier modificación/borrado de snapshots. Las correcciones se insertan como nuevas observaciones.
 2. `trg_provider_platform_reviews_immutable`: BEFORE UPDATE OR DELETE; rechaza cambios/borrados de decisiones. La única operación válida es insertar una sucesora.
-3. `trg_provider_platform_review_chain_guard`: BEFORE INSERT; toma `SELECT ... FOR UPDATE` sobre la identidad `provider_platforms.id`; valida que `supersedes_review_id`, si existe, sea la cabeza actual (ninguna fila la sucede), pertenezca a esa identidad y no cree ciclo. La FK verifica la identidad; el trigger comprueba cabeza y ciclo recorriendo ancestros/sucesores. El bloqueo serializa inserciones concurrentes de la misma identidad.
+3. `trg_provider_platform_review_chain_guard`: BEFORE INSERT; toma `SELECT ... FOR UPDATE` sobre la identidad `provider_platforms.id`; valida que `supersedes_review_id`, si existe, sea la cabeza actual (ninguna fila la sucede), pertenezca a esa identidad, y que `NEW.valid_from` no sea anterior al `valid_from` de su predecesora cuando este último exista. Para una raíz, exige que todavía no haya revisiones de esa identidad. La FK verifica la identidad; el trigger comprueba cabeza y ciclo recorriendo ancestros/sucesores. El bloqueo serializa inserciones concurrentes de la misma identidad.
 4. `trg_network_identifier_platform_guard`: BEFORE INSERT; para filas con procedencia de plataforma, bloquea la identidad, lee fuente y revisión, exige `identifier_value = provider_platform_key`, `namespace = data_sources.source_key || ':asset_platform_id'`, `identifier_type = 'asset_platform_id'`, `resolution_status = 'accepted'` y que la revisión sea la cabeza (sin sucesora). No exige que `valid_from <= now()`: se permite publicar una decisión accepted futura; las vistas solo la exponen cuando entra en vigor. La FK/check garantizan plataforma, red y estado; el trigger valida literales y cabeza.
 5. Los triggers de inmutabilidad deben ejecutarse también para roles de aplicación; las tablas no deben conceder UPDATE/DELETE al rol de ingestión/revisión. Un owner privilegiado puede eludir triggers, por lo que operaciones administrativas quedan fuera del contrato normal y deben auditarse.
 
@@ -929,7 +929,7 @@ WHERE r.valid_from <= statement_timestamp()
       );
 ```
 
-La vista puede devolver como máximo una revisión por identidad si las reglas de cadena se cumplen. La autorización de resolución de plataforma se obtiene filtrando `resolution_status = 'accepted'`; una revisión `pending_review`, `ambiguous` o `rejected` efectiva devuelve estado no resoluble y no habilita el mapping.
+La vista puede devolver como máximo una revisión por identidad si las reglas de cadena se cumplen y el trigger impide que `valid_from` retroceda en la cadena. La autorización de resolución de plataforma se obtiene filtrando `resolution_status = 'accepted'`; una revisión `pending_review`, `ambiguous` o `rejected` efectiva devuelve estado no resoluble y no habilita el mapping.
 
 La vista de mapping publicable debe unir la resolución efectiva accepted con la fila histórica que referencia esa revisión:
 
@@ -968,7 +968,7 @@ El único flujo autorizado para aceptar y publicar un mapping es una transacció
 5. Insertar `network_identifiers` con el mismo `provider_platform_id`, proveedor, red, literal externo, revisión y status accepted.
 6. `COMMIT`; cualquier fallo ejecuta `ROLLBACK`.
 
-El mapping no se publica antes de que la revisión exista. La FK compuesta hace imposible publicar una red distinta de la candidata accepted.
+El mapping no se publica antes de que la revisión exista. La FK compuesta hace imposible publicar una red distinta de la candidata accepted. Para una decisión `rejected`, `ambiguous` o `pending_review`, la transacción inserta únicamente la revisión y no inserta mapping.
 
 **Revocación/corrección:** insertar una revisión sucesora `rejected`, `ambiguous` o `pending_review` con su `valid_from`; no actualizar ni borrar la revisión ni el mapping históricos. La vista deja de exponer el mapping accepted a partir del inicio efectivo de la sucesora. Una nueva decisión accepted posterior crea otra sucesora y su mapping histórico asociado. No se reescriben filas previas.
 
