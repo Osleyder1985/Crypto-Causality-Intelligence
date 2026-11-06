@@ -131,25 +131,46 @@ def validate_candles(rows, interval_seconds, start_s, end_s):
     duplicates = len(timestamps) - len(set(timestamps))
     ordered = all(a < b for a, b in zip(timestamps, timestamps[1:]))
     invalid, gaps = [], []
-    for i, row in enumerate(rows):
+
+    for row in rows:
         o, h, low, c = (float(row[k]) for k in ("open", "high", "low", "close"))
         volume = float(row.get("base_volume", row.get("volume", 0)))
         if not (low <= min(o, c) <= max(o, c) <= h):
             invalid.append({"timestamp": row["open_time_utc"], "type": "ohlc"})
         if volume < 0:
             invalid.append({"timestamp": row["open_time_utc"], "type": "negative_base_volume"})
-        if i and timestamps[i] - timestamps[i - 1] != interval_seconds:
-            delta = timestamps[i] - timestamps[i - 1]
+
+    # El diagnóstico de huecos se calcula sobre timestamps únicos y ordenados.
+    # La secuencia original se conserva para detectar desorden por separado.
+    sorted_timestamps = sorted(set(timestamps))
+    for previous, current in zip(sorted_timestamps, sorted_timestamps[1:]):
+        delta = current - previous
+        if delta != interval_seconds:
             gaps.append({
-                "from": timestamps[i - 1], "to": timestamps[i],
+                "from": previous, "to": current,
                 "missing_intervals": max(0, delta // interval_seconds - 1),
             })
+
     expected = (end_s - start_s) // interval_seconds
     in_window = [t for t in timestamps if start_s <= t < end_s]
     outside_window = [t for t in timestamps if not start_s <= t < end_s]
     misaligned = [t for t in in_window if t % interval_seconds != 0]
     zero_volume = sum(float(r.get("base_volume", r.get("volume", 0))) == 0 for r in rows)
     trade_counts = [int(r["trade_count"]) for r in rows if r.get("trade_count") not in (None, "")]
+    critical = []
+    if not rows:
+        critical.append("empty_response")
+    if duplicates:
+        critical.append("duplicate_timestamps")
+    if not ordered and len(rows) > 1:
+        critical.append("timestamps_not_strictly_ordered")
+    if invalid:
+        critical.append("ohlc_or_volume_violations")
+    if outside_window:
+        critical.append("timestamps_outside_window")
+    if misaligned:
+        critical.append("misaligned_timestamps")
+
     return {
         "records_received": len(rows), "records_in_window": len(in_window),
         "records_outside_window": len(outside_window),
@@ -160,8 +181,32 @@ def validate_candles(rows, interval_seconds, start_s, end_s):
         "trade_count_records": len(trade_counts),
         "zero_trade_count_records": sum(value == 0 for value in trade_counts),
         "ohlc_or_volume_violations": invalid, "gaps": gaps,
+        "critical_violations": critical, "validation_passed": not critical,
         "gap_interpretation": "Un intervalo ausente no se clasifica automáticamente como pérdida de datos; contrastar la semántica y el conteo de operaciones del proveedor.",
     }
+
+
+def metadata_validation_issues(provider, selected):
+    """Comprueba presencia y estado de los mercados BTC/ETH esperados."""
+    issues = []
+    if provider == "binance":
+        expected = {"BTCUSDT", "ETHUSDT"}
+        found = {item.get("symbol"): item for item in selected}
+        for symbol in sorted(expected):
+            if symbol not in found:
+                issues.append(f"missing_market:{symbol}")
+            elif found[symbol].get("status") != "TRADING":
+                issues.append(f"market_not_trading:{symbol}")
+    elif provider == "kraken":
+        expected = {"XBTUSD": "XBT/USD", "ETHUSD": "ETH/USD"}
+        for altname, wsname in expected.items():
+            match = next((item for item in selected
+                          if item.get("altname") == altname or item.get("wsname") == wsname), None)
+            if match is None:
+                issues.append(f"missing_market:{altname}")
+            elif match.get("status") != "online":
+                issues.append(f"market_not_online:{altname}")
+    return issues
 
 
 def fetch_binance(asset, symbol, interval, start_s, end_s, out):
@@ -257,14 +302,28 @@ def main():
             "Una vela ausente en Kraken no implica automáticamente pérdida de datos: considerar intervalos sin operaciones.",
         ],
     }
+    execution_failed = False
+    manifest["metadata_validation"] = {}
     for provider, fetcher in (("binance", fetch_binance_metadata), ("kraken", fetch_kraken_metadata)):
         try:
             record, selected = fetcher(out)
+            issues = metadata_validation_issues(provider, selected)
+            record["validation_issues"] = issues
+            if issues:
+                record["status"] = "validation_error"
+                execution_failed = True
             manifest["metadata"].append(record)
             manifest["metadata_selected_markets"][provider] = selected
+            manifest["metadata_validation"][provider] = {
+                "passed": not issues, "issues": issues,
+            }
         except Exception as exc:
+            execution_failed = True
             manifest["metadata"].append({"provider": provider, "status": "error", "error": str(exc)})
             manifest["metadata_selected_markets"][provider] = []
+            manifest["metadata_validation"][provider] = {
+                "passed": False, "issues": [str(exc)],
+            }
     for label, spec in INTERVALS.items():
         start_s, end_s, _, _ = windows[label]
         manifest["intervals"][label] = {
@@ -288,15 +347,19 @@ def main():
                     ]
                     write_csv(out / "normalized" / f"{provider}_{asset}_{label}.csv", fields, rows)
                     report = validate_candles(rows, spec["seconds"], start_s, end_s)
+                    result_status = "downloaded" if report["validation_passed"] else "validation_error"
+                    if not report["validation_passed"]:
+                        execution_failed = True
                     manifest["results"].append({
                         "provider": provider, "asset": asset, "interval": label,
                         "market_id": market_id, "endpoint": request_meta["url"].split("?")[0],
                         "request": request_meta,
                         "source_timestamp_unit": "milliseconds" if provider == "binance" else "seconds",
                         "query_parameters": urllib.parse.parse_qs(urllib.parse.urlsplit(request_meta["url"]).query),
-                        "raw": raw, "validation": report, "status": "downloaded",
+                        "raw": raw, "validation": report, "status": result_status,
                     })
                 except Exception as exc:
+                    execution_failed = True
                     manifest["results"].append({
                         "provider": provider, "asset": asset, "interval": label,
                         "endpoint": BINANCE if provider == "binance" else KRAKEN,
@@ -316,17 +379,24 @@ def main():
                     "response_bytes": response_info["bytes"], "status": "counted_in_memory_not_archived",
                 })
             except Exception as exc:
+                execution_failed = True
                 manifest["results"].append({
                     "provider": "coingecko", "asset": asset, "interval": label,
                     "endpoint": COINGECKO.format(coin_id=ids["coingecko"]),
                     "status": "error", "error": str(exc),
                 })
     out.mkdir(parents=True, exist_ok=True)
+    manifest["execution_status"] = "failed" if execution_failed else "success"
+    manifest["execution_exit_code"] = 1 if execution_failed else 0
     (out / "manifest.json").write_text(
         json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8"
     )
-    print(json.dumps({"manifest": str(out / "manifest.json"), "results": manifest["results"]},
+    print(json.dumps({"manifest": str(out / "manifest.json"),
+                      "execution_status": manifest["execution_status"],
+                      "results": manifest["results"]},
                      indent=2, ensure_ascii=False))
+    if execution_failed:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
