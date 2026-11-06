@@ -105,7 +105,9 @@ Las siguientes pruebas deben añadirse a la futura suite de integración Postgre
 
 ### P0 — Resolver activos canónicos
 
-Definir una tabla de correspondencia documentada entre códigos nativos y `assets`. En especial, no equiparar automáticamente `BTC`, `XBT` y códigos internos de Kraken sin registrar evidencia y namespace. La identidad de un activo debe poder permanecer sin resolver.
+<badge>Diseño y pruebas implementados</badge>
+
+La política está definida en `asset-identity-resolution-policy.md`, el diseño físico incorpora `asset_identity_resolution_reviews` y `asset_identifiers` conserva únicamente correspondencias aceptadas. `resolve_asset_identity` y las pruebas sintéticas verifican namespace/código/red exactos, evidencia obligatoria y bloqueo ante ambigüedad. No se han aprobado equivalencias reales entre `BTC`, `XBT`, `XXBT` ni entre `USD` y `ZUSD`: esas asociaciones permanecen pendientes de evidencia documental/empírica suficiente. Por tanto, el riesgo de inferencia automática queda cerrado en el diseño; la aprobación de mappings concretos sigue abierta.
 
 ### P1 — Unicidad de identificadores
 
