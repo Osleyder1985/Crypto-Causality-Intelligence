@@ -24,7 +24,9 @@ Se inspeccionaron los árboles Git de `main` y `integration/issue-25-postgresql-
 - `migrations/007_market_instrument_catalog.sql`: instrumentos, alias, metadata y reglas; siete FKs y clave compuesta UK-11.
 - `migrations/008_ingestion_requests_dataset_sources.sql`: solicitudes de ingesta, asociaciones run-dataset y procedencia; doce FKs y clave compuesta UK-12.
 - `migrations/009_lineage_validation_research_runs.sql`: linaje, validaciones, ejecuciones de transformación/investigación, artifacts, hipótesis y datasets experimentales; doce FKs finales.
-- `migrations/010_runtime_role_bootstrap.sql`: diez grupos NOLOGIN, ownership de objetos y grants SELECT deny-by-default; no crea usuarios LOGIN ni concede DML a runtime.
+- `migrations/010_runtime_role_bootstrap.sql`: diez grupos NOLOGIN, ownership y grants SELECT deny-by-default; no crea usuarios LOGIN ni concede DML a runtime.
+- `migrations/011_migration_checksums.sql`: checksum SHA-256 y rol ejecutor en el ledger.
+- `migrations/manifest.json` y `scripts/postgresql/migrate.py`: manifiesto de hashes y runner secuencial con detección de drift.
 - `migrations/README.md`: orden de aplicación y límites operativos.
 - `tests/postgresql/fk-integrity-test-catalog.md`: catálogo documental de escenarios; no es SQL ejecutable.
 
