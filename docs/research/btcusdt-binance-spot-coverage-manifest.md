@@ -1,6 +1,6 @@
 # BTC/USDT — manifiesto de cobertura histórica Binance Spot
 
-- Estado: **DISEÑO CONGELADO; COBERTURA EMPÍRICA NO EVALUADA**
+- Estado: **DISEÑO CONGELADO; COBERTURA EMPÍRICA RECONCILIADA (100%)**
 - Fecha de preparación: 2026-11-06
 - Cohorte: episodios BTC/USDT comunicados por el usuario
 - Fuente primaria: Binance Spot REST API
@@ -11,7 +11,7 @@
 
 ## 1. Objetivo
 
-Definir exactamente qué ventanas históricas deben recuperarse para comprobar la cobertura de Binance Spot antes de analizar los episodios. Este manifiesto no afirma que los datos hayan sido descargados ni que la cobertura esté validada.
+Definir exactamente las ventanas históricas y registrar la evidencia empírica de cobertura Binance Spot. La descarga y reconciliación descritas en la sección 7 se completaron el 2026-11-07.
 
 ## 2. Ventanas congeladas
 
@@ -81,20 +81,46 @@ Un hueco no se clasificará automáticamente como pérdida de datos: se investig
 
 Las velas `1d` podrán recuperarse como contraste secundario, pero no sustituyen a las velas horarias. Los límites de varios episodios no coinciden con medianoche UTC, por lo que una vela diaria puede cruzar el inicio o final de un episodio. Las métricas exactas de cohorte se calcularán con `1h`; cualquier serie diaria se etiquetará como contexto y se documentará su regla de alineación.
 
-## 7. Estado de ejecución y conclusión
+## 7. Ejecución empírica, reconciliación y conclusión
+
+Ejecución automatizada:
+- Workflow: [Binance BTCUSDT historical coverage](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42320078342)
+- Run ID: `42320078342`; conclusión GitHub Actions: `success`.
+- Commit de configuración: `3d54edb9fe907ab6970c37a16fb98c1b5aed10f3`.
+- Artefacto: `binance-btcusdt-coverage-42320078342` (Artifact ID `13552034122`).
+- SHA-256 del ZIP: `ca6bc1d73b23c4ad38da42a6d30c4570023519dc77514d111ea2270a49ea09d9`.
+- Tamaño: 776,707 bytes; retención de GitHub hasta 2026-12-07T00:45:00Z.
+- El ZIP contiene nueve páginas originales, un JSONL normalizado y `coverage_report.json`.
+
+| Episodio | Esperadas | Recibidas | Cobertura | Huecos | Duplicados | Violaciones OHLCV |
+|---|---:|---:|---:|---:|---:|---:|
+| Caída 1 | 1,099 | 1,099 | 100% | 0 | 0 | 0 |
+| Caída 2 | 532 | 532 | 100% | 0 | 0 | 0 |
+| Subida 1 | 2,145 | 2,145 | 100% | 0 | 0 | 0 |
+| Caída 3 | 1,336 | 1,336 | 100% | 0 | 0 | 0 |
+| Subida 2 | 864 | 864 | 100% | 0 | 0 | 0 |
+| **Total** | **5,976** | **5,976** | **100%** | **0** | **0** | **0** |
+
+Controles independientes ejecutados sobre el ZIP:
+- Digest SHA-256 del archivo coincidente con el digest publicado por GitHub.
+- SHA-256 y número de filas de las nueve páginas coincidentes con el informe.
+- 5,976 timestamps de origen únicos; sin duplicados entre páginas.
+- 5,976 registros normalizados; correspondencia exacta de los campos OHLCV, close time, trade count, taker volumes y campo ignore contra las posiciones originales de Binance.
+- Timestamps dentro de los límites semiabiertos, continuidad horaria por episodio y UTC derivado coincidente con el campo normalizado.
+- Cero errores en identidad de mercado, close time, coherencia OHLC, volúmenes no negativos, taker buy base <= volumen base y trade count entero no negativo.
 
 | Evidencia | Estado |
 |---|---|
-| Límites temporales proporcionados y normalizados a UTC | **Completado** |
-| Conteo teórico de velas 1h por episodio | **Completado** |
-| Endpoint y límite de paginación contrastados con documentación oficial | **Completado** |
-| Consulta real a Binance Spot | **Pendiente** |
-| Respuestas brutas preservadas y hasheadas | **Pendiente** |
-| Conteo recibido vs. esperado | **Pendiente** |
-| Huecos, duplicados y OHLCV auditados | **Pendiente** |
-| Clasificación de aptitud de la fuente para la cohorte | **Pendiente** |
+| Límites y conteos teóricos | **Completado** |
+| Descarga real Binance Spot | **Completado** |
+| Respuestas originales preservadas y hasheadas | **Completado** |
+| Conteos, continuidad, huecos y duplicados | **Completado** |
+| Reconciliación raw → normalized | **Completado** |
+| Validaciones OHLCV y temporalidad | **Completado** |
 
-**Conclusión actual: `NOT_EVALUATED`.** El diseño de cobertura está especificado, pero no existe todavía evidencia de respuestas reales de Binance para certificar continuidad o completitud. No declarar la cohorte validada hasta completar la descarga y los controles.
+**Conclusión: `SUITABLE` para las cinco ventanas definidas en este manifiesto**, con cobertura empírica de 5,976/5,976 velas y sin anomalías detectadas en los controles enumerados. La conclusión certifica la completitud y consistencia de la extracción frente a la respuesta de Binance Spot para este universo; no certifica la ausencia de errores históricos en la fuente ni constituye una validación cruzada contra otro exchange.
+
+El límite de la Caída 3 queda fijado en `2026-06-30 20:00 UTC-05:00` (final exclusivo), equivalente a `2026-07-01 01:00Z`. La última vela incluida abre a las 19:00 UTC-05:00. Esta es la convención del manifiesto y produce las 1,336 velas esperadas.
 
 ## 8. Criterio de aceptación
 
