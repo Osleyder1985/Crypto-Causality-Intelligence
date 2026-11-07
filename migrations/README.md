@@ -15,8 +15,9 @@ Estas migraciones son SQL versionado, secuencial y transaccional. No son un inst
 | 007 | `007_market_instrument_catalog.sql` | Instrumentos por fuente, alias, versiones de metadata y reglas de negociación | Implementada y probada |
 | 008 | `008_ingestion_requests_dataset_sources.sql` | Solicitudes de ingesta, asociación run-dataset y procedencia de dataset vinculada a policy evaluation | Implementada y probada |
 | 009 | `009_lineage_validation_research_runs.sql` | Linaje/validación de datasets, ejecuciones de transformación e investigación, hipótesis y artifacts | Implementada y probada |
+| 010 | `010_runtime_role_bootstrap.sql` | Roles NOLOGIN, ownership y permisos de lectura deny-by-default | Implementada y probada; escrituras runtime aún denegadas |
 
-La cadena 001→002→003→004→005→006→007→008→009 requiere una base PostgreSQL vacía. Cada archivo abre y confirma su propia transacción. No deben ejecutarse de nuevo si su versión ya aparece en `cci.schema_migrations`; no usan `IF NOT EXISTS` deliberadamente, para que una divergencia no quede silenciada.
+La cadena 001→002→003→004→005→006→007→008→009→010 requiere una base PostgreSQL vacía. La migración 010 es un bootstrap administrativo de roles cluster-wide y requiere CREATEROLE/ownership; no crea identidades LOGIN. Cada archivo abre y confirma su propia transacción. No deben ejecutarse de nuevo si su versión ya aparece en `cci.schema_migrations`; no usan `IF NOT EXISTS` deliberadamente, para que una divergencia no quede silenciada.
 
 ## Aplicación controlada
 
@@ -32,6 +33,8 @@ psql "$CCI_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/006_asset_identit
 psql "$CCI_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/007_market_instrument_catalog.sql
 psql "$CCI_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/008_ingestion_requests_dataset_sources.sql
 psql "$CCI_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/009_lineage_validation_research_runs.sql
+# 010 requiere una sesión administrativa con CREATEROLE y privilegios de ownership.
+psql "$CCI_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/010_runtime_role_bootstrap.sql
 ```
 
 Verificar el ledger:
@@ -57,6 +60,6 @@ La ejecución automatizada de CI aplica las migraciones desde una instalación l
 - La versión 009 añade las siete entidades finales: cobertura acumulada **34/34 entidades**, **60/60 FKs** y **12/12 claves compuestas destino**. Implementa linaje acíclico serializado, validaciones append-only, ejecuciones de transformación e investigación, transiciones de estado, artifacts inmutables e hipótesis.
 - La CI PostgreSQL 16 [Run #42329331544](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42329331544) aprueba 102 pruebas del esquema global y 29 del laboratorio aislado: **131/131**.
 - El laboratorio de plataformas de proveedor continúa en el esquema aislado `cci_lab`; no debe contarse como tablas instaladas en `cci`.
-- Todavía no están implementadas las restantes entidades, todas las FKs globales, funciones/triggers de identidad, roles/grants, vistas, ni backup/restore.
+- El modelo global está completo; todavía faltan funciones transaccionales de escritura por dominio, auditoría privilegiada, credenciales LOGIN gestionadas externamente, migrador con checksums/drift y backup/restore.
 - No se deben insertar datos reales de proveedores ni OHLCV. Las pruebas usan fixtures sintéticos.
 - El ledger registra versiones aplicadas, pero aún no valida checksums ni sustituye un futuro ejecutor de migraciones con control de drift.
