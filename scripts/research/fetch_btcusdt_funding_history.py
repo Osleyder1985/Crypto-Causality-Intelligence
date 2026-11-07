@@ -6,9 +6,14 @@ repository: outputs are local JSONL/JSON paths supplied by the operator.
 from __future__ import annotations
 
 import argparse
+import csv
+import hashlib
+import io
 import json
 import math
 import time
+import zipfile
+from datetime import datetime, timezone
 from pathlib import Path
 from bisect import bisect_right
 from statistics import median
@@ -20,6 +25,8 @@ from urllib.request import Request, urlopen
 from scripts.research.analyze_btcusdt_multifactor import load_cohorts
 
 API_URL = "https://fapi.binance.com/fapi/v1/fundingRate"
+ARCHIVE_BASE_URL = "https://data.binance.vision/data/futures/um/monthly/fundingRate"
+_ARCHIVE_CACHE: dict[str, list[dict[str, Any]]] = {}
 MAX_LIMIT = 1000
 HOUR_MS = 3_600_000
 
@@ -34,13 +41,80 @@ def _finite_number(value: Any, field: str) -> float:
     return number
 
 
+def _archive_month(symbol: str, year: int, month: int, timeout: float = 30.0) -> list[dict[str, Any]]:
+    """Read Binance Vision's official monthly USD-M fundingRate archive."""
+    filename = f"{symbol}-fundingRate-{year:04d}-{month:02d}.zip"
+    base = f"{ARCHIVE_BASE_URL}/{symbol}/{filename}"
+    if filename in _ARCHIVE_CACHE:
+        return _ARCHIVE_CACHE[filename]
+    try:
+        with urlopen(base, timeout=timeout) as response:
+            archive_bytes = response.read()
+        with urlopen(base + ".CHECKSUM", timeout=timeout) as response:
+            checksum_text = response.read().decode("utf-8").strip()
+    except (HTTPError, URLError, TimeoutError) as exc:
+        raise RuntimeError(f"Binance Vision funding archive unavailable ({filename}): {exc}") from exc
+    expected = checksum_text.split()[0] if checksum_text else ""
+    actual = hashlib.sha256(archive_bytes).hexdigest()
+    if len(expected) != 64 or actual.lower() != expected.lower():
+        raise ValueError(f"Binance Vision checksum mismatch for {filename}")
+    with zipfile.ZipFile(io.BytesIO(archive_bytes)) as zipped:
+        csv_names = [name for name in zipped.namelist() if name.lower().endswith(".csv")]
+        if len(csv_names) != 1:
+            raise ValueError(f"unexpected CSV members in {filename}")
+        with zipped.open(csv_names[0]) as raw:
+            reader = csv.DictReader(io.TextIOWrapper(raw, encoding="utf-8", newline=""))
+            required = {"calc_time", "funding_interval_hours", "last_funding_rate"}
+            if not reader.fieldnames or not required.issubset(set(reader.fieldnames)):
+                raise ValueError(f"unexpected funding archive schema in {filename}")
+            rows = []
+            for row in reader:
+                timestamp = int(row["calc_time"])
+                rate = _finite_number(row["last_funding_rate"], "last_funding_rate")
+                rows.append({
+                    "symbol": symbol,
+                    "fundingTime": timestamp,
+                    "fundingRate": str(rate),
+                    "markPrice": "",
+                    "rateType": None,
+                    "_source_endpoint": "Binance Vision monthly fundingRate archive",
+                    "_funding_interval_hours": int(row["funding_interval_hours"]),
+                })
+    rows.sort(key=lambda item: int(item["fundingTime"]))
+    _ARCHIVE_CACHE[filename] = rows
+    return rows
+
+
+def _request_archive_range(params: dict[str, Any], timeout: float = 30.0) -> list[dict[str, Any]]:
+    symbol = str(params["symbol"])
+    start_ms, end_ms = int(params["startTime"]), int(params["endTime"])
+    first = datetime.fromtimestamp(start_ms / 1000, tz=timezone.utc)
+    last = datetime.fromtimestamp(end_ms / 1000, tz=timezone.utc)
+    year, month = first.year, first.month
+    records = []
+    while (year, month) <= (last.year, last.month):
+        records.extend(
+            row for row in _archive_month(symbol, year, month, timeout)
+            if start_ms <= int(row["fundingTime"]) <= end_ms
+        )
+        if month == 12:
+            year, month = year + 1, 1
+        else:
+            month += 1
+    return sorted(records, key=lambda item: int(item["fundingTime"]))
+
+
 def _request_page(params: dict[str, Any], timeout: float = 20.0) -> list[dict[str, Any]]:
     url = API_URL + "?" + urlencode(params)
     request = Request(url, headers={"User-Agent": "Crypto-Causality-Intelligence/1.0"})
     try:
         with urlopen(request, timeout=timeout) as response:
             payload = json.loads(response.read().decode("utf-8"))
-    except (HTTPError, URLError, TimeoutError) as exc:
+    except HTTPError as exc:
+        if exc.code == 451:
+            return _request_archive_range(params, timeout=timeout)
+        raise RuntimeError(f"Binance funding API request failed: {exc}") from exc
+    except (URLError, TimeoutError) as exc:
         raise RuntimeError(f"Binance funding API request failed: {exc}") from exc
     if not isinstance(payload, list):
         raise ValueError("Binance funding API returned a non-list response")
@@ -98,7 +172,8 @@ def fetch_funding_history(
                         float(raw["markPrice"]) if raw.get("markPrice") not in (None, "") else None
                     ),
                     "rate_type": raw.get("rateType"),
-                    "source_endpoint": "/fapi/v1/fundingRate",
+                    "source_endpoint": raw.get("_source_endpoint", "/fapi/v1/fundingRate"),
+                    "funding_interval_hours": raw.get("_funding_interval_hours"),
                 })
                 seen.add(timestamp)
         if page_times != sorted(page_times):
