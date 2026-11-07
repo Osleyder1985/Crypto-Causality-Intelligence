@@ -9,6 +9,7 @@ from typing import Any
 
 from scripts.research.analyze_btcusdt_hac import FEATURES, _features
 from scripts.research.analyze_btcusdt_multifactor import HORIZONS_HOURS, load_cohorts
+from scripts.research.btcusdt_block_bootstrap import paired_block_bootstrap
 
 
 def _solve(matrix: list[list[float]], vector: list[float]) -> list[float]:
@@ -50,7 +51,8 @@ def _fit_predict(train_x: list[list[float]], train_y: list[float],
     return prediction, y_mean
 
 
-def _metrics(actual: list[float], predicted: list[float], baseline: list[float]) -> dict:
+def _metrics(actual: list[float], predicted: list[float], baseline: list[float], *,
+             block_length: int, bootstrap_replicates: int, bootstrap_seed: int) -> dict:
     n = len(actual)
     if not n:
         return {"status": "insufficient_test_observations", "observations": 0}
@@ -71,13 +73,20 @@ def _metrics(actual: list[float], predicted: list[float], baseline: list[float])
         "baseline_train_mean_directional_accuracy": baseline_direction,
         "mae_improvement_vs_baseline_pct": (1-mae/base_mae)*100 if base_mae else None,
         "rmse_improvement_vs_baseline_pct": (1-rmse/base_rmse)*100 if base_rmse else None,
+        "block_bootstrap_inference": paired_block_bootstrap(
+            actual, predicted, baseline, block_length=block_length,
+            replicates=bootstrap_replicates, seed=bootstrap_seed,
+        ),
     }
 
 
 def evaluate_cohort(rows: list[dict[str, Any]], min_train: int = 168,
-                    ridge_alpha: float = 1e-6) -> dict:
+                    ridge_alpha: float = 1e-6, block_length: int = 24,
+                    bootstrap_replicates: int = 2000, bootstrap_seed: int = 20261106) -> dict:
     if min_train < 24:
         raise ValueError("min_train must be at least 24 hourly observations")
+    if block_length < 1:
+        raise ValueError("block_length must be positive")
     closes = [row["_close"] for row in rows]
     features = [_features(row) for row in rows]
     results = {}
@@ -96,7 +105,10 @@ def evaluate_cohort(rows: list[dict[str, Any]], min_train: int = 168,
             actual.append(target)
             predicted.append(prediction)
             baseline.append(train_mean)
-        results[str(horizon)] = _metrics(actual, predicted, baseline)
+        results[str(horizon)] = _metrics(
+            actual, predicted, baseline, block_length=block_length,
+            bootstrap_replicates=bootstrap_replicates, bootstrap_seed=bootstrap_seed + horizon,
+        )
         results[str(horizon)]["first_test_origin_index"] = first_origin if len(rows) > first_origin + horizon else None
         results[str(horizon)]["training_policy"] = "expanding window; refit at every hourly origin; training labels end no later than forecast origin"
     return {"candles": len(rows), "minimum_training_observations": min_train,
@@ -104,7 +116,8 @@ def evaluate_cohort(rows: list[dict[str, Any]], min_train: int = 168,
 
 
 def analyze(cohorts: dict[str, list[dict[str, Any]]], min_train: int = 168,
-            ridge_alpha: float = 1e-6) -> dict:
+            ridge_alpha: float = 1e-6, block_length: int = 24,
+            bootstrap_replicates: int = 2000, bootstrap_seed: int = 20261106) -> dict:
     return {
         "status": "walk_forward_out_of_sample_evaluation",
         "provider": "binance", "market_type": "SPOT", "symbol": "BTCUSDT", "interval": "1h",
@@ -118,15 +131,31 @@ def analyze(cohorts: dict[str, list[dict[str, Any]]], min_train: int = 168,
             "the forecast target begins at the close of the feature candle"
         ],
         "benchmark": "training-window mean forward return (no-predictor baseline)",
+        "bootstrap_protocol": {
+            "method": "paired moving-block bootstrap with non-circular contiguous blocks",
+            "block_length_hours": block_length,
+            "replicates": bootstrap_replicates,
+            "seed": bootstrap_seed,
+            "confidence_level": 0.95,
+            "superiority_alternative": "model improves over baseline",
+            "block_length_policy": "fixed at 24 hours, the maximum forecast horizon; not selected from observed performance",
+        },
         "limitations": [
-            "overlapping forecast horizons make test errors serially dependent",
-            "metrics are descriptive; confidence intervals and block-bootstrap significance are not included",
+            "forecast origins are hourly and horizons overlap, so pointwise IID confidence intervals are invalid",
+            "bootstrap inference is unavailable when a cohort/horizon has fewer observations than the fixed block length",
+            "the centered bootstrap p-values are approximate finite-sample tests of mean paired improvement",
             "no transaction costs, slippage, or executable trading strategy is modeled",
-            "ridge alpha is fixed, not tuned on test observations"
+            "ridge alpha is fixed, not tuned on test observations",
+            "predictive superiority does not establish causal identification",
         ],
         "causal_claim": False,
-        "cohorts": {name: evaluate_cohort(rows, min_train, ridge_alpha)
-                    for name, rows in sorted(cohorts.items())}
+        "cohorts": {
+            name: evaluate_cohort(
+                rows, min_train, ridge_alpha, block_length, bootstrap_replicates,
+                bootstrap_seed + sum(name.encode("utf-8")),
+            )
+            for name, rows in sorted(cohorts.items())
+        }
     }
 
 
@@ -136,11 +165,19 @@ def main() -> int:
     parser.add_argument("--output")
     parser.add_argument("--min-train", type=int, default=168)
     parser.add_argument("--ridge-alpha", type=float, default=1e-6)
+    parser.add_argument("--bootstrap-block-length", type=int, default=24)
+    parser.add_argument("--bootstrap-replicates", type=int, default=2000)
+    parser.add_argument("--bootstrap-seed", type=int, default=20261106)
     args = parser.parse_args()
     if args.ridge_alpha <= 0:
         parser.error("--ridge-alpha must be positive")
-    rendered = json.dumps(analyze(load_cohorts(args.input), args.min_train, args.ridge_alpha),
-                           indent=2, sort_keys=True) + "\n"
+    if args.bootstrap_block_length < 1 or args.bootstrap_replicates < 100:
+        parser.error("bootstrap block length must be positive and replicates must be at least 100")
+    rendered = json.dumps(
+        analyze(load_cohorts(args.input), args.min_train, args.ridge_alpha,
+                args.bootstrap_block_length, args.bootstrap_replicates, args.bootstrap_seed),
+        indent=2, sort_keys=True,
+    ) + "\n"
     if args.output:
         Path(args.output).write_text(rendered, encoding="utf-8")
     else:
