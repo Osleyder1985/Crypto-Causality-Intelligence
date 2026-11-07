@@ -144,6 +144,44 @@ class PostgreSQLTransactionalWriterTests(unittest.TestCase):
         replay = purge_expired_market_data(self.conn, actor="retention-worker")
         self.assertEqual(replay["deleted_rows"], 0)
 
+    def test_migration_runner_is_idempotent(self):
+        from scripts.persistence.apply_migrations import apply_migrations
+        applied = apply_migrations(os.environ["DATABASE_URL"], Path("migrations"))
+        self.assertEqual(applied, [])
+
+    @unittest.skipUnless(os.getenv("APP_DATABASE_URL"), "APP_DATABASE_URL not set")
+    def test_application_role_can_write_but_cannot_mutate_audit(self):
+        self.authorize()
+        with psycopg.connect(os.environ["APP_DATABASE_URL"]) as app_conn:
+            result = write_candle_batch(
+                app_conn, provider="binance", market_type="SPOT", symbol="BTCUSDT",
+                interval="1h", rows=[BASE], idempotency_key="app-role-batch",
+                actor="cci-app",
+            )
+            self.assertEqual(result["row_count"], 1)
+            with self.assertRaises(psycopg.errors.InsufficientPrivilege):
+                with app_conn.transaction():
+                    app_conn.execute("UPDATE cci.audit_events SET actor = 'tampered'")
+
+    @unittest.skipUnless(os.getenv("RETENTION_DATABASE_URL"), "RETENTION_DATABASE_URL not set")
+    def test_retention_role_can_purge_but_cannot_change_permission(self):
+        self.authorize()
+        self.write()
+        self.conn.execute(
+            "UPDATE cci.source_permissions SET storage_allowed = FALSE, retention_until = NULL "
+            "WHERE provider = 'binance' AND market_type = 'SPOT' AND symbol = 'BTCUSDT'"
+        )
+        self.conn.commit()
+        with psycopg.connect(os.environ["RETENTION_DATABASE_URL"]) as retention_conn:
+            result = purge_expired_market_data(retention_conn, actor="cci-retention")
+            self.assertEqual(result["deleted_rows"], 1)
+            with self.assertRaises(psycopg.errors.InsufficientPrivilege):
+                with retention_conn.transaction():
+                    retention_conn.execute(
+                        "UPDATE cci.source_permissions SET storage_allowed = TRUE "
+                        "WHERE provider = 'binance' AND market_type = 'SPOT' AND symbol = 'BTCUSDT'"
+                    )
+
 
 if __name__ == "__main__":
     unittest.main()
