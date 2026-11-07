@@ -36,7 +36,7 @@ class MultifactorTests(unittest.TestCase):
     def test_loader_rejects_hourly_gap(self):
         with tempfile.TemporaryDirectory() as d:
             p=Path(d)/"data.jsonl"
-            p.write_text("\\n".join(json.dumps(r) for r in [row(0,"100"),row(7200000,"101")]),encoding="utf-8")
+            p.write_text(json.dumps(row(0,"100")) + chr(10) + json.dumps(row(7200000,"101")),encoding="utf-8")
             with self.assertRaisesRegex(ValueError,"non-contiguous"): load_cohorts(p)
 
 
