@@ -1,0 +1,61 @@
+{
+  "schema_version": "1.0.0",
+  "status": "synthetic_test_fixture",
+  "notes": [
+    "Synthetic contract-test data only; no external identity mapping is approved.",
+    "Every external mapping remains pending_review and has no evidence_reference.",
+    "This fixture must never be used as a production asset catalog."
+  ],
+  "canonical_assets": [
+    {
+      "canonical_asset_key": "usd",
+      "asset_type": "fiat"
+    },
+    {
+      "canonical_asset_key": "tether_usd",
+      "asset_type": "stablecoin"
+    }
+  ],
+  "mappings": [
+    {
+      "namespace": "binance_spot",
+      "native_code": "BTC",
+      "network": null,
+      "canonical_asset_key": "bitcoin",
+      "status": "pending_review",
+      "evidence_reference": null
+    },
+    {
+      "namespace": "binance_spot",
+      "native_code": "USDT",
+      "network": null,
+      "canonical_asset_key": "tether_usd",
+      "status": "pending_review",
+      "evidence_reference": null
+    },
+    {
+      "namespace": "kraken_spot",
+      "native_code": "XBT",
+      "network": null,
+      "canonical_asset_key": "bitcoin",
+      "status": "pending_review",
+      "evidence_reference": null
+    },
+    {
+      "namespace": "kraken_spot",
+      "native_code": "XXBT",
+      "network": null,
+      "canonical_asset_key": "bitcoin",
+      "status": "pending_review",
+      "evidence_reference": null
+    },
+    {
+      "namespace": "kraken_spot",
+      "native_code": "ZUSD",
+      "network": null,
+      "canonical_asset_key": "usd",
+      "status": "pending_review",
+      "evidence_reference": null
+    }
+  ]
+}
