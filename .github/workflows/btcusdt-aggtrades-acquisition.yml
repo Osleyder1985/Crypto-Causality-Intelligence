@@ -7,6 +7,11 @@ on:
         description: UTC date YYYY-MM-DD
         required: true
         default: "2026-10-06"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/btcusdt-aggtrades-acquisition.yml"
   pull_request:
     paths:
       - ".github/workflows/btcusdt-aggtrades-acquisition.yml"
@@ -29,7 +34,7 @@ jobs:
       - run: python -m pytest -q tests/test_binance_aggtrades_downloader.py
 
   acquire:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -40,13 +45,13 @@ jobs:
       - name: Acquire both Binance daily aggTrades archives
         run: |
           python scripts/research/download_binance_btcusdt_aggtrades.py \
-            --date "${{ inputs.date }}" \
+            --date "${{ inputs.date || '2026-10-06' }}" \
             --output artifacts/btcusdt_aggtrades
       - name: Retain raw ZIPs, checksums, events and signed flow series
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: btcusdt-aggtrades-${{ inputs.date }}-${{ github.run_id }}
+          name: btcusdt-aggtrades-2026-10-06-${{ github.run_id }}
           path: artifacts/btcusdt_aggtrades/
           if-no-files-found: warn
           retention-days: 90
