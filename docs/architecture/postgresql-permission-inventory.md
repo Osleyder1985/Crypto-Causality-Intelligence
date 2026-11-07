@@ -2,9 +2,9 @@
 
 - **Estado:** propuesta de autorización v0.1; pendiente de revisión y aprobación.
 - **Fecha:** 2026-11-06.
-- **Base documental:** `postgresql-physical-schema.md` v0.7 y `postgresql-logical-data-model.md` v0.7.
-- **Rama:** `architecture/issue-14-storage-resynced`.
-- **Alcance:** 32 tablas del esquema `cci`.
+- **Base documental:** `postgresql-physical-schema.md` v0.8 y `postgresql-logical-data-model.md` v0.8.
+- **Rama:** `integration/issue-25-postgresql-foundation`.
+- **Alcance:** 34 tablas del esquema `cci`.
 - **No incluido:** DDL de roles, GRANT/REVOKE, funciones SQL implementadas ni migraciones.
 
 ## 1. Principios de autorización
@@ -29,7 +29,7 @@
 
 La clasificación T no significa que se permita modificar libremente la fila. Solo los campos de estado expresamente definidos pueden cambiar mediante una operación validada y auditada.
 
-## 3. Inventario de las 32 entidades
+## 3. Inventario de las 34 entidades
 
 | # | Entidad | Dominio | Clase | Lectura | Escritura autorizada propuesta |
 |---:|---|---|---|---|---|
@@ -66,7 +66,7 @@ La clasificación T no significa que se permita modificar libremente la fila. So
 | 31 | `research_hypotheses` | Investigación | T | Investigación y vistas aprobadas | Servicio de investigación: alta y transición mediante función |
 | 32 | `experiment_datasets` | Investigación | B | Investigación y auditoría | Servicio de investigación, mediante INSERT |
 
-**Resultado de clasificación:** 32 entidades inventariadas; 17 A, 4 V, 3 B y 8 T. Las clases describen la política de escritura propuesta, no privilegios ya concedidos.
+**Resultado de clasificación:** 34 entidades inventariadas; 17 A, 4 V, 3 B y 8 T. Las clases describen la política de escritura propuesta, no privilegios ya concedidos.
 
 ## 4. Roles de aplicación propuestos
 
