@@ -25,7 +25,9 @@ class FundingHistoryTests(unittest.TestCase):
             calls.append(params)
             if len(calls) == 1:
                 return [record(100), record(200)]
-            return [record(201), record(300)]
+            if len(calls) == 2:
+                return [record(201), record(300)]
+            return []
 
         result = fetch_funding_history("BTCUSDT", 100, 300, page_fetcher=fetch, limit=2)
         self.assertEqual([item["funding_time_ms"] for item in result], [100, 200, 201, 300])
