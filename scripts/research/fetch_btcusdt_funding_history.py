@@ -10,6 +10,7 @@ import json
 import math
 import time
 from pathlib import Path
+from bisect import bisect_right
 from statistics import median
 from typing import Any, Callable
 from urllib.error import HTTPError, URLError
@@ -170,6 +171,40 @@ def collect_for_spot_cohorts(
         ],
     }
     return ordered, report
+
+
+
+def attach_funding_asof(
+    spot_rows: list[dict[str, Any]],
+    funding_rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Attach only settlements known by each Spot candle's close timestamp.
+
+    Missing prior settlements remain null; they are never replaced by zero.
+    """
+    ordered = sorted(funding_rows, key=lambda item: int(item["funding_time_ms"]))
+    times = [int(item["funding_time_ms"]) for item in ordered]
+    attached = []
+    for row in spot_rows:
+        origin_time = int(row["_ts"]) + HOUR_MS - 1
+        position = bisect_right(times, origin_time)
+        prior = ordered[max(0, position - 3):position]
+        latest = prior[-1] if prior else None
+        enriched = dict(row)
+        enriched["funding_latest_rate_asof"] = (
+            float(latest["funding_rate"]) if latest is not None else None
+        )
+        enriched["funding_latest_age_hours"] = (
+            (origin_time - int(latest["funding_time_ms"])) / HOUR_MS
+            if latest is not None else None
+        )
+        enriched["funding_mean_last_3_asof"] = (
+            sum(float(item["funding_rate"]) for item in prior) / len(prior)
+            if prior else None
+        )
+        enriched["funding_settlements_available_asof"] = len(prior)
+        attached.append(enriched)
+    return attached
 
 
 def main() -> int:
