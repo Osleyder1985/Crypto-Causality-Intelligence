@@ -52,7 +52,7 @@ class EventStudyOneMinuteTests(unittest.TestCase):
             analyze_event(rows, event, horizons=(1,))
 
     def test_60m_pre_event_window_requires_a_prior_reference_candle(self):
-        rows = [candle(i * 60_000, 100 + i) for i in range(62)]
+        rows = [candle(i * 60_000, 100 + i) for i in range(123)]
         event = {
             "event_id": "e60",
             "cohort_window": "cohort_a",
