@@ -430,7 +430,7 @@ La FK compuesta impide combinar endpoint de una fuente con instrumento de otra. 
 - `created_at TIMESTAMPTZ NOT NULL`
 - FK `(data_endpoint_id, data_source_id) -> data_endpoints(id, data_source_id)`.
 - FK `(market_instrument_id, data_source_id) -> market_instruments(id, data_source_id)`.
-- FK `(ingestion_request_id, data_source_id, data_endpoint_id) -> ingestion_requests(id, data_source_id, data_endpoint_id)`. Esta FK se satisface cuando existe solicitud; sin solicitud, los tres campos pueden ser NULL.
+- FK `(ingestion_request_id, data_source_id, data_endpoint_id) -> ingestion_requests(id, data_source_id, data_endpoint_id)`. Esta FK se satisface cuando existe solicitud. Sin solicitud, solo `ingestion_request_id` es NULL; `data_source_id` y `data_endpoint_id` permanecen NOT NULL. Con MATCH SIMPLE, la FK compuesta queda sin exigir fila de solicitud cuando `ingestion_request_id` es NULL, mientras las FKs independientes siguen validando fuente y endpoint.
 - FK `(policy_evaluation_id, data_source_id, data_endpoint_id, data_type, evaluated_intended_use) -> policy_evaluations(id, data_source_id, data_endpoint_id, data_type, intended_use)`.
 - UNIQUE candidato en `policy_evaluations` para la clave compuesta anterior.
 - Índices `(dataset_id)`, `(data_source_id, created_at DESC)` y `(policy_evaluation_id)`.
@@ -937,7 +937,7 @@ Las restricciones `UNIQUE` anteriores son necesarias como objetivos de FKs, aunq
 - UNIQUE `network_identifiers_uq_review` sobre `(provider_platform_resolution_review_id)` WHERE `provider_platform_resolution_review_id IS NOT NULL`: una decisión accepted no publica dos filas de mapping.
 - No crear un UNIQUE global adicional sobre `(namespace, identifier_type, identifier_value)` hasta confirmar su ámbito; el ID externo se interpreta dentro de su proveedor.
 
-La FK compuesta de mapping debe tener como destino la clave candidata de cinco columnas indicada arriba. El campo `provider_platform_resolution_status` se mantiene redundante deliberadamente para que la FK fuerce el literal accepted; el CHECK impide otros estados. No se permite `ON DELETE CASCADE` en estas relaciones históricas.
+La FK compuesta de mapping debe tener como destino la clave candidata de cuatro columnas indicada arriba: `(id, provider_platform_id, candidate_network_id, resolution_status)`. El campo `provider_platform_resolution_status` se mantiene redundante deliberadamente para que la FK fuerce el literal accepted; el CHECK impide otros estados. No se permite `ON DELETE CASCADE` en estas relaciones históricas.
 
 ### 13.3 Índices UNIQUE parciales de cadena
 
