@@ -1,6 +1,6 @@
 # Diseño físico de PostgreSQL
 
-- **Estado:** especificación física reconciliada v0.8; implementación parcial en `migrations/001_cci_root_entities.sql` (8 de 34 entidades raíz) probada en PostgreSQL 16.15. El laboratorio NET-04/05/06 permanece aislado en `cci_lab`; no equivale a su promoción al esquema `cci`. El esquema global no está completo.
+- **Estado:** especificación física reconciliada v0.8; implementación parcial en `migrations/001`–`003` (14 de 34 entidades, 12 de 60 FKs) probada en PostgreSQL 16.15. El laboratorio NET-04/05/06 permanece aislado en `cci_lab`; no equivale a su promoción al esquema `cci`. El esquema global no está completo.
 - **Fecha:** 2026-11-06.
 - **Modelo lógico:** `postgresql-logical-data-model.md`, contrato reconciliado v0.8.
 - **Revisión:** `postgresql-logical-model-review.md`.
