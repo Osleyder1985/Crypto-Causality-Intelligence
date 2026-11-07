@@ -60,4 +60,4 @@ No deben confundirse con las 12 claves compuestas destino de esta auditoría.
 
 ## 6. Dictamen
 
-Las 12 claves compuestas destino necesarias están identificadas. Ocho ya se materializan en el esquema global `cci`: UK-01 a UK-07 en migraciones 002–003 y UK-08 en migración 005. Las cuatro restantes (UK-09 a UK-12) continúan pendientes de DDL global. Las pruebas de migración verifican instalación y parte de la integridad compuesta, pero el gate permanece abierto hasta materializar y probar todas las claves, las FKs consumidoras y sus casos negativos desde base vacía.
+Las 12 claves compuestas destino necesarias están identificadas. Diez ya se materializan en el esquema global `cci`: UK-01 a UK-07 en migraciones 002–003, UK-08 en 005 y UK-09/UK-10 en 006. Las dos restantes (UK-11 y UK-12) continúan pendientes de DDL global. Las pruebas de migración verifican instalación y parte de la integridad compuesta, pero el gate permanece abierto hasta materializar y probar todas las claves, las FKs consumidoras y sus casos negativos desde base vacía.
