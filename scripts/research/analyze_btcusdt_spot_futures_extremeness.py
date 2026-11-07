@@ -78,6 +78,7 @@ def circular_block_ci(
     block_length: int,
     replicates: int,
     rng: random.Random,
+    family_size: int = 1,
 ) -> dict[str, float]:
     """Paired circular moving-block percentile CI for p(Spot)-p(Futures)."""
     n = len(spot_exceed)
@@ -85,6 +86,8 @@ def circular_block_ci(
         raise ValueError("paired bootstrap inputs must have equal nonzero length")
     if not 1 <= block_length <= n:
         raise ValueError("block length must be between 1 and sample length")
+    if family_size < 1:
+        raise ValueError("family size must be at least one")
     differences = [a - b for a, b in zip(spot_exceed, futures_exceed)]
     prefix = [0]
     for value in differences:
@@ -109,9 +112,15 @@ def circular_block_ci(
                 break
         estimates.append(total / n)
     estimates.sort()
+    bonferroni_tail = 0.05 / (2 * family_size)
     return {
         "lower_95": percentile(estimates, 0.025),
         "upper_95": percentile(estimates, 0.975),
+        "lower_familywise_95_bonferroni": percentile(estimates, bonferroni_tail),
+        "upper_familywise_95_bonferroni": percentile(estimates, 1 - bonferroni_tail),
+        "family_size": family_size,
+        "familywise_confidence_level": 0.95,
+        "multiplicity_method": "Bonferroni across configured horizons",
         "replicates": replicates,
         "block_length_seconds": block_length,
     }
@@ -135,6 +144,9 @@ def analyze(
     event_offset = int((event_start - day_start).total_seconds())
     if event_offset < baseline_seconds or event_offset + event_seconds > day_seconds:
         raise ValueError("event/baseline range falls outside the available UTC grid")
+    horizons = list(horizons)
+    if not horizons or len(set(horizons)) != len(horizons):
+        raise ValueError("horizons must be a nonempty list of unique values")
     rng = random.Random(seed)
     results = []
     for horizon in horizons:
@@ -169,7 +181,7 @@ def analyze(
         bootstrap = {}
         for block in block_lengths:
             bootstrap[str(block)] = circular_block_ci(
-                spot_exceed, futures_exceed, block, replicates, rng
+                spot_exceed, futures_exceed, block, replicates, rng, len(horizons)
             )
         results.append({
             "horizon_seconds": horizon,
