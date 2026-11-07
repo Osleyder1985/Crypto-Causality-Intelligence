@@ -214,7 +214,12 @@ def audit_and_align(cohorts: dict[str, list[dict[str, Any]]],
                     prior_pos = bisect_right(times, snapshot["snapshot_time_ms"] - hours * HOUR_MS) - 1
                     prior = records[prior_pos] if prior_pos >= 0 else None
                     key = f"open_interest_change_{hours}h_pct"
-                    if prior and prior["sum_open_interest"] > 0:
+                    target_prior_ms = snapshot["snapshot_time_ms"] - hours * HOUR_MS
+                    prior_is_fresh = (
+                        prior is not None
+                        and target_prior_ms - MAX_SNAPSHOT_AGE_MS <= prior["snapshot_time_ms"] <= target_prior_ms
+                    )
+                    if prior_is_fresh and prior["sum_open_interest"] > 0:
                         result[key] = (
                             snapshot["sum_open_interest"] / prior["sum_open_interest"] - 1
                         ) * 100
