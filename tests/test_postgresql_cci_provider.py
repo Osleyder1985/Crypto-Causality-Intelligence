@@ -10,6 +10,8 @@ from psycopg import errors
 
 
 ROOT = Path(__file__).resolve().parents[1]
+_DEFAULT = object()
+
 MIGRATIONS = [
     ROOT / "migrations" / "001_cci_root_entities.sql",
     ROOT / "migrations" / "002_source_policy_catalog.sql",
@@ -84,7 +86,7 @@ class CCIProviderPlatformMigrationTests(unittest.TestCase):
         return observation_id
 
     def insert_review(self, *, status="accepted", supersedes=None, valid_from=None,
-                      candidate_network_id=None, reviewed_at=None, evidence_reference=None):
+                      candidate_network_id=_DEFAULT, reviewed_at=_DEFAULT, evidence_reference=_DEFAULT):
         review_id = uuid.uuid4()
         self.conn.execute(
             """
@@ -96,14 +98,14 @@ class CCIProviderPlatformMigrationTests(unittest.TestCase):
             """,
             (
                 review_id, self.platform_id, self.source_id,
-                candidate_network_id if candidate_network_id is not None else (
+                candidate_network_id if candidate_network_id is not _DEFAULT else (
                     self.network_id if status == "accepted" else None
                 ),
                 status,
-                evidence_reference if evidence_reference is not None else (
+                evidence_reference if evidence_reference is not _DEFAULT else (
                     "synthetic://provider/review" if status == "accepted" else None
                 ),
-                reviewed_at if reviewed_at is not None else (
+                reviewed_at if reviewed_at is not _DEFAULT else (
                     self.now if status == "accepted" else None
                 ),
                 valid_from or self.now - timedelta(minutes=1),
