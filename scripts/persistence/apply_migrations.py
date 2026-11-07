@@ -34,7 +34,7 @@ def main() -> None:
     args = parser.parse_args()
     if not args.database_url:
         parser.error("--database-url or DATABASE_URL is required")
-    print("\\n".join(apply_migrations(args.database_url, args.migrations)) or "No migrations pending")
+    print("\n".join(apply_migrations(args.database_url, args.migrations)) or "No migrations pending")
 
 
 if __name__ == "__main__":
