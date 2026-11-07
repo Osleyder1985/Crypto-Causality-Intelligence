@@ -9,20 +9,12 @@ from datetime import datetime, timezone
 import psycopg
 
 
-def check_permission(database_url: str, provider: str, market_type: str, symbol: str) -> dict:
-    with psycopg.connect(database_url) as conn:
-        row = conn.execute(
-            """SELECT storage_allowed, retention_until, evidence_ref, updated_at
-               FROM cci.source_permissions
-               WHERE provider = %s AND market_type = %s AND symbol = %s""",
-            (provider, market_type, symbol),
-        ).fetchone()
-
+def validate_permission(row, provider: str, market_type: str, symbol: str, now=None) -> dict:
     if row is None:
         raise PermissionError(f"No storage authorization exists for {provider}/{market_type}/{symbol}")
 
     allowed, retention_until, evidence_ref, updated_at = row
-    now = datetime.now(timezone.utc)
+    now = now or datetime.now(timezone.utc)
     if not allowed:
         raise PermissionError(f"Storage is explicitly denied for {provider}/{market_type}/{symbol}")
     if retention_until is None or retention_until <= now:
@@ -41,24 +33,13 @@ def check_permission(database_url: str, provider: str, market_type: str, symbol:
     }
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--database-url", default=os.environ.get("DATABASE_URL"))
-    parser.add_argument("--provider", default="binance")
-    parser.add_argument("--market-type", default="SPOT")
-    parser.add_argument("--symbol", default="BTCUSDT")
-    args = parser.parse_args()
-    if not args.database_url:
-        parser.error("--database-url or DATABASE_URL is required")
-    try:
-        import json
-        print(json.dumps(check_permission(
-            args.database_url, args.provider, args.market_type, args.symbol
-        ), indent=2))
-    except PermissionError as exc:
-        print(f"DENIED: {exc}", file=sys.stderr)
-        raise SystemExit(3) from exc
+def check_permission(database_url: str, provider: str, market_type: str, symbol: str) -> dict:
+    with psycopg.connect(database_url) as conn:
+        row = conn.execute(
+            """SELECT storage_allowed, retention_until, evidence_ref, updated_at
+               FROM cci.source_permissions
+               WHERE provider = %s AND market_type = %s AND symbol = %s""",
+            (provider, market_type, symbol),
+        ).fetchone()
 
-
-if __name__ == "__main__":
-    main()
+    return validate_permission(row, provider, market_type, symbol)
