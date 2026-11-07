@@ -18,7 +18,7 @@
 | UK-07 | provider_platform_resolution_reviews | (id, provider_platform_id, candidate_network_id, resolution_status) | FK-009 | §13.1 nombra provider_platform_resolution_reviews_uq_mapping. | Materializada y probada en migración 003. |
 | UK-08 | asset_representations | (id, network_id) | FK-028 | §4.2 declara UNIQUE candidato en asset_representations(id, network_id). | Materializada y probada en migración 005. |
 | UK-09 | asset_identity_resolution_reviews | (id, candidate_asset_id, resolution_status, namespace, external_identifier) | FK-027 | §4.2 declara UNIQUE candidato para asset_identifiers. | Materializada y probada en migración 006. |
-| UK-10 | asset_identity_resolution_reviews | (id, candidate_asset_representation_id, resolution_status, namespace, external_identifier, network_id) | FK-029 | §4.2 declara UNIQUE candidato para asset_representation_identifiers. | Candidata; requiere DDL. |
+| UK-10 | asset_identity_resolution_reviews | (id, candidate_asset_representation_id, resolution_status, namespace, external_identifier, network_id) | FK-029 | §4.2 declara UNIQUE candidato para asset_representation_identifiers. | Materializada y probada en migración 006. |
 | UK-11 | market_instruments | (id, data_source_id) | FK-040, FK-046 | §4.2 declara UNIQUE candidato (id, data_source_id). | Candidata; requiere DDL. |
 | UK-12 | ingestion_requests | (id, data_source_id, data_endpoint_id) | FK-047 | §4.3 declara UNIQUE candidato para referencias de procedencia. | Candidata; requiere DDL. |
 
