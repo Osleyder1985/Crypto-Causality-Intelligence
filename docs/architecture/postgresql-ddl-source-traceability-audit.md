@@ -13,7 +13,7 @@ Se inspeccionó el árbol Git recursivo de las ramas `main` y `integration/issue
 | `tests/postgresql/001_provider_platform_lab.sql` | Presente y reproducido | Ausente |
 | Catálogo documental FK | Presente | Según árbol de main no hay migración |
 
-El árbol de integración contiene el DDL ejecutable `tests/postgresql/001_provider_platform_lab.sql`, destinado exclusivamente al esquema desechable `cci_lab`, y la primera migración global `migrations/001_cci_root_entities.sql`. Esta migración crea ocho entidades raíz de `cci` y `cci.schema_migrations`; todavía no crea las 34 entidades. También contiene `tests/postgresql/fk-integrity-test-catalog.md`, que es documentación, no SQL ejecutable.
+El árbol de integración contiene el DDL ejecutable `tests/postgresql/001_provider_platform_lab.sql`, destinado exclusivamente al esquema desechable `cci_lab`, y dos migraciones globales: `001_cci_root_entities.sql` y `002_source_policy_catalog.sql`. En conjunto crean once de las 34 entidades de `cci` y `cci.schema_migrations`. También contiene `tests/postgresql/fk-integrity-test-catalog.md`, que es documentación, no SQL ejecutable.
 
 ## Discrepancia de trazabilidad
 
