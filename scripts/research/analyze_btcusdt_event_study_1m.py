@@ -112,7 +112,7 @@ def analyze_event(
         if horizon <= 0:
             raise ValueError("Horizons must be positive")
         end_ms = event_ms + horizon * MINUTE_MS
-        end_index = bisect_left(closes_at, end_ms)
+        end_index = bisect_left(closes_at, end_ms - 1)
         if end_index >= len(rows):
             raise ValueError(f"{event.get('event_id', 'event')}: insufficient post-event data for {horizon}m")
         post_rows = [r for r in rows if event_ms <= r["open_time_ms"] < end_ms]
@@ -131,6 +131,7 @@ def analyze_event(
             "post_event_excursions_pct": _excursions(post_rows, reference),
             "pre_event_flow": _flow(pre_rows),
             "post_close_time_utc_ms": rows[end_index]["close_time_ms"],
+            "post_close_overshoot_ms": max(0, rows[end_index]["close_time_ms"] - (end_ms - 1)),
             "pre_window_available": pre_ref_index >= 0 and pre_start_index < len(rows),
         }
 
