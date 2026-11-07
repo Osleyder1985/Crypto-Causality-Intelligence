@@ -98,7 +98,7 @@ def _parse_metrics_archive(symbol: str, day: date, timeout: float = 30.0) -> tup
                     "source_file": filename,
                     "timestamp_convention": (
                         "bucket_start_snapshot_plus_5m"
-                        if day >= SNAPSHOT_LABEL_CHANGE else "snapshot_instant"
+                        if day >= SNAPSHOT_LABEL_CHANGE else "conservative_label_plus_5m_semantics_unverified"
                     ),
                 })
     rows.sort(key=lambda item: item["snapshot_time_ms"])
