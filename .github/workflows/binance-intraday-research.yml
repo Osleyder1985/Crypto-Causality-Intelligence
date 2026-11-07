@@ -1,0 +1,27 @@
+name: Binance BTCUSDT intraday research coverage
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  acquire:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Acquire 1-minute Binance Spot candles
+        run: python scripts/research/download_binance_btcusdt_intraday.py --output artifacts/binance_btcusdt_intraday
+      - name: Upload raw pages and normalized evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: binance-btcusdt-intraday-${{ github.run_id }}
+          path: artifacts/binance_btcusdt_intraday/
+          if-no-files-found: error
+          retention-days: 90
