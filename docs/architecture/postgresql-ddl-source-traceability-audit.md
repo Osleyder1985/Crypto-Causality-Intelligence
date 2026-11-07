@@ -50,3 +50,21 @@ No es seguro crear una migración integral copiando supuestos del laboratorio si
 ## Dictamen
 
 **Gate DDL no iniciado en Git:** los HEADs inspeccionados no contienen archivos SQL ni migraciones. El siguiente paso no es afirmar que se implementó el contrato SQL, sino restablecer la trazabilidad del laboratorio y producir el primer artefacto SQL versionado, seguido de CI PostgreSQL 16. No se debe promover el PR #26 ni habilitar ingestión productiva hasta que el gate se cierre.
+
+
+## 13. Actualización: recuperación de la fuente histórica
+
+La discrepancia de trazabilidad descrita arriba quedó resuelta parcialmente mediante recuperación Git verificable:
+
+- El contrato congelado identifica el blob original del DDL: `802b6428b049a8e576f9c3e41f6c7e3f2a31b71a`.
+- El commit histórico `55ba44449a1016e7902e90271801ef8ee3f05fa2` eliminó el archivo; su padre `627257411163605f5420b7b3d43ae55b299a6778` conserva el DDL, la suite Python y el workflow.
+- Se restauraron sin reconstrucción manual en `integration/issue-25-postgresql-foundation`:
+  - `tests/postgresql/001_provider_platform_lab.sql` (26.541 caracteres).
+  - `tests/test_postgresql_lab.py` (32.190 caracteres).
+  - `.github/workflows/postgresql-lab.yml` (1.417 caracteres).
+- Commit de restauración: `463ae7480d683efc135a6772e22b501f898f65ff`.
+- Se disparó una nueva ejecución PostgreSQL 16 para ese HEAD: [Run #42326316626](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42326316626).
+
+**Estado de esta actualización:** los tres archivos ya están versionados y el workflow se inició, pero al redactar esta actualización la ejecución seguía `in_progress`; no se declara todavía una nueva reproducción aprobada de 29/29. La evidencia histórica Run #38 continúa siendo evidencia de su commit histórico, no del HEAD restaurado.
+
+El gate de DDL global permanece abierto: recuperar el laboratorio de seis tablas no crea migraciones productivas ni valida las 34 entidades de `cci`.
