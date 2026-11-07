@@ -51,3 +51,18 @@ class EventStudyOneMinuteTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Timezone-aware"):
             analyze_event(rows, event, horizons=(1,))
 
+    def test_60m_pre_event_window_requires_a_prior_reference_candle(self):
+        rows = [candle(i * 60_000, 100 + i) for i in range(123)]
+        event = {
+            "event_id": "e60",
+            "cohort_window": "cohort_a",
+            "event_at_utc": "1970-01-01T01:01:00Z",
+        }
+        result = analyze_event(rows, event, horizons=(60,))
+        self.assertTrue(result["horizons_minutes"]["60"]["pre_window_available"])
+        self.assertIsNotNone(result["horizons_minutes"]["60"]["pre_event_return_pct"])
+
+        # Removing the candle before the 60-minute pre-window must fail closed.
+        result_without_baseline = analyze_event(rows[1:], event, horizons=(60,))
+        self.assertFalse(result_without_baseline["horizons_minutes"]["60"]["pre_window_available"])
+        self.assertIsNone(result_without_baseline["horizons_minutes"]["60"]["pre_event_return_pct"])
