@@ -1,0 +1,57 @@
+name: BTCUSDT funding incremental evaluation
+
+on:
+  push:
+    branches:
+      - feat/btcusdt-funding-incremental-evaluation
+    paths:
+      - ".github/workflows/btcusdt-funding-incremental.yml"
+      - "scripts/research/evaluate_btcusdt_funding_incremental.py"
+      - "tests/test_btcusdt_funding_incremental.py"
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: Successful Funding coverage workflow run ID
+        required: true
+        default: "42338355963"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  evaluate-incremental-funding:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Download the verified Spot + Funding dataset
+        uses: actions/download-artifact@v4
+        with:
+          name: btcusdt-usdm-funding-audit-${{ inputs.source_run_id || '42338355963' }}
+          run-id: ${{ inputs.source_run_id || '42338355963' }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: artifacts/source
+      - name: Run paired walk-forward evaluation
+        run: |
+          mkdir -p artifacts/research
+          python -m scripts.research.evaluate_btcusdt_funding_incremental \
+            --input artifacts/source/btcusdt_spot_with_funding.jsonl \
+            --output artifacts/research/btcusdt_funding_incremental_report.json \
+            --min-train 168 \
+            --ridge-alpha 0.000001 \
+            --bootstrap-repetitions 1000 \
+            --seed 20261106
+      - name: Preserve evaluation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btcusdt-funding-incremental-evaluation-${{ github.run_id }}
+          path: artifacts/research/
+          if-no-files-found: error
+          retention-days: 90
