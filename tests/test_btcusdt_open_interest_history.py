@@ -37,9 +37,9 @@ class OpenInterestHistoryTests(unittest.TestCase):
         hour = 3_600_000
         rows = [spot_row(0), spot_row(hour), spot_row(2 * hour)]
         snapshots = [
-            {"snapshot_time_ms": 3_000_000, "sum_open_interest": 10.0,
+            {"snapshot_time_ms": 4_000_000, "sum_open_interest": 10.0,
              "sum_open_interest_value": 1_000.0},
-            {"snapshot_time_ms": 6_000_000, "sum_open_interest": 11.0,
+            {"snapshot_time_ms": 6_900_000, "sum_open_interest": 11.0,
              "sum_open_interest_value": 1_100.0},
         ]
         report = {"cohorts": {}}
