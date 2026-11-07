@@ -1,6 +1,11 @@
 name: BTCUSDT multiday Spot vs Futures event study
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/.run-btcusdt-multiday-once"
   workflow_dispatch:
     inputs:
       start_date:
