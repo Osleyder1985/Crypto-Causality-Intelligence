@@ -1,0 +1,48 @@
+name: Guarded Neon historical ingestion
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: Successful Binance historical coverage workflow run ID
+        required: true
+        default: "42320400840"
+      actor:
+        description: Audited ingestion actor
+        required: true
+        default: "github-actions-historical-ingestion"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  ingest-authorized-history:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install PostgreSQL client
+        run: python -m pip install "psycopg[binary]>=3.2,<4"
+      - name: Verify durable-storage authorization before downloading data
+        env:
+          DATABASE_URL: \${{ secrets.CCI_DATABASE_URL }}
+        run: python scripts/persistence/check_storage_permission.py
+      - name: Download approved and retained Binance coverage artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: binance-btcusdt-coverage-\${{ inputs.source_run_id }}
+          run-id: \${{ inputs.source_run_id }}
+          github-token: \${{ secrets.GITHUB_TOKEN }}
+          path: artifacts/source
+      - name: Atomically ingest all approved cohorts
+        env:
+          DATABASE_URL: \${{ secrets.CCI_DATABASE_URL }}
+        run: |
+          python scripts/persistence/ingest_jsonl.py \
+            --input artifacts/source/btc_usdt_1h.jsonl \
+            --actor "\${{ inputs.actor }}"
