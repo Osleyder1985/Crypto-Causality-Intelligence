@@ -8,18 +8,18 @@ Se inspeccionó el árbol Git recursivo de las ramas `main` y `integration/issue
 
 | Elemento | Rama de integración | main |
 |---|---:|---:|
-| Archivos `.sql` versionados | 0 | 0 |
+| Archivos `.sql` versionados | 1 (DDL de laboratorio) | 0 |
 | Rutas de migraciones SQL | 0 | 0 |
-| `tests/postgresql/001_provider_platform_lab.sql` | Ausente | Ausente |
+| `tests/postgresql/001_provider_platform_lab.sql` | Presente y reproducido | Ausente |
 | Catálogo documental FK | Presente | Según árbol de main no hay migración |
 
-El árbol de integración contiene `tests/postgresql/fk-integrity-test-catalog.md`, que es documentación, no SQL ejecutable. También contiene pruebas Python de contratos de mercado y conformance de almacenamiento; estas no crean las 34 tablas del esquema `cci`.
+El árbol de integración contiene el DDL ejecutable `tests/postgresql/001_provider_platform_lab.sql`, pero su destino es exclusivamente el esquema desechable `cci_lab`; no es una migración de aplicación. También contiene `tests/postgresql/fk-integrity-test-catalog.md`, que es documentación, no SQL ejecutable. A la fecha de esta auditoría siguen sin existir archivos SQL bajo una ruta de migraciones versionadas para el esquema `cci`.
 
 ## Discrepancia de trazabilidad
 
 `postgresql-physical-schema.md` y `postgresql-lab-validation-plan.md` mencionan `tests/postgresql/001_provider_platform_lab.sql` como DDL del laboratorio ejecutado en PostgreSQL 16.15 con 29/29 pruebas. Ese archivo no está presente en el árbol Git inspeccionado de ninguna de las dos ramas.
 
-Por tanto, esta auditoría **no invalida por sí sola** que el laboratorio se haya ejecutado anteriormente en otro commit, entorno o artefacto; sí demuestra que el SQL fuente no es recuperable desde los HEADs inspeccionados. La cifra 29/29 queda como afirmación histórica documentada, no como evidencia reproducible disponible en esta rama.
+El DDL de laboratorio se recuperó del historial Git y ahora está versionado en la rama de integración. Su reproducción actual está confirmada en PostgreSQL 16.15 con 29/29 pruebas aprobadas. La fuente continúa siendo un laboratorio aislado, no el DDL del esquema global `cci`.
 
 ## Hallazgo adicional: workflow de almacenamiento no equivale a migración CCI
 
@@ -31,12 +31,11 @@ Los workflows versionados actuales ejecutan validación de datos de investigaci�
 
 No es seguro crear una migración integral copiando supuestos del laboratorio sin disponer del SQL de origen y sin resolver la especificación relacional completa. La secuencia correcta es:
 
-1. Recuperar el SQL del laboratorio desde el commit/artefacto histórico exacto o reconstruirlo a partir del contrato y marcarlo como nueva implementación, nunca como recuperación.
-2. Versionar el DDL del subsistema proveedor recuperado/reconstruido y ejecutar de nuevo sus pruebas PostgreSQL 16.
-3. Crear el manifiesto SQL de las 34 entidades, constraints, índices, funciones, triggers y vistas, derivado del contrato aprobado.
-4. Implementar migraciones versionadas e idempotencia controlada; prohibir aplicación parcial silenciosa.
-5. Añadir workflow PostgreSQL 16 que instale desde base vacía, ejecute pruebas positivas/negativas, seguridad y concurrencia.
-6. Conservar logs, versión del motor, SHA del commit, manifiesto de catálogo y resultados como artefactos de CI.
+1. Mantener el DDL del laboratorio proveedor recuperado y su suite PostgreSQL 16 reproducible, sin promoverlo automáticamente a `cci`.
+2. Derivar migraciones versionadas para las 34 entidades del esquema `cci`, respetando el grafo FK y las claves candidatas aprobadas.
+3. Resolver los atributos pendientes de cada FK (MATCH, acciones, diferibilidad y nulabilidad) y cerrar las reglas de triggers/funciones.
+4. Añadir workflow PostgreSQL 16 que instale migraciones desde base vacía y ejecute pruebas positivas/negativas, seguridad y concurrencia.
+5. Conservar logs, versión del motor, SHA del commit, manifiesto de catálogo y resultados como artefactos de CI.
 
 ## Criterios de cierre
 
