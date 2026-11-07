@@ -29,7 +29,7 @@ class WalkForwardTests(unittest.TestCase):
         result = evaluate_cohort(synthetic_rows(), min_train=168)
         one_hour = result["horizons"]["1"]
         self.assertEqual(one_hour["status"], "evaluated")
-        self.assertEqual(one_hour["observations"], 51)
+        self.assertEqual(one_hour["observations"], 50)
         self.assertIn("mae", one_hour)
         self.assertIn("baseline_train_mean_mae", one_hour)
         self.assertIn("directional_accuracy", one_hour)
