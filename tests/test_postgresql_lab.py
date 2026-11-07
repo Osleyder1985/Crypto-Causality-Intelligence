@@ -19,6 +19,11 @@ DDL_PATH = ROOT / "tests" / "postgresql" / "001_provider_platform_lab.sql"
 class PostgreSQLProviderPlatformLabTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        if "CCI_TEST_DATABASE_URL" not in os.environ:
+            raise unittest.SkipTest(
+                "PostgreSQL integration suite requires CCI_TEST_DATABASE_URL; "
+                "run it through the dedicated PostgreSQL workflow."
+            )
         cls.dsn = os.environ["CCI_TEST_DATABASE_URL"]
 
     def setUp(self):
