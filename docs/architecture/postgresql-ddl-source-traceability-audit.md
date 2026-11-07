@@ -6,8 +6,8 @@ Se inspeccionaron los árboles Git de `main` y `integration/issue-25-postgresql-
 
 | Elemento | Rama de integración | main |
 |---|---:|---:|
-| Archivos SQL versionados | 11 (1 laboratorio + 10 migraciones) | 0 |
-| Migraciones globales `cci` | 10 | 0 |
+| Archivos SQL versionados | 12 (1 laboratorio + 11 migraciones) | 0 |
+| Migraciones globales `cci` | 11 | 0 |
 | Entidades del contrato instaladas en `cci` | 34/34 | 0 |
 | Relaciones FK globales implementadas | 60/60 | 0 |
 | Laboratorio `cci_lab` | Recuperado y reproducido | Ausente |
