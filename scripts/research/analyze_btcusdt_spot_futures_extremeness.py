@@ -206,6 +206,7 @@ def analyze(
         "event_start_utc": event_start.isoformat(),
         "event_seconds": event_seconds,
         "baseline_seconds": baseline_seconds,
+        "input_days": day_seconds // 86400,
         "baseline_episode_seconds": event_seconds,
         "comparison_unit": "maximum sell-flow over equal-duration event and baseline episodes",
         "seed": seed,
@@ -223,7 +224,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--spot-flow", required=True)
     parser.add_argument("--futures-flow", required=True)
-    parser.add_argument("--date-utc", required=True, help="YYYY-MM-DD")
+    parser.add_argument("--date-utc", required=True, help="first UTC date in the input grid, YYYY-MM-DD")
+    parser.add_argument("--days", type=int, default=1, help="number of consecutive UTC days in each flow file")
     parser.add_argument("--event-start-utc", required=True, help="ISO-8601, e.g. 2026-10-06T09:25:45Z")
     parser.add_argument("--event-seconds", type=int, default=15)
     parser.add_argument("--baseline-hours", type=float, default=6)
@@ -236,9 +238,9 @@ def main() -> None:
 
     day_start = datetime.strptime(args.date_utc, "%Y-%m-%d").replace(tzinfo=timezone.utc)
     event_start = parse_utc(args.event_start_utc)
-    if event_start.date() != day_start.date():
-        parser.error("event start must fall on --date-utc")
-    seconds = 86400
+    if args.days < 1 or args.days > 31:
+        parser.error("--days must be between 1 and 31")
+    seconds = args.days * 86400
     spot = load_dense_flow(args.spot_flow, day_start, seconds)
     futures = load_dense_flow(args.futures_flow, day_start, seconds)
     result = analyze(
