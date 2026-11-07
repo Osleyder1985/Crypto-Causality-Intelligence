@@ -38,8 +38,9 @@ La ejecución automatizada de CI aplica las migraciones desde una instalación l
 
 - La versión 001 instala 8 de las 34 entidades del contrato global.
 - La versión 002 añade 3 entidades: cobertura acumulada 11/34.
-- La versión 003 añade 3 entidades: cobertura acumulada 14/34; implementa seis FKs adicionales, cadenas append-only de revisiones, bloqueo de concurrencia por identidad, vista de resolución vigente y función de consulta `valid_at`/`known_at`.
-- El esquema global tiene 12 de las 60 relaciones FK documentadas implementadas hasta ahora. La CI PostgreSQL 16 [Run #42327494420](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42327494420) aprueba 30 pruebas del esquema global y 29 del laboratorio aislado: **59/59**.
+- La versión 003 añade 3 entidades: cobertura acumulada 14/34; implementa seis FKs adicionales, cadenas append-only de revisiones, bloqueo de concurrencia por identidad, vista de resolución vigente y función `valid_at`/`known_at`.
+- La versión 004 añade `network_identifiers`: cobertura acumulada **15/34 entidades** y **15/60 relaciones FK**. Implementa tres FKs, validación de procedencia completa, coincidencia exacta de namespace/literal, estado accepted, mapping único por revisión, inmutabilidad y vista de mappings vigentes.
+- La CI PostgreSQL 16 [Run #42327857620](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42327857620) aprueba 41 pruebas del esquema global y 29 del laboratorio aislado: **70/70**.
 - El laboratorio de plataformas de proveedor continúa en el esquema aislado `cci_lab`; no debe contarse como tablas instaladas en `cci`.
 - Todavía no están implementadas las restantes entidades, todas las FKs globales, funciones/triggers de identidad, roles/grants, vistas, ni backup/restore.
 - No se deben insertar datos reales de proveedores ni OHLCV. Las pruebas usan fixtures sintéticos.
