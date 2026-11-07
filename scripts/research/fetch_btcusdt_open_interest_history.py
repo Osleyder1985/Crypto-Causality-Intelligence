@@ -105,9 +105,28 @@ def _parse_metrics_archive(symbol: str, day: date, timeout: float = 30.0) -> tup
     return rows, actual
 
 
+def required_archive_days(cohorts: dict[str, list[dict[str, Any]]],
+                         lookback_hours: int = 24) -> set[date]:
+    """Include the full pre-cohort lookback needed for 1h/4h/24h changes."""
+    if lookback_hours < 0:
+        raise ValueError("lookback_hours cannot be negative")
+    required: set[date] = set()
+    for rows in cohorts.values():
+        if not rows:
+            continue
+        start_ms = rows[0]["_ts"] - lookback_hours * HOUR_MS
+        end_ms = rows[-1]["_ts"] + HOUR_MS - 1
+        current = datetime.fromtimestamp(start_ms / 1000, tz=timezone.utc).date()
+        end = datetime.fromtimestamp(end_ms / 1000, tz=timezone.utc).date()
+        while current <= end:
+            required.add(current)
+            current += timedelta(days=1)
+    return required
+
+
 def collect_for_cohorts(cohorts: dict[str, list[dict[str, Any]]],
                         timeout: float = 30.0) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    required_days: set[date] = set()
+    required_days = required_archive_days(cohorts, lookback_hours=24)
     windows = {}
     for name, rows in cohorts.items():
         if not rows:
@@ -115,18 +134,15 @@ def collect_for_cohorts(cohorts: dict[str, list[dict[str, Any]]],
         start_ms = rows[0]["_ts"]
         end_ms = rows[-1]["_ts"] + HOUR_MS - 1
         start_dt = datetime.fromtimestamp(start_ms / 1000, tz=timezone.utc)
+        download_start_dt = datetime.fromtimestamp((start_ms - 24 * HOUR_MS) / 1000, tz=timezone.utc)
         end_dt = datetime.fromtimestamp(end_ms / 1000, tz=timezone.utc)
-        start, end = start_dt.date(), end_dt.date()
         windows[name] = {
-            "start_date_utc": start.isoformat(),
-            "end_date_utc": end.isoformat(),
+            "start_date_utc": start_dt.date().isoformat(),
+            "download_start_date_utc": download_start_dt.date().isoformat(),
+            "end_date_utc": end_dt.date().isoformat(),
             "start_time_utc": start_dt.isoformat(),
             "end_time_utc": end_dt.isoformat(),
         }
-        current = start
-        while current <= end:
-            required_days.add(current)
-            current += timedelta(days=1)
 
     all_rows: list[dict[str, Any]] = []
     checksums = {}
@@ -176,6 +192,7 @@ def collect_for_cohorts(cohorts: dict[str, list[dict[str, Any]]],
         "market_type": "USD_M_FUTURES",
         "source": "Binance Vision daily metrics",
         "windows": windows,
+        "lookback_buffer_hours": 24,
         "requested_daily_files": len(required_days),
         "downloaded_daily_files": len(checksums),
         "missing_daily_files": missing_days,
