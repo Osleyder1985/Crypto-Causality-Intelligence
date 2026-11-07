@@ -12,6 +12,8 @@ on:
       - main
     paths:
       - ".github/workflows/btcusdt-aggtrades-acquisition.yml"
+      - "scripts/research/download_binance_btcusdt_aggtrades.py"
+      - "scripts/research/download_binance_btcusdt_klines.py"
   pull_request:
     paths:
       - ".github/workflows/btcusdt-aggtrades-acquisition.yml"
