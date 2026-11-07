@@ -157,14 +157,14 @@ La especificación usa la expresión “UNIQUE candidato” en varios de estos p
 5. **Acciones:** confirmar RESTRICT/RESTRICT por relación, sin asumir CASCADE en asociaciones.
 6. **Diferibilidad:** confirmar NOT DEFERRABLE/INITIALLY IMMEDIATE o justificar diferibilidad para inserciones cíclicas/operaciones atómicas.
 7. **Triggers/funciones:** especificar y probar igualdad NULL-safe de scope, cadenas append-only, no ciclos de sustitución y publicación atómica de mappings; una FK no implementa esas invariantes.
-8. **Ciclos de grafo:** calcular orden topológico sobre esta matriz, separar autorreferencias y detectar dependencias circulares entre tablas; no deducir el orden solo de la secuencia narrativa de migraciones.
+8. **Grafo:** cálculo provisional completado en §7: 34/34 tablas ordenables, dos autorreferencias y cero ciclos entre tablas distintas. Recalcular cuando cambie una relación o se cierre una decisión pendiente.
 9. **Tests:** asignar IDs de pruebas positivas/negativas a cada FK y ejecutar contra PostgreSQL 16 desde base vacía.
 
 ## 6. Dictamen
 
 Se han convertido las relaciones descritas explícitamente en v0.8 en registros tabulares, incluidas las FKs compuestas de consistencia de fuente, las revisiones de identidad y el subsistema de plataformas de proveedor. Esto es un avance de normalización documental, **no una aprobación de las 60 relaciones ni una prueba del motor**. Las acciones, MATCH, diferibilidad, claves candidatas y semánticas NULL que no están completamente especificadas permanecen como gates.
 
-No generar aún migraciones integrales a partir de esta matriz. El siguiente paso es una auditoría cruzada de cada clave candidata y de los grupos NULL, seguida de cálculo del grafo y revisión del orden de creación.
+No generar aún migraciones integrales a partir de esta matriz. El siguiente paso es una auditoría cruzada de cada clave candidata y de los grupos NULL; después se ratificará el orden provisional de §7 y se asignarán pruebas por restricción.
 
 
 ## 7. Grafo de dependencias y orden topológico provisional
