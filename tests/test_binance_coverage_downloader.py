@@ -35,6 +35,18 @@ class CoverageManifestTests(unittest.TestCase):
         self.assertIn("ohlc_invariant_violation", problems)
         self.assertIn("negative_volume", problems)
 
+    def test_close_time_must_end_the_hour(self):
+        row = [0, "100", "110", "95", "105", "12.5", 3599998, "1300", 42, "6", "620", "0"]
+        self.assertIn("invalid_close_time", coverage.validate_candle(row))
+
+    def test_non_finite_market_values_are_rejected(self):
+        row = [0, "100", "110", "95", "105", "NaN", 3599999, "1300", 42, "6", "620", "0"]
+        self.assertIn("non_finite_market_fields", coverage.validate_candle(row))
+
+    def test_taker_volume_cannot_exceed_total_volume(self):
+        row = [0, "100", "110", "95", "105", "12.5", 3599999, "1300", 42, "13", "620", "0"]
+        self.assertIn("taker_volume_exceeds_total", coverage.validate_candle(row))
+
     def test_invalid_response_shape_is_detected(self):
         self.assertEqual(coverage.validate_candle([1, 2, 3]), ["invalid_field_count"])
 
