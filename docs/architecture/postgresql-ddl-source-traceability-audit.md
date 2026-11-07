@@ -40,8 +40,8 @@ No es seguro crear una migración integral copiando supuestos del laboratorio si
 ## Criterios de cierre
 
 - El SQL de laboratorio citado existe y su hash/commit de origen está documentado, o se registra explícitamente como reconstrucción nueva.
-- Hay al menos una migración SQL versionada para el esquema `cci`; no basta un DDL generado dinámicamente dentro de Python.
-- Una instancia PostgreSQL 16 vacía termina con las 34 tablas y las restricciones esperadas.
+- Existe una primera migración SQL versionada para `cci`; la cobertura actual es 8/34 entidades y no debe confundirse con cierre del gate global.
+- Una instancia PostgreSQL 16 vacía debe terminar, al completar todas las migraciones, con las 34 tablas y las restricciones esperadas.
 - Los catálogos `pg_class`, `pg_constraint`, `pg_indexes`, `pg_proc` y grants se comparan con un manifiesto aprobado.
 - Las pruebas 120 FK, SEC-01…SEC-16 y casos transaccionales se ejecutan contra el motor.
 - El workflow se vincula al commit exacto y queda aprobado.
