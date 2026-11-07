@@ -41,6 +41,8 @@ class OpenInterestHistoryTests(unittest.TestCase):
              "sum_open_interest_value": 1_000.0},
             {"snapshot_time_ms": 6_900_000, "sum_open_interest": 11.0,
              "sum_open_interest_value": 1_100.0},
+            {"snapshot_time_ms": 4_300_000, "sum_open_interest": 10.5,
+             "sum_open_interest_value": 1_050.0},
         ]
         report = {"cohorts": {}}
         aligned = audit_and_align({"test": rows}, snapshots, report)
@@ -51,6 +53,7 @@ class OpenInterestHistoryTests(unittest.TestCase):
         # Third candle has no sufficiently recent snapshot and remains null.
         self.assertIsNone(aligned[2]["open_interest_base_asof"])
         self.assertEqual(report["cohorts"]["test"]["fresh_asof_candles"], 1)
+        self.assertEqual(report["cohorts"]["test"]["raw_unique_5m_snapshots_in_window"], 3)
 
 
     def test_change_features_reject_stale_comparison_snapshots(self):
