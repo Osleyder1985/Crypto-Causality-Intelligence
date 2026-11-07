@@ -40,6 +40,7 @@ class CCILineageResearchMigrationTests(unittest.TestCase):
     def setUp(self):
         self.conn = psycopg.connect(os.environ["CCI_TEST_DATABASE_URL"])
         self.now = datetime.now(timezone.utc)
+        self.suffix = uuid.uuid4().hex[:12]
         self.dataset_a = uuid.uuid4()
         self.dataset_b = uuid.uuid4()
         self.dataset_c = uuid.uuid4()
@@ -53,32 +54,33 @@ class CCILineageResearchMigrationTests(unittest.TestCase):
                 id, dataset_key, version, stage, data_format, schema_name,
                 schema_version, storage_uri, checksum_sha256, retention_status
             ) VALUES
-                (%s, 'synthetic-lineage-a', 1, 'source_capture', 'parquet',
+                (%s, %s, 1, 'source_capture', 'parquet',
                  'synthetic', '1', 'synthetic://lineage/a', %s, 'active'),
-                (%s, 'synthetic-lineage-b', 1, 'derived', 'parquet',
+                (%s, %s, 1, 'derived', 'parquet',
                  'synthetic', '1', 'synthetic://lineage/b', %s, 'active'),
-                (%s, 'synthetic-lineage-c', 1, 'derived', 'parquet',
+                (%s, %s, 1, 'derived', 'parquet',
                  'synthetic', '1', 'synthetic://lineage/c', %s, 'active')
             """,
             (
-                self.dataset_a, "a" * 64, self.dataset_b, "b" * 64,
-                self.dataset_c, "c" * 64,
+                self.dataset_a, f"synthetic-lineage-a-{self.suffix}", "a" * 64,
+                self.dataset_b, f"synthetic-lineage-b-{self.suffix}", "b" * 64,
+                self.dataset_c, f"synthetic-lineage-c-{self.suffix}", "c" * 64,
             ),
         )
         self.conn.execute(
             """
             INSERT INTO cci.ingestion_runs (id, run_key, started_at, status)
-            VALUES (%s, 'synthetic-lineage-ingest', %s, 'running')
+            VALUES (%s, %s, %s, 'running')
             """,
-            (self.ingestion_run_id, self.now),
+            (self.ingestion_run_id, f"synthetic-lineage-ingest-{self.suffix}", self.now),
         )
         self.conn.execute(
             """
             INSERT INTO cci.transformations
                 (id, transformation_key, version, description)
-            VALUES (%s, 'synthetic-lineage-transform', '1', 'Synthetic transform')
+            VALUES (%s, %s, '1', 'Synthetic transform')
             """,
-            (self.transformation_id,),
+            (self.transformation_id, f"synthetic-lineage-transform-{self.suffix}"),
         )
         self.conn.execute(
             """
@@ -92,10 +94,10 @@ class CCILineageResearchMigrationTests(unittest.TestCase):
             """
             INSERT INTO cci.research_experiments
                 (id, experiment_key, title, objective, status)
-            VALUES (%s, 'synthetic-lineage-experiment', 'Synthetic experiment',
+            VALUES (%s, %s, 'Synthetic experiment',
                     'Test lineage and research records', 'planned')
             """,
-            (self.experiment_id,),
+            (self.experiment_id, f"synthetic-lineage-experiment-{self.suffix}"),
         )
 
     def tearDown(self):
