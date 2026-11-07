@@ -1,6 +1,6 @@
 # Diseño físico de PostgreSQL
 
-- **Estado:** especificación física reconciliada v0.7; propuesta de producción, no implementada. El subsistema NET-04/05/06 tiene contrato de laboratorio ejecutado, sin promoción a `cci`.
+- **Estado:** especificación física reconciliada v0.7; contrato global propuesto, todavía no implementado integralmente. El registro de runs de investigación tiene migraciones parciales 001/002 probadas en CI, pero no instala el catálogo CCI completo. El subsistema NET-04/05/06 tiene contrato de laboratorio ejecutado, sin promoción a `cci`.
 - **Fecha:** 2026-11-06.
 - **Modelo lógico:** `postgresql-logical-data-model.md`, contrato reconciliado v0.7.
 - **Revisión:** `postgresql-logical-model-review.md`.
@@ -656,9 +656,10 @@ Las migraciones serán versionadas, secuenciales, revisables y ejecutables desde
 6. Crear `datasets` antes de las tablas que los referencian.
 7. Crear `ingestion_requests`, `run_datasets` y `dataset_sources` con FKs compuestas.
 8. Crear `instrument_metadata_versions`, `instrument_trading_rules`, `data_validations` y `transformation_runs`.
-9. Crear `dataset_lineage`, `experiment_datasets` y `research_hypotheses`.
-10. Crear índices adicionales, triggers de inmutabilidad y funciones de transición solo después de probar su necesidad.
-11. Registrar versión de migración y probar migración desde cero, actualización desde versión previa y reversión controlada.
+9. Crear `research_experiment_runs` después de `research_experiments`, y `research_run_artifacts` después de los runs; conservar sus transiciones, restricciones e índices. Estas tablas no se sustituyen por `ingestion_runs` ni `transformation_runs`.
+10. Crear `dataset_lineage`, `experiment_datasets` y `research_hypotheses`.
+11. Crear índices adicionales, triggers de inmutabilidad y funciones de transición solo después de probar su necesidad.
+12. Registrar versión de migración y probar instalación desde cero, actualización desde versión previa y reversión controlada.
 
 Las migraciones no deben depender de datos reales ni de llamadas de red. La reversión de DDL no autoriza borrar artefactos Parquet; la base y el almacenamiento se gestionan por separado.
 
