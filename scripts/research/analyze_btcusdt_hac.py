@@ -88,18 +88,29 @@ def _fit_hac(x: list[list[float]], y: list[float], max_lag: int) -> dict:
     mean_y = sum(y) / n
     ss_tot = sum((v - mean_y) ** 2 for v in y)
     ss_res = sum(v * v for v in residuals)
+    std_y = math.sqrt(ss_tot / n) if ss_tot else None
+    std_x = [
+        math.sqrt(sum((row[j] - sum(item[j] for item in x) / n) ** 2 for row in x) / n)
+        for j in range(1, k)
+    ]
+    coefficients = []
+    for j in range(k):
+        scale = (std_x[j-1] / std_y) if j > 0 and std_y and std_x[j-1] else None
+        coefficients.append({
+            "term": "intercept" if j == 0 else FEATURES[j-1],
+            "estimate": beta[j],
+            "hac_standard_error": se[j],
+            "z_statistic": beta[j] / se[j] if se[j] else None,
+            "p_value": _normal_p(beta[j] / se[j]) if se[j] else None,
+            "standardized_estimate": beta[j] * scale if scale is not None else None,
+            "standardized_hac_standard_error": se[j] * scale if scale is not None else None,
+        })
     return {
         "observations": n,
         "predictors": k - 1,
         "r_squared": 1 - ss_res / ss_tot if ss_tot else None,
         "hac_max_lag": max_lag,
-        "coefficients": [
-            {"term": "intercept" if j == 0 else FEATURES[j-1], "estimate": beta[j],
-             "hac_standard_error": se[j],
-             "z_statistic": beta[j] / se[j] if se[j] else None,
-             "p_value": _normal_p(beta[j] / se[j]) if se[j] else None}
-            for j in range(k)
-        ],
+        "coefficients": coefficients,
     }
 
 
