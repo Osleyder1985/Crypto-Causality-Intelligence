@@ -80,4 +80,8 @@ Suite reproducible: `tests/test_postgresql_cci_core.py`, nueve pruebas de instal
 - Resultado conjunto: **38/38 pruebas aprobadas** (9 de esquema raíz + 29 del laboratorio proveedor), `OK`.
 - HEAD probado: `13a920b0c3a0f54c2f2ce822b2222651a6f3a44d`.
 
-**Límite:** esta migración implementa 8 de 34 entidades (más la tabla de control de migraciones). No valida las 60 FKs, las 12 claves compuestas destino, los triggers globales, los permisos por rol ni la restauración de backup. La siguiente migración debe incorporar dependencias por bloques, comenzando por fuentes/endpoints/políticas y redes/plataformas, con sus claves candidatas y pruebas negativas.
+La migración 002 añade `data_endpoints`, `source_usage_policies` y `policy_evaluations`, incluyendo FKs simples/compuestas, 5 índices de consulta/FK y checks de alcance, permisos, hash y vigencia. La suite `tests/test_postgresql_cci_policy.py` prueba referencias cruzadas de fuente, alcance provider/product/endpoint, vigencia y evaluación concreta.
+
+**Resultado acumulado:** 11 de 34 entidades instaladas en `cci` (más `cci.schema_migrations`), 18 pruebas nuevas de esquema global y 29 pruebas del laboratorio aislado. [Run #42327032198](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42327032198): PostgreSQL 16, **47/47 pruebas aprobadas**.
+
+**Límite:** aún no valida las 60 FKs globales, las 12 claves compuestas destino en conjunto, los triggers globales de identidad, permisos por rol ni restauración de backup. La siguiente migración debe incorporar el subsistema de plataformas de proveedor en `cci`, reutilizando el contrato del laboratorio pero adaptado a las tablas globales y sin mezclar los esquemas.
