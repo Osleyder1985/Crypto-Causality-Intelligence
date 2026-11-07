@@ -116,7 +116,8 @@ PostgreSQL mantiene catálogo, identidades, metadata, operaciones, autorizacione
 9. Revisión de identidad accepted → mapping del mismo destino, red (cuando aplique), namespace e identificador; las FKs compuestas garantizan destino y estado.
 10. Experimento → runs de investigación → referencias a artefactos; los runs analíticos no reutilizan las ejecuciones de ingesta ni de transformación.
 9. Revisión de identidad accepted → mapping del mismo destino, red (cuando aplique), namespace e identificador; las FKs compuestas garantizan destino y estado, y el trigger garantiza el ámbito nullable de red en mappings de activo.
-10. Las FKs compuestas de la especificación física son obligatorias cuando garantizan coherencia de fuente/endpoint/instrumento/política. No pueden sustituirse por validaciones solo en Python.
+10. Experimento → runs de investigación → referencias a artefactos; los runs analíticos no reutilizan las ejecuciones de ingesta ni de transformación.
+11. Las FKs compuestas de la especificación física son obligatorias cuando garantizan coherencia de fuente/endpoint/instrumento/política. No pueden sustituirse por validaciones solo en Python.
 
 Las restricciones locales incluyen intervalos temporales válidos, marcas de tiempo de finalización no anteriores al inicio, intentos positivos, contadores y tamaños no negativos, hashes SHA-256 con formato definido y estados dentro de vocabularios controlados. Los solapamientos temporales, ciclos de linaje, transiciones de estado y decisiones de aplicabilidad requieren lógica transaccional adicional cuando un CHECK/FK no sea suficiente.
 
@@ -155,6 +156,8 @@ erDiagram
     TRANSFORMATION_RUNS ||--o{ DATASET_LINEAGE : produces
     DATASETS ||--o{ DATASET_LINEAGE : input_output
     RESEARCH_EXPERIMENTS ||--o{ RESEARCH_HYPOTHESES : tests
+    RESEARCH_EXPERIMENTS ||--o{ RESEARCH_EXPERIMENT_RUNS : executes
+    RESEARCH_EXPERIMENT_RUNS ||--o{ RESEARCH_RUN_ARTIFACTS : records
     RESEARCH_EXPERIMENTS ||--o{ EXPERIMENT_DATASETS : uses
     DATASETS ||--o{ EXPERIMENT_DATASETS : included
 ```
