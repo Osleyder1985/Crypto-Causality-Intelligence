@@ -73,6 +73,9 @@ def paired_block_bootstrap(
         raise ValueError("block_length must be positive")
     if replicates < 100:
         raise ValueError("replicates must be at least 100")
+    values = [*actual, *predicted, *baseline]
+    if any(not math.isfinite(float(value)) for value in values):
+        raise ValueError("bootstrap inputs must be finite")
     if n < block_length:
         return {
             "status": "insufficient_observations_for_block_bootstrap",
@@ -81,9 +84,6 @@ def paired_block_bootstrap(
             "replicates": 0,
             "seed": seed,
         }
-    values = [*actual, *predicted, *baseline]
-    if any(not math.isfinite(float(value)) for value in values):
-        raise ValueError("bootstrap inputs must be finite")
 
     mae_delta = [abs(b - a) - abs(p - a) for a, p, b in zip(actual, predicted, baseline)]
     mse_delta = [(b - a) ** 2 - (p - a) ** 2 for a, p, b in zip(actual, predicted, baseline)]
