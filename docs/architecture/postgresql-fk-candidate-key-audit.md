@@ -2,7 +2,7 @@
 
 - Fuente revisada: `postgresql-physical-schema.md` v0.8, incluidas §4 y §13.
 - Matriz relacionada: `postgresql-fk-normalized-matrix.md`.
-- Estado: revisión documental y contraste parcial contra PostgreSQL global; once de las doce claves compuestas destino ya están materializadas en migraciones 002, 003, 005, 006 y 007. No equivale a validar el esquema completo.
+- Estado: revisión documental y contraste parcial contra PostgreSQL global; las doce claves compuestas destino ya están materializadas en migraciones 002, 003, 005, 006, 007 y 008. No equivale a validar el esquema completo.
 - Resultado: 12 claves compuestas destino identificadas para las FKs compuestas normalizadas.
 
 ## 1. Claves compuestas destino
@@ -20,7 +20,7 @@
 | UK-09 | asset_identity_resolution_reviews | (id, candidate_asset_id, resolution_status, namespace, external_identifier) | FK-027 | §4.2 declara UNIQUE candidato para asset_identifiers. | Materializada y probada en migración 006. |
 | UK-10 | asset_identity_resolution_reviews | (id, candidate_asset_representation_id, resolution_status, namespace, external_identifier, network_id) | FK-029 | §4.2 declara UNIQUE candidato para asset_representation_identifiers. | Materializada y probada en migración 006. |
 | UK-11 | market_instruments | (id, data_source_id) | FK-040, FK-046 | §4.2 declara UNIQUE candidato (id, data_source_id). | Materializada y probada en migración 007. |
-| UK-12 | ingestion_requests | (id, data_source_id, data_endpoint_id) | FK-047 | §4.3 declara UNIQUE candidato para referencias de procedencia. | Candidata; requiere DDL. |
+| UK-12 | ingestion_requests | (id, data_source_id, data_endpoint_id) | FK-047 | §4.3 declara UNIQUE candidato para referencias de procedencia. | Materializada y probada en migración 008. |
 
 ## 2. Comprobación de orden y tipos
 
@@ -53,11 +53,11 @@ No deben confundirse con las 12 claves compuestas destino de esta auditoría.
 ## 5. Hallazgos y gates
 
 1. La clave destino de FK-009 tiene **cuatro columnas**: `(id, provider_platform_id, candidate_network_id, resolution_status)`. Se corrigió en la especificación física la frase aislada que decía “cinco columnas”.
-2. La clave UK-12 se expresa como candidata o necesaria y aún no tiene materialización global.
+2. UK-12 está materializada en migración 008 y su FK consumidora FK-047 queda probada en la suite de procedencia de datasets.
 3. Las claves de proveedor UK-04 a UK-07 ya están materializadas y probadas en `cci`; el laboratorio `cci_lab` sigue siendo evidencia separada.
 4. Las FKs que referencian claves con componentes nullable (UK-09/UK-10 y FK-009) deben probar inserciones accepted y estados no accepted; la FK compuesta debe impedir mappings a destinos nulos o estados distintos de accepted.
 5. Ninguna de estas comprobaciones valida por sí sola los triggers de cadena, inmutabilidad, concurrencia o publicación atómica.
 
 ## 6. Dictamen
 
-Las 12 claves compuestas destino necesarias están identificadas. Once ya se materializan en el esquema global `cci`: UK-01 a UK-07 en migraciones 002–003, UK-08 en 005, UK-09/UK-10 en 006 y UK-11 en 007. Solo UK-12 continúa pendiente de DDL global. Las pruebas de migración verifican instalación y parte de la integridad compuesta, pero el gate permanece abierto hasta materializar y probar todas las claves, las FKs consumidoras y sus casos negativos desde base vacía.
+Las 12 claves compuestas destino necesarias están identificadas. Las doce claves compuestas destino UK-01 a UK-12 ya se materializan en el esquema global `cci` mediante migraciones 002–008. La cobertura de claves candidatas destino queda implementada; todavía deben completarse y probarse todas sus FKs consumidoras y los escenarios negativos restantes. Las pruebas de migración verifican instalación y parte de la integridad compuesta, pero el gate permanece abierto hasta materializar y probar todas las claves, las FKs consumidoras y sus casos negativos desde base vacía.
