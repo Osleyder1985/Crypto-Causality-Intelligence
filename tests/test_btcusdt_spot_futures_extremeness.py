@@ -45,7 +45,7 @@ class SpotFuturesExtremenessTests(unittest.TestCase):
                 {"bucket_ms": 1000, "bucket_start_ms": start_ms, "signed_taker_notional_usdt": "-2"},
                 {"bucket_ms": 1000, "bucket_start_ms": start_ms + 86400000, "signed_taker_notional_usdt": "-3"},
             ]
-            path.write_text("".join(json.dumps(row) + "\\n" for row in rows), encoding="utf-8")
+            path.write_text("".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
             values = load_dense_flow(path, first_day, 86402)
             self.assertEqual(len(values), 86402)
             self.assertEqual(values[0], -2.0)
@@ -80,6 +80,11 @@ class SpotFuturesExtremenessTests(unittest.TestCase):
             spot, futures, day, event, 5, 40, [1], [5], 20, 7
         )
         self.assertEqual(result["input_days"], 2)
+        self.assertIn(
+            "inference is conditional on the configured pre-event baseline and may not generalize across market regimes",
+            result["limitations"],
+        )
+        self.assertFalse(any("single UTC-day" in item for item in result["limitations"]))
         self.assertEqual(result["results"][0]["baseline_observations"], 36)
         self.assertEqual(result["results"][0]["spot_event_max_sell_usdt"], 100.0)
 

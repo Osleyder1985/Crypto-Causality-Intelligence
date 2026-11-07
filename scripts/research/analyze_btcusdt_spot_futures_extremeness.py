@@ -212,10 +212,10 @@ def analyze(
         "seed": seed,
         "results": results,
         "limitations": [
-            "event maxima are selected from the specified event window",
-            "confidence intervals quantify baseline sampling uncertainty, not causality",
-            "multiple horizons are correlated; apply a pre-specified multiplicity procedure",
-            "a single UTC-day file cannot provide a multi-day or regime-matched baseline",
+            "event maxima are selected from the specified event window and compared with equal-duration baseline maxima",
+            "inference is conditional on the configured pre-event baseline and may not generalize across market regimes",
+            "paired bootstrap intervals quantify baseline sampling uncertainty, not causality or venue leadership",
+            "Bonferroni family-wise adjustment is applied across configured horizons; block lengths are sensitivity checks",
         ],
     }
 
