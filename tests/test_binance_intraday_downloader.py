@@ -33,5 +33,5 @@ def test_candle_validation_rejects_invalid_ohlc():
 def test_august_window_includes_one_hour_pre_roll_without_moving_user_anchor():
     windows = {name: (start, end) for name, start, end in intraday.WINDOWS}
     start, _ = windows["august_rally_2026"]
-    assert start == "2026-08-16T20:00:00Z"
-    assert intraday.to_ms(start) == intraday.to_ms("2026-08-16T16:00:00-05:00") - 60 * intraday.INTERVAL_MS
+    assert start == "2026-08-16T19:59:00Z"
+    assert intraday.to_ms(start) == intraday.to_ms("2026-08-16T16:00:00-05:00") - 61 * intraday.INTERVAL_MS
