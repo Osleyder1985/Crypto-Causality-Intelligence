@@ -5,16 +5,56 @@
 
 BEGIN;
 
-CREATE ROLE cci_owner NOLOGIN NOINHERIT;
-CREATE ROLE cci_migrator NOLOGIN INHERIT;
-CREATE ROLE cci_catalog_writer NOLOGIN INHERIT;
-CREATE ROLE cci_policy_admin NOLOGIN INHERIT;
-CREATE ROLE cci_policy_evaluator NOLOGIN INHERIT;
-CREATE ROLE cci_ingest_writer NOLOGIN INHERIT;
-CREATE ROLE cci_identity_resolver NOLOGIN INHERIT;
-CREATE ROLE cci_transform_writer NOLOGIN INHERIT;
-CREATE ROLE cci_research_writer NOLOGIN INHERIT;
-CREATE ROLE cci_reader NOLOGIN INHERIT;
+DO $cci_roles$
+DECLARE
+    r RECORD;
+    v_can_login BOOLEAN;
+    v_inherit BOOLEAN;
+    v_superuser BOOLEAN;
+    v_createdb BOOLEAN;
+    v_createrole BOOLEAN;
+    v_replication BOOLEAN;
+    v_bypass_rls BOOLEAN;
+BEGIN
+    FOR r IN
+        SELECT role_name, inherit_privileges
+        FROM (VALUES
+            ('cci_owner', false),
+            ('cci_migrator', true),
+            ('cci_catalog_writer', true),
+            ('cci_policy_admin', true),
+            ('cci_policy_evaluator', true),
+            ('cci_ingest_writer', true),
+            ('cci_identity_resolver', true),
+            ('cci_transform_writer', true),
+            ('cci_research_writer', true),
+            ('cci_reader', true)
+        ) AS role_specs(role_name, inherit_privileges)
+    LOOP
+        IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = r.role_name) THEN
+            EXECUTE format(
+                'CREATE ROLE %I NOLOGIN %s',
+                r.role_name,
+                CASE WHEN r.inherit_privileges THEN 'INHERIT' ELSE 'NOINHERIT' END
+            );
+        ELSE
+            SELECT rolcanlogin, rolinherit, rolsuper, rolcreatedb,
+                   rolcreaterole, rolreplication, rolbypassrls
+              INTO v_can_login, v_inherit, v_superuser, v_createdb,
+                   v_createrole, v_replication, v_bypass_rls
+            FROM pg_roles
+            WHERE rolname = r.role_name;
+
+            IF v_can_login
+               OR v_inherit IS DISTINCT FROM r.inherit_privileges
+               OR v_superuser OR v_createdb OR v_createrole
+               OR v_replication OR v_bypass_rls THEN
+                RAISE EXCEPTION 'Existing role % has unsafe attributes; refusing to adopt it', r.role_name;
+            END IF;
+        END IF;
+    END LOOP;
+END;
+$cci_roles$;
 
 GRANT cci_owner TO cci_migrator;
 
