@@ -35,7 +35,7 @@ class KlinesDownloaderTests(unittest.TestCase):
         self.assertEqual(rows[0]["taker_buy_quote_volume_usdt"], "450000")
 
     def test_rejects_bad_ohlc_and_duplicate_timestamps(self):
-        bad = self.row(start_ms())
+        bad = self.row(start_ms() * 1000)
         bad[2] = "59950"
         with self.assertRaisesRegex(ValueError, "inconsistent OHLC"):
             parse_zip(zipped([bad]), "spot", start_ms())
