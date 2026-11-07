@@ -239,6 +239,21 @@ def collect_for_spot_cohorts(
         coverage[name] = _coverage_summary(funding, start_ms, end_ms)
         time.sleep(0.05)
     ordered = sorted(all_funding.values(), key=lambda item: item["funding_time_ms"])
+    asof_alignment = {}
+    for name, rows in sorted(cohorts.items()):
+        aligned = attach_funding_asof(rows, ordered)
+        available = [
+            row["funding_latest_age_hours"] for row in aligned
+            if row["funding_latest_rate_asof"] is not None
+        ]
+        asof_alignment[name] = {
+            "spot_candles": len(aligned),
+            "candles_with_fresh_funding": len(available),
+            "fresh_funding_availability_pct": (
+                100 * len(available) / len(aligned) if aligned else None
+            ),
+            "maximum_funding_age_hours": max(available) if available else None,
+        }
     report = {
         "status": "funding_history_coverage_audit",
         "provider": "binance",
@@ -250,6 +265,7 @@ def collect_for_spot_cohorts(
         "retrieval_policy": "REST first; verified Binance Vision monthly archive fallback when REST is geographically unavailable",
         "cohort_count": len(coverage),
         "cohorts": coverage,
+        "asof_alignment": asof_alignment,
         "funding_records_total_deduplicated": len(ordered),
         "limitations": [
             "coverage is established only for the queried cohort windows",
@@ -309,6 +325,7 @@ def main() -> int:
     parser.add_argument("--spot-input", required=True, help="existing Spot cohort JSONL; not copied")
     parser.add_argument("--funding-output", required=True, help="local funding JSONL output path")
     parser.add_argument("--coverage-report", required=True, help="local JSON coverage report path")
+    parser.add_argument("--aligned-output", help="optional local Spot + as-of Funding JSONL path")
     args = parser.parse_args()
 
     records, report = collect_for_spot_cohorts(args.spot_input)
