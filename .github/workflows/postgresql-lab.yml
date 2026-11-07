@@ -10,9 +10,11 @@ on:
   push:
     branches:
       - architecture/issue-14-storage-resynced
+      - integration/issue-25-postgresql-foundation
     paths:
       - "tests/postgresql/**"
-      - "tests/test_postgresql_lab.py"
+      - "migrations/**"
+      - "tests/test_postgresql*.py"
       - ".github/workflows/postgresql-lab.yml"
   workflow_dispatch:
 
