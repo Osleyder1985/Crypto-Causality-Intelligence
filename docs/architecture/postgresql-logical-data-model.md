@@ -95,6 +95,10 @@ PostgreSQL mantiene catálogo, identidades, metadata, operaciones, autorizacione
 
 **`research_experiments`** — experimento reproducible. Atributos: `id`, `experiment_key`, `title`, `objective`, `methodology_version`, `status`, `started_at`, `finished_at`, `code_version`, `protocol`, `conclusion_summary`, `created_at`.
 
+**`research_experiment_runs`** — ejecución individual e inmutable en su identidad. Atributos: `id`, `experiment_id`, `run_key`, `status`, `code_commit`, `protocol_version`, `parameters`, `input_manifest`, `metrics`, `started_at`, `finished_at`, `error_code`, `error_summary`, `created_at`. Un experimento tiene cero o muchos runs; cada run pertenece a exactamente un experimento.
+
+**`research_run_artifacts`** — referencias a artefactos externos asociados a un run. Atributos: `id`, `run_id`, `artifact_role`, `logical_uri`, `media_type`, `format`, `sha256`, `byte_size`, `schema_version`, `retention_class`, `created_at`. Guarda metadatos y hashes, nunca el contenido binario ni las series OHLCV.
+
 **`research_hypotheses`** — hipótesis y criterios de falsación. Atributos: `id`, `experiment_id`, `hypothesis_key`, `statement`, `alternative_explanations`, `falsification_criteria`, `status`, `created_at`.
 
 **`experiment_datasets`** — asociación experimento/dataset/rol. Atributos: `experiment_id`, `dataset_id`, `dataset_role`, `created_at`.
@@ -109,6 +113,8 @@ PostgreSQL mantiene catálogo, identidades, metadata, operaciones, autorizacione
 6. Instrumento → versiones de metadata → reglas de negociación.
 7. Dataset → procedencias, validaciones, linaje y asociaciones con experimentos.
 8. Transformación → ejecuciones; cada arista de linaje referencia una ejecución concreta.
+9. Revisión de identidad accepted → mapping del mismo destino, red (cuando aplique), namespace e identificador; las FKs compuestas garantizan destino y estado.
+10. Experimento → runs de investigación → referencias a artefactos; los runs analíticos no reutilizan las ejecuciones de ingesta ni de transformación.
 9. Revisión de identidad accepted → mapping del mismo destino, red (cuando aplique), namespace e identificador; las FKs compuestas garantizan destino y estado, y el trigger garantiza el ámbito nullable de red en mappings de activo.
 10. Las FKs compuestas de la especificación física son obligatorias cuando garantizan coherencia de fuente/endpoint/instrumento/política. No pueden sustituirse por validaciones solo en Python.
 
