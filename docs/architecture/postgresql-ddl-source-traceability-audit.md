@@ -32,12 +32,13 @@ Se inspeccionaron los árboles Git de `main` y `integration/issue-25-postgresql-
 
 ## Evidencia PostgreSQL
 
-La CI PostgreSQL 16 [Run #42329699551](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42329699551) aplicó las diez migraciones desde un esquema limpio y ejecutó:
+La CI PostgreSQL 16 [Run #42330173135](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42330173135) aplicó las once migraciones desde un esquema limpio y ejecutó:
 
 - 102 pruebas contra el esquema global `cci`.
 - 29 pruebas contra el laboratorio independiente `cci_lab`.
 - 9 pruebas de ownership, roles, GRANT/REVOKE y aislamiento por sesión.
-- **140/140 pruebas aprobadas**.
+- 5 pruebas del runner: instalación limpia, idempotencia, verify-only, drift del ledger y drift de archivos/manifiesto.
+- **145/145 pruebas aprobadas**.
 
 La cobertura global comprende 34/34 entidades, 60/60 FKs y 12/12 claves compuestas destino. La tabla operativa `cci.schema_migrations` eleva a 35 el número de tablas físicas en el esquema.
 
