@@ -5,6 +5,7 @@ on:
     paths:
       - "scripts/research/**"
       - "scripts/validation/**"
+      - "requirements-validation.txt"
       - "tests/**"
       - ".github/workflows/research-data-validation.yml"
   push:
@@ -12,6 +13,8 @@ on:
       - main
     paths:
       - "scripts/research/**"
+      - "scripts/validation/**"
+      - "requirements-validation.txt"
       - "tests/**"
       - ".github/workflows/research-data-validation.yml"
 
@@ -28,5 +31,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Install validation dependencies
+        run: python -m pip install -r requirements-validation.txt
       - name: Run complete test suite
         run: python -m unittest discover -s tests -v
