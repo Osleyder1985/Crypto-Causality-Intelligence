@@ -151,7 +151,7 @@ La especificación usa la expresión “UNIQUE candidato” en varios de estos p
 
 1. **Recuento y cobertura:** validar automáticamente los 34 nombres contra el inventario físico; confirmar que la tabla de cobertura no contiene duplicados ni omisiones.
 2. **Claves destino:** comprobar PK/UNIQUE real para cada referencia compuesta, especialmente las marcadas como candidatas.
-3. **Nulabilidad:** resolver el grupo de procedencia de FK-008 y FK-009 (todos NULL o completos, según contrato); en FK-047 existe contradicción entre columnas NOT NULL y la prosa que permite los tres campos NULL. FK-040 y FK-046 tienen solo el ID de instrumento nullable, por lo que MATCH SIMPLE omite la referencia cuando ese ID es NULL.
+3. **Nulabilidad:** el grupo de procedencia de FK-008/009 está definido por CHECK en §13.2. FK-047 quedó resuelta en la especificación física: solo ingestion_request_id es nullable; fuente y endpoint siguen NOT NULL. FK-040 y FK-046 tienen solo el ID de instrumento nullable, por lo que MATCH SIMPLE omite la referencia cuando ese ID es NULL.
 4. **MATCH:** ratificar SIMPLE o FULL por relación. MATCH FULL puede ser apropiado para FK-008/009 si todos sus componentes son nullable; no es aplicable a FK-047 mientras data_source_id y data_endpoint_id permanezcan NOT NULL.
 5. **Claves candidatas:** el auto-referenciado FK-024 usa la PK (id) y no necesita una UNIQUE compuesta adicional; la consistencia de la misma clave de identidad debe imponerse mediante trigger/función.
 6. **Acciones:** confirmar RESTRICT/RESTRICT por relación, sin asumir CASCADE en asociaciones.
@@ -286,9 +286,12 @@ Este overlay completa los atributos de implementación que no estaban especifica
 | FK-059 | `fk_059_experiment_datasets_research_experiments` | SIMPLE (provisional) | RESTRICT (provisional) | RESTRICT (provisional) | NO (provisional) | NO (provisional) | `P-FK-059`, `N-FK-059` (propuestos; no ejecutados) |
 | FK-060 | `fk_060_experiment_datasets_datasets` | SIMPLE (provisional) | RESTRICT (provisional) | RESTRICT (provisional) | NO (provisional) | NO (provisional) | `P-FK-060`, `N-FK-060` (propuestos; no ejecutados) |
 
-La columna `constraint_name` propone nombres estables únicos; puede ajustarse a la convención final del repositorio, conservando el ID FK como referencia cruzada. `MATCH SIMPLE`, `RESTRICT`, `NOT DEFERRABLE` e `INITIALLY IMMEDIATE` se registran como baseline provisional. Para FK-008/009 debe decidirse si `MATCH FULL` es compatible con la semántica exacta de sus columnas y CHECKs. Para FK-047, no basta elegir MATCH: primero debe resolverse la contradicción de nulabilidad documentada en §5.
+La columna `constraint_name` propone nombres estables únicos; puede ajustarse a la convención final del repositorio, conservando el ID FK como referencia cruzada. `MATCH SIMPLE`, `RESTRICT`, `NOT DEFERRABLE` e `INITIALLY IMMEDIATE` se registran como baseline provisional. Para FK-008/009 debe decidirse si `MATCH FULL` es compatible con la semántica exacta de sus columnas y CHECKs. FK-047 queda en MATCH SIMPLE: la solicitud es opcional, mientras fuente y endpoint siguen siendo obligatorios.
 
 
-### 8.1 Inconsistencia interna detectada en el contrato de proveedor
+### 8.1 Correcciones de consistencia aplicadas a la especificación física
 
-La sección 13.2 describe la FK `network_identifiers_fk_accepted_review` con cuatro columnas de origen y cuatro de destino, pero a continuación afirma que su clave candidata destino es de cinco columnas. La lista explícita de columnas y el UNIQUE declarado en §13.1 contienen cuatro columnas: `(id, provider_platform_id, candidate_network_id, resolution_status)`. La matriz conserva la FK de cuatro columnas y marca la frase “cinco columnas” como error documental que debe corregirse en la especificación física antes de generar DDL.
+Se corrigieron dos contradicciones documentales en `postgresql-physical-schema.md` dentro de esta misma rama:
+
+1. En `dataset_sources`, la frase que decía que los tres componentes de la FK de `ingestion_requests` podían ser NULL contradice las definiciones `data_source_id NOT NULL` y `data_endpoint_id NOT NULL`. Ahora se especifica que solo `ingestion_request_id` es nullable y que MATCH SIMPLE omite esa FK opcional, mientras las FKs independientes siguen validando fuente y endpoint.
+2. En §13.2, se corrigió “clave candidata de cinco columnas” a “cuatro columnas”, coincidiendo con la FK y el UNIQUE explícitos: `(id, provider_platform_id, candidate_network_id, resolution_status)`.
