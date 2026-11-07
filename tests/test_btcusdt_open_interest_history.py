@@ -52,6 +52,19 @@ class OpenInterestHistoryTests(unittest.TestCase):
         self.assertIsNone(aligned[2]["open_interest_base_asof"])
         self.assertEqual(report["cohorts"]["test"]["fresh_asof_candles"], 1)
 
+
+    def test_change_features_reject_stale_comparison_snapshots(self):
+        rows = [spot_row(0)]
+        snapshots = [
+            {"snapshot_time_ms": -1_000_000, "sum_open_interest": 9.0,
+             "sum_open_interest_value": 900.0},
+            {"snapshot_time_ms": 3_500_000, "sum_open_interest": 10.0,
+             "sum_open_interest_value": 1_000.0},
+        ]
+        report = {"cohorts": {}}
+        aligned = audit_and_align({"test": rows}, snapshots, report)
+        self.assertIsNone(aligned[0]["open_interest_change_1h_pct"])
+
     def test_missing_snapshot_is_not_imputed_as_zero(self):
         rows = [spot_row(0)]
         report = {"cohorts": {}}
