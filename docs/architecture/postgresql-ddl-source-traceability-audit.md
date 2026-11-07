@@ -1,55 +1,51 @@
 # Auditoría de trazabilidad del DDL PostgreSQL — Issue #25
 
-## Alcance y método
+## Alcance y estado actual
 
-Se inspeccionó el árbol Git recursivo de las ramas `main` y `integration/issue-25-postgresql-foundation`, además del inventario de archivos modificados por PR #26. Se buscaron archivos versionados `.sql`, rutas de migración y los artefactos mencionados por las especificaciones.
-
-## Resultado reproducible del árbol inspeccionado
+Se inspeccionaron los árboles Git de `main` y `integration/issue-25-postgresql-foundation`, el contenido de las migraciones y las ejecuciones CI asociadas.
 
 | Elemento | Rama de integración | main |
 |---|---:|---:|
-| Archivos `.sql` versionados | 4 (1 laboratorio + 3 migraciones) | 0 |
-| Rutas de migraciones SQL | 3 (`001_cci_root_entities.sql`, `002_source_policy_catalog.sql`, `003_provider_platform_reviews.sql`) | 0 |
-| `tests/postgresql/001_provider_platform_lab.sql` | Presente y reproducido | Ausente |
-| Catálogo documental FK | Presente | Según árbol de main no hay migración |
+| Archivos SQL versionados | 4 (1 laboratorio + 3 migraciones) | 0 |
+| Migraciones globales `cci` | 3 | 0 |
+| Entidades del contrato instaladas en `cci` | 14/34 | 0 |
+| Relaciones FK globales implementadas | 12/60 | 0 |
+| Laboratorio `cci_lab` | Recuperado y reproducido | Ausente |
 
-El árbol de integración contiene el DDL ejecutable `tests/postgresql/001_provider_platform_lab.sql`, destinado exclusivamente al esquema desechable `cci_lab`, y dos migraciones globales: `001_cci_root_entities.sql` y `002_source_policy_catalog.sql`. En conjunto crean once de las 34 entidades de `cci` y `cci.schema_migrations`. También contiene `tests/postgresql/fk-integrity-test-catalog.md`, que es documentación, no SQL ejecutable.
+## Fuentes SQL y alcance
 
-## Discrepancia de trazabilidad
+- `tests/postgresql/001_provider_platform_lab.sql`: laboratorio aislado y desechable `cci_lab`; no es una migración de aplicación.
+- `migrations/001_cci_root_entities.sql`: esquema `cci`, ledger y ocho entidades raíz.
+- `migrations/002_source_policy_catalog.sql`: endpoints, políticas y evaluaciones; seis relaciones FK.
+- `migrations/003_provider_platform_reviews.sql`: plataformas, observaciones y revisiones; seis relaciones FK.
+- `migrations/README.md`: orden de aplicación y límites operativos.
+- `tests/postgresql/fk-integrity-test-catalog.md`: catálogo documental de escenarios; no es SQL ejecutable.
 
-`postgresql-physical-schema.md` y `postgresql-lab-validation-plan.md` mencionan `tests/postgresql/001_provider_platform_lab.sql` como DDL del laboratorio ejecutado en PostgreSQL 16.15 con 29/29 pruebas. Ese archivo no está presente en el árbol Git inspeccionado de ninguna de las dos ramas.
+## Evidencia PostgreSQL
 
-El DDL de laboratorio se recuperó del historial Git y ahora está versionado en la rama de integración. Su reproducción actual está confirmada en PostgreSQL 16.15 con 29/29 pruebas aprobadas. La fuente continúa siendo un laboratorio aislado, no el DDL del esquema global `cci`.
+La CI [Run #42327494420](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42327494420) aplicó las tres migraciones globales desde un esquema limpio en PostgreSQL 16 y ejecutó:
 
-## Hallazgo adicional: workflow de almacenamiento no equivale a migración CCI
+- 30 pruebas contra el esquema global `cci`.
+- 29 pruebas contra el laboratorio independiente `cci_lab`.
+- **59/59 pruebas aprobadas**.
 
-`scripts/validation/storage_conformance.py` construye una tabla `candles` temporal en el PostgreSQL de CI para comparar JSONL/Parquet/DuckDB/PostgreSQL. Esa tabla técnica de conformance no es el catálogo relacional de 34 entidades `cci` y no debe confundirse con una migración productiva ni con persistencia OHLCV en PostgreSQL.
+La cobertura global comprende 14 de las 34 entidades y 12 de las 60 FKs inventariadas. La prueba no representa una instalación integral de CCI.
 
-Los workflows versionados actuales ejecutan validación de datos de investigación y cobertura histórica; no existe un workflow que instale el esquema completo `cci` desde cero y ejecute las pruebas de integridad referencial/roles.
+## Hallazgo sobre almacenamiento y OHLCV
 
-## Consecuencia
+`scripts/validation/storage_conformance.py` crea una tabla temporal `candles` para comparar JSONL/Parquet/DuckDB/PostgreSQL en CI. No es una tabla del catálogo `cci`, no es una migración productiva y no autoriza almacenar OHLCV en PostgreSQL.
 
-No es seguro crear una migración integral copiando supuestos del laboratorio sin disponer del SQL de origen y sin resolver la especificación relacional completa. La secuencia correcta es:
+## Pendientes para cerrar el gate global
 
-1. Mantener el DDL del laboratorio proveedor recuperado y su suite PostgreSQL 16 reproducible, sin promoverlo automáticamente a `cci`.
-2. Derivar migraciones versionadas para las 34 entidades del esquema `cci`, respetando el grafo FK y las claves candidatas aprobadas.
-3. Resolver los atributos pendientes de cada FK (MATCH, acciones, diferibilidad y nulabilidad) y cerrar las reglas de triggers/funciones.
-4. Añadir workflow PostgreSQL 16 que instale migraciones desde base vacía y ejecute pruebas positivas/negativas, seguridad y concurrencia.
-5. Conservar logs, versión del motor, SHA del commit, manifiesto de catálogo y resultados como artefactos de CI.
+1. Implementar las 20 entidades restantes, incluidas `network_identifiers`, representaciones/identificadores de activos, instrumentos, ingesta, datasets y linaje, y entidades de investigación faltantes.
+2. Materializar y probar las 48 relaciones FK restantes y las claves compuestas destino correspondientes.
+3. Implementar y probar los guards de publicación de mappings de plataforma y resolución de activos, así como inmutabilidad, transiciones, ciclos y concurrencia.
+4. Cerrar roles, grants mínimos y auditoría de operaciones privilegiadas.
+5. Añadir verificación de checksums/drift al ejecutor de migraciones y validar actualización desde versiones anteriores.
+6. Probar backup/restore en una instancia separada y reconciliar hashes/metadata.
+7. Comparar `pg_class`, `pg_constraint`, `pg_indexes`, `pg_proc` y grants con un manifiesto aprobado.
 
-## Criterios de cierre
-
-- El SQL de laboratorio citado existe y su hash/commit de origen está documentado, o se registra explícitamente como reconstrucción nueva.
-- Existen dos migraciones SQL versionadas para `cci`; la cobertura actual es 11/34 entidades y no debe confundirse con cierre del gate global.
-- Una instancia PostgreSQL 16 vacía debe terminar, al completar todas las migraciones, con las 34 tablas y las restricciones esperadas.
-- Los catálogos `pg_class`, `pg_constraint`, `pg_indexes`, `pg_proc` y grants se comparan con un manifiesto aprobado.
-- Las pruebas 120 FK, SEC-01…SEC-16 y casos transaccionales se ejecutan contra el motor.
-- El workflow se vincula al commit exacto y queda aprobado.
-
-## Dictamen
-
-**Gate DDL iniciado, pero incompleto:** el repositorio contiene dos migraciones SQL versionadas que instalan once entidades de `cci`. La CI PostgreSQL 16 aprueba 18 pruebas del esquema global y 29 del laboratorio aislado: 47/47 en total. Restan 23 entidades, el cierre y prueba integral de las 60 relaciones FK y 12 claves compuestas, funciones/triggers, roles y permisos, y pruebas de restauración. No se debe promover el PR #26 ni habilitar ingestión productiva hasta que el gate global se cierre.
-
+**Dictamen:** gate DDL iniciado y reproducible, pero incompleto. PR #26 debe permanecer Draft y no se debe habilitar ingestión real ni persistencia de OHLCV hasta instalar y validar las 34 entidades, las 60 relaciones FK y los gates de seguridad y recuperación.
 
 ## 13. Actualización: recuperación de la fuente histórica
 
