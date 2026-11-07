@@ -1,9 +1,10 @@
 import unittest
-from datetime import date
+from datetime import date, datetime, timezone
 
 from scripts.research.fetch_btcusdt_open_interest_history import (
     audit_and_align,
     effective_snapshot_time_ms,
+    required_archive_days,
     _finite,
 )
 
@@ -27,6 +28,12 @@ class OpenInterestHistoryTests(unittest.TestCase):
             effective_snapshot_time_ms(label, date(2026, 6, 25)),
             label + 300_000,
         )
+
+    def test_download_includes_full_24h_feature_lookback(self):
+        start = datetime(2026, 6, 25, 0, 30, tzinfo=timezone.utc)
+        timestamp = int(start.timestamp() * 1000)
+        days = required_archive_days({"test": [spot_row(timestamp)]})
+        self.assertEqual(days, {date(2026, 6, 24), date(2026, 6, 25)})
 
     def test_invalid_and_negative_open_interest_values_are_rejected(self):
         for value in ("not-a-number", "nan", "inf", "-1"):
