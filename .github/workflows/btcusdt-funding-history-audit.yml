@@ -38,7 +38,8 @@ jobs:
           path: artifacts/source
       - name: Fetch and audit historical USD-M funding settlements
         run: |
-          python scripts/research/fetch_btcusdt_funding_history.py \
+          mkdir -p artifacts/funding
+          python -m scripts.research.fetch_btcusdt_funding_history \
             --spot-input artifacts/source/btc_usdt_1h.jsonl \
             --funding-output artifacts/funding/btcusdt_usdm_funding.jsonl \
             --coverage-report artifacts/funding/funding_coverage_report.json
