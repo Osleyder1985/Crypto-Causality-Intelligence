@@ -220,10 +220,10 @@ def main() -> int:
     funding_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.parent.mkdir(parents=True, exist_ok=True)
     funding_path.write_text(
-        "".join(json.dumps(item, sort_keys=True) + "\\n" for item in records),
+        "".join(json.dumps(item, sort_keys=True) + "\n" for item in records),
         encoding="utf-8",
     )
-    report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\\n", encoding="utf-8")
+    report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps(report, indent=2, sort_keys=True))
     return 0
 
