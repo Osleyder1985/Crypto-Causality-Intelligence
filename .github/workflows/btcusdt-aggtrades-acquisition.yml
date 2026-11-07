@@ -17,6 +17,8 @@ on:
       - ".github/workflows/btcusdt-aggtrades-acquisition.yml"
       - "scripts/research/download_binance_btcusdt_aggtrades.py"
       - "tests/test_binance_aggtrades_downloader.py"
+      - "scripts/research/download_binance_btcusdt_klines.py"
+      - "tests/test_binance_klines_downloader.py"
 
 permissions:
   contents: read
@@ -31,7 +33,7 @@ jobs:
         with:
           python-version: "3.11"
       - run: python -m pip install pytest
-      - run: python -m pytest -q tests/test_binance_aggtrades_downloader.py
+      - run: python -m unittest tests.test_binance_aggtrades_downloader tests.test_binance_klines_downloader
 
   acquire:
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
@@ -45,6 +47,11 @@ jobs:
       - name: Acquire both Binance daily aggTrades archives
         run: |
           python scripts/research/download_binance_btcusdt_aggtrades.py \
+            --date "${{ inputs.date || '2026-10-06' }}" \
+            --output artifacts/btcusdt_aggtrades
+      - name: Acquire Spot and USD-M 1-minute price series
+        run: |
+          python scripts/research/download_binance_btcusdt_klines.py \
             --date "${{ inputs.date || '2026-10-06' }}" \
             --output artifacts/btcusdt_aggtrades
       - name: Retain raw ZIPs, checksums, events and signed flow series
