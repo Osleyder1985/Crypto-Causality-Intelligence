@@ -198,3 +198,12 @@ Además, las pruebas de concurrencia existentes cubren el protocolo con lock exp
 La auditoría del árbol Git realizada para PR #26 encontró que `tests/postgresql/001_provider_platform_lab.sql` no está presente en el HEAD de la rama de integración ni en `main`; tampoco hay archivos `.sql` ni rutas de migraciones versionadas en esos árboles. Por tanto, la evidencia histórica 29/29 de PostgreSQL 16.15 permanece documentada, pero el SQL fuente que permitiría reproducirla no está disponible en las ramas inspeccionadas.
 
 No se debe describir el laboratorio como reproducible desde el repositorio hasta recuperar el archivo desde su commit/artefacto histórico o reconstruirlo explícitamente como nueva implementación. La reconstrucción requerirá ejecutar otra vez las 25 pruebas PG-NET-01…PG-NET-25 en PostgreSQL 16. La auditoría está en `postgresql-ddl-source-traceability-audit.md`.
+
+
+## 13. Recuperación de fuentes y reejecución en PR #26
+
+La auditoría de trazabilidad recuperó el baseline original desde el historial Git. El DDL, la suite Python y el workflow se restauraron sin reconstrucción en la rama `integration/issue-25-postgresql-foundation`, commit `463ae7480d683efc135a6772e22b501f898f65ff`. La fuente SQL coincide con el blob histórico `802b6428b049a8e576f9c3e41f6c7e3f2a31b71a`; el commit de origen probado históricamente fue `55ba44449a1016e7902e90271801ef8ee3f05fa2`.
+
+La restauración vuelve a habilitar una ejecución reproducible del laboratorio desde el repositorio. La nueva ejecución [Run #42326316626](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42326316626) corresponde al commit restaurado, usa el workflow PostgreSQL 16 con servicio efímero y, al momento de esta actualización, aún no había concluido. Por tanto, el resultado histórico 29/29 no se atribuye al HEAD restaurado hasta que esa ejecución termine con éxito y sus logs confirmen el número de pruebas.
+
+Esta recuperación no cambia el alcance: seis tablas de laboratorio, fixtures sintéticos, esquema desechable `cci_lab`; no migración productiva, no instalación de las 34 entidades y no autorización de ingestión real.
