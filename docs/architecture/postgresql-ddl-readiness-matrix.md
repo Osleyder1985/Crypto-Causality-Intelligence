@@ -3,7 +3,7 @@
 - Rama: `integration/issue-25-postgresql-foundation`
 - Contrato físico: `postgresql-physical-schema.md` v0.8
 - Alcance: 34 tablas del esquema `cci`
-- Estado: diseño reconciliado; DDL integral aún no generado ni ejecutado.
+- Estado: primera migración parcial implementada y ejecutada en PostgreSQL 16.15; esquema integral de 34 tablas aún incompleto.
 
 ## 1. Decisiones de diseño
 
@@ -65,3 +65,19 @@ Las 10 pruebas del registro de investigación, las 29 del laboratorio aislado de
 ## 5. Próximo entregable técnico
 
 Generar el grafo de dependencias de las 34 tablas y contrastarlo con las FKs compuestas de la especificación. A continuación, preparar la migración inicial versionada por bloques, sin activar grants administrativos ni publicación durable hasta cerrar sus gates. La ejecución se hará desde una base vacía PostgreSQL 16 y deberá producir evidencia vinculada al commit exacto.
+
+
+## 6. Implementación parcial verificada — migración 001
+
+Se incorporó `migrations/001_cci_root_entities.sql`, que crea el esquema `cci`, la tabla operativa `cci.schema_migrations` y ocho entidades raíz sin dependencias FK entre ellas: `data_sources`, `assets`, `identity_namespaces`, `networks`, `ingestion_runs`, `datasets`, `transformations` y `research_experiments`.
+
+La migración conserva tipos, vocabularios CHECK, claves primarias/únicas, checks JSONB, hash SHA-256, rangos temporales y coherencia de estados definidos para esas entidades en el contrato físico. No incorpora datos reales ni OHLCV. No crea FKs porque estas ocho entidades son raíces en el grafo de dependencias; tampoco concede roles/grants productivos.
+
+Suite reproducible: `tests/test_postgresql_cci_core.py`, nueve pruebas de instalación limpia, inventario, checks positivos/negativos y unicidad. El workflow PostgreSQL ejecuta conjuntamente esta suite y el laboratorio proveedor.
+
+- Ejecución: [Run #42326803388](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42326803388).
+- Motor: PostgreSQL 16.
+- Resultado conjunto: **38/38 pruebas aprobadas** (9 de esquema raíz + 29 del laboratorio proveedor), `OK`.
+- HEAD probado: `13a920b0c3a0f54c2f2ce822b2222651a6f3a44d`.
+
+**Límite:** esta migración implementa 8 de 34 entidades (más la tabla de control de migraciones). No valida las 60 FKs, las 12 claves compuestas destino, los triggers globales, los permisos por rol ni la restauración de backup. La siguiente migración debe incorporar dependencias por bloques, comenzando por fuentes/endpoints/políticas y redes/plataformas, con sus claves candidatas y pruebas negativas.
