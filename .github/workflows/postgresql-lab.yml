@@ -4,7 +4,8 @@ on:
   pull_request:
     paths:
       - "tests/postgresql/**"
-      - "tests/test_postgresql_lab.py"
+      - "migrations/**"
+      - "tests/test_postgresql*.py"
       - ".github/workflows/postgresql-lab.yml"
   push:
     branches:
@@ -48,4 +49,4 @@ jobs:
       - name: Instalar driver PostgreSQL
         run: python -m pip install "psycopg[binary]==3.2.9"
       - name: Ejecutar DDL y pruebas en PostgreSQL 16
-        run: python -m unittest discover -s tests -p 'test_postgresql_lab.py' -v
+        run: python -m unittest discover -s tests -p 'test_postgresql*.py' -v
