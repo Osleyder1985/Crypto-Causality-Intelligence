@@ -2,7 +2,7 @@
 
 - Fuente normativa: `docs/architecture/postgresql-physical-schema.md`, contrato v0.8.
 - Cobertura de inventario: 34/34 tablas.
-- Estado: **matriz documental parcial; 36/60 relaciones ya implementadas en migraciones globales 002–007; no aprobada aún para generación automática del DDL restante**.
+- Estado: **matriz documental parcial; 48/60 relaciones ya implementadas en migraciones globales 002–008; no aprobada aún para generación automática del DDL restante**.
 - Regla de seguridad: no se inventan columnas. Las decisiones no expresadas en v0.8 se marcan como pendientes.
 - Convención de nombres: los nombres `fk_<tabla>__<destino>__<rol>` son identificadores propuestos, no nombres ya implementados.
 
