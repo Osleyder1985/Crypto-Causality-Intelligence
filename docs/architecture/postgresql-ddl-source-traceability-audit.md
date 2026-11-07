@@ -22,6 +22,7 @@ Se inspeccionaron los árboles Git de `main` y `integration/issue-25-postgresql-
 - `migrations/005_asset_representations_relationships.sql`: representaciones y relaciones de activos; cuatro relaciones FK y clave compuesta `(id, network_id)`.
 - `migrations/006_asset_identity_resolution.sql`: revisiones de identidad y mappings de activo/representación; diez FKs y claves compuestas UK-09/UK-10.
 - `migrations/007_market_instrument_catalog.sql`: instrumentos, alias, metadata y reglas; siete FKs y clave compuesta UK-11.
+- `migrations/008_ingestion_requests_dataset_sources.sql`: solicitudes de ingesta, asociaciones run-dataset y procedencia; doce FKs y clave compuesta UK-12.
 - `migrations/README.md`: orden de aplicación y límites operativos.
 - `tests/postgresql/fk-integrity-test-catalog.md`: catálogo documental de escenarios; no es SQL ejecutable.
 
