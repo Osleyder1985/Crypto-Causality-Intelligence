@@ -40,7 +40,11 @@ def _finite(value: Any, field: str, allow_zero: bool = True) -> float:
 
 def effective_snapshot_time_ms(label_ms: int, archive_day: date) -> int:
     """Normalize Binance UM metrics labels to the effective snapshot timestamp."""
-    return int(label_ms) + (5 * MINUTE_MS if archive_day >= SNAPSHOT_LABEL_CHANGE else 0)
+    # Conservative availability time: delay every snapshot by one full 5-minute
+    # bucket. Before the reported transition this is intentionally later than
+    # the observed snapshot label; after it, it matches the reported T+5 rule.
+    # This avoids look-ahead even if the historical convention is ambiguous.
+    return int(label_ms) + 5 * MINUTE_MS
 
 
 def _download(url: str, timeout: float = 30.0) -> bytes:
@@ -94,16 +98,35 @@ def _parse_metrics_archive(symbol: str, day: date, timeout: float = 30.0) -> tup
                     "source_file": filename,
                     "timestamp_convention": (
                         "bucket_start_snapshot_plus_5m"
-                        if day >= SNAPSHOT_LABEL_CHANGE else "snapshot_instant"
+                        if day >= SNAPSHOT_LABEL_CHANGE else "conservative_label_plus_5m_semantics_unverified"
                     ),
                 })
     rows.sort(key=lambda item: item["snapshot_time_ms"])
     return rows, actual
 
 
+def required_archive_days(cohorts: dict[str, list[dict[str, Any]]],
+                         lookback_hours: int = 24) -> set[date]:
+    """Include the full pre-cohort lookback needed for 1h/4h/24h changes."""
+    if lookback_hours < 0:
+        raise ValueError("lookback_hours cannot be negative")
+    required: set[date] = set()
+    for rows in cohorts.values():
+        if not rows:
+            continue
+        start_ms = rows[0]["_ts"] - lookback_hours * HOUR_MS
+        end_ms = rows[-1]["_ts"] + HOUR_MS - 1
+        current = datetime.fromtimestamp(start_ms / 1000, tz=timezone.utc).date()
+        end = datetime.fromtimestamp(end_ms / 1000, tz=timezone.utc).date()
+        while current <= end:
+            required.add(current)
+            current += timedelta(days=1)
+    return required
+
+
 def collect_for_cohorts(cohorts: dict[str, list[dict[str, Any]]],
                         timeout: float = 30.0) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    required_days: set[date] = set()
+    required_days = required_archive_days(cohorts, lookback_hours=24)
     windows = {}
     for name, rows in cohorts.items():
         if not rows:
@@ -111,18 +134,15 @@ def collect_for_cohorts(cohorts: dict[str, list[dict[str, Any]]],
         start_ms = rows[0]["_ts"]
         end_ms = rows[-1]["_ts"] + HOUR_MS - 1
         start_dt = datetime.fromtimestamp(start_ms / 1000, tz=timezone.utc)
+        download_start_dt = datetime.fromtimestamp((start_ms - 24 * HOUR_MS) / 1000, tz=timezone.utc)
         end_dt = datetime.fromtimestamp(end_ms / 1000, tz=timezone.utc)
-        start, end = start_dt.date(), end_dt.date()
         windows[name] = {
-            "start_date_utc": start.isoformat(),
-            "end_date_utc": end.isoformat(),
+            "start_date_utc": start_dt.date().isoformat(),
+            "download_start_date_utc": download_start_dt.date().isoformat(),
+            "end_date_utc": end_dt.date().isoformat(),
             "start_time_utc": start_dt.isoformat(),
             "end_time_utc": end_dt.isoformat(),
         }
-        current = start
-        while current <= end:
-            required_days.add(current)
-            current += timedelta(days=1)
 
     all_rows: list[dict[str, Any]] = []
     checksums = {}
@@ -156,11 +176,23 @@ def collect_for_cohorts(cohorts: dict[str, list[dict[str, Any]]],
                 conflicting_duplicates += 1
         by_timestamp[timestamp] = row
     records = [by_timestamp[key] for key in sorted(by_timestamp)]
+    file_label_ranges = {}
+    for day_text, digest in checksums.items():
+        filename = f"BTCUSDT-metrics-{day_text}.zip"
+        file_rows = [row for row in all_rows if row["source_file"] == filename]
+        if file_rows:
+            labels = sorted(row["create_time_label_ms"] for row in file_rows)
+            file_label_ranges[day_text] = {
+                "rows": len(labels),
+                "first_create_time_label_utc": datetime.fromtimestamp(labels[0] / 1000, tz=timezone.utc).isoformat(),
+                "last_create_time_label_utc": datetime.fromtimestamp(labels[-1] / 1000, tz=timezone.utc).isoformat(),
+            }
     report = {
         "symbol": "BTCUSDT",
         "market_type": "USD_M_FUTURES",
         "source": "Binance Vision daily metrics",
         "windows": windows,
+        "lookback_buffer_hours": 24,
         "requested_daily_files": len(required_days),
         "downloaded_daily_files": len(checksums),
         "missing_daily_files": missing_days,
@@ -171,11 +203,14 @@ def collect_for_cohorts(cohorts: dict[str, list[dict[str, Any]]],
         "timestamp_convention_change_utc": SNAPSHOT_LABEL_CHANGE.isoformat(),
         "timestamp_semantics_fully_verified": False,
         "timestamp_convention_note": (
-            "Community-reported archive label change; pre-change create_time is snapshot time, "
-            "from 2026-06-25 create_time labels a 5-minute bucket whose snapshot is at +5m. "
-            "The convention is explicitly versioned and must be revalidated against source files."
+            "Community issue #491 reports a change at 2026-06-25 00:00 UTC. However, the "
+            "downloaded 2026-06-24 BTCUSDT file currently labels 00:00-23:55, not the "
+            "reported 00:05-next-day 00:00 range. To prevent look-ahead, all labels are "
+            "conservatively delayed by 5 minutes. Raw labels are retained; exact semantics "
+            "remain unverified pending publisher clarification."
         ),
         "file_checksums_sha256": checksums,
+        "archive_file_label_ranges": file_label_ranges,
         "cohorts": {},
     }
     return records, report
@@ -235,8 +270,7 @@ def audit_and_align(cohorts: dict[str, list[dict[str, Any]]],
             aligned.append(result)
         window_start_ms = spot_rows[0]["_ts"] if spot_rows else 0
         window_end_ms = spot_rows[-1]["_ts"] + HOUR_MS - 1 if spot_rows else -1
-        # Audit every raw 5-minute observation in the exact cohort time range,
-        # not only snapshots selected by hourly as-of joins or whole calendar days.
+        # Audit every raw 5-minute observation, not only the hourly as-of selections.
         cohort_snapshots = [
             row for row in records
             if window_start_ms <= row["snapshot_time_ms"] <= window_end_ms

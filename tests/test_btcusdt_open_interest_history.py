@@ -1,0 +1,89 @@
+import unittest
+from datetime import date, datetime, timezone
+
+from scripts.research.fetch_btcusdt_open_interest_history import (
+    audit_and_align,
+    effective_snapshot_time_ms,
+    required_archive_days,
+    _finite,
+)
+
+
+def spot_row(timestamp, cohort="test"):
+    return {
+        "cohort_window": cohort,
+        "_ts": timestamp,
+        "_close": 100.0,
+        "open_time_ms": timestamp,
+    }
+
+
+class OpenInterestHistoryTests(unittest.TestCase):
+    def test_timestamp_convention_change_is_applied_exactly_on_june_25(self):
+        label = 1_782_259_200_000
+        self.assertEqual(
+            effective_snapshot_time_ms(label, date(2026, 6, 24)), label + 300_000
+        )
+        self.assertEqual(
+            effective_snapshot_time_ms(label, date(2026, 6, 25)),
+            label + 300_000,
+        )
+
+    def test_download_includes_full_24h_feature_lookback(self):
+        start = datetime(2026, 6, 25, 0, 30, tzinfo=timezone.utc)
+        timestamp = int(start.timestamp() * 1000)
+        days = required_archive_days({"test": [spot_row(timestamp)]})
+        self.assertEqual(days, {date(2026, 6, 24), date(2026, 6, 25)})
+
+    def test_invalid_and_negative_open_interest_values_are_rejected(self):
+        for value in ("not-a-number", "nan", "inf", "-1"):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                _finite(value, "sum_open_interest")
+
+    def test_asof_alignment_does_not_use_future_or_stale_snapshots(self):
+        hour = 3_600_000
+        rows = [spot_row(0), spot_row(hour), spot_row(2 * hour)]
+        snapshots = [
+            {"snapshot_time_ms": 4_000_000, "sum_open_interest": 10.0,
+             "sum_open_interest_value": 1_000.0},
+            {"snapshot_time_ms": 4_300_000, "sum_open_interest": 10.5,
+             "sum_open_interest_value": 1_050.0},
+            {"snapshot_time_ms": 6_900_000, "sum_open_interest": 11.0,
+             "sum_open_interest_value": 1_100.0},
+        ]
+        report = {"cohorts": {}}
+        aligned = audit_and_align({"test": rows}, snapshots, report)
+        # First candle closes before the first snapshot: no future value.
+        self.assertIsNone(aligned[0]["open_interest_base_asof"])
+        # Second candle closes after snapshot 1; snapshot 2 is later than that close.
+        self.assertEqual(aligned[1]["open_interest_base_asof"], 11.0)
+        # Third candle has no sufficiently recent snapshot and remains null.
+        self.assertIsNone(aligned[2]["open_interest_base_asof"])
+        self.assertEqual(report["cohorts"]["test"]["fresh_asof_candles"], 1)
+        self.assertEqual(report["cohorts"]["test"]["raw_unique_5m_snapshots_in_window"], 3)
+        self.assertEqual(report["cohorts"]["test"]["gap_count_over_5_minutes"], 1)
+        self.assertGreater(report["cohorts"]["test"]["gaps_over_5_minutes"][0]["gap_minutes"], 5)
+
+
+    def test_change_features_reject_stale_comparison_snapshots(self):
+        rows = [spot_row(0)]
+        snapshots = [
+            {"snapshot_time_ms": -1_000_000, "sum_open_interest": 9.0,
+             "sum_open_interest_value": 900.0},
+            {"snapshot_time_ms": 3_500_000, "sum_open_interest": 10.0,
+             "sum_open_interest_value": 1_000.0},
+        ]
+        report = {"cohorts": {}}
+        aligned = audit_and_align({"test": rows}, snapshots, report)
+        self.assertIsNone(aligned[0]["open_interest_change_1h_pct"])
+
+    def test_missing_snapshot_is_not_imputed_as_zero(self):
+        rows = [spot_row(0)]
+        report = {"cohorts": {}}
+        aligned = audit_and_align({"test": rows}, [], report)
+        self.assertIsNone(aligned[0]["open_interest_base_asof"])
+        self.assertIsNone(aligned[0]["open_interest_quote_asof"])
+
+
+if __name__ == "__main__":
+    unittest.main()
