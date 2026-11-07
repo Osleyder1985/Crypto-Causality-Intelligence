@@ -181,7 +181,7 @@ class CCINetworkIdentifierMigrationTests(unittest.TestCase):
         with self.assertRaises(errors.ForeignKeyViolation):
             with self.conn.transaction():
                 self.insert_mapping(review_id, network_id=uuid.uuid4())
-        pending_review = self.insert_review(status="pending_review")
+        pending_review = self.insert_review(status="pending_review", supersedes=review_id)
         with self.assertRaises(errors.CheckViolation):
             with self.conn.transaction():
                 self.insert_mapping(pending_review, provider_status="pending_review")
