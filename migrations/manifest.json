@@ -1,0 +1,61 @@
+{
+  "manifest_version": 1,
+  "hash_algorithm": "sha256",
+  "migrations": [
+    {
+      "version": "001_cci_root_entities",
+      "file": "001_cci_root_entities.sql",
+      "sha256": "39fa338cbb6307853d359c3b8a4edf38f627ed92208265bd85ce68e70a090c05"
+    },
+    {
+      "version": "002_source_policy_catalog",
+      "file": "002_source_policy_catalog.sql",
+      "sha256": "047c5c25fdcdb9d96368345da633624c7c0130632d88e03ed75ed644bfa21d3a"
+    },
+    {
+      "version": "003_provider_platform_reviews",
+      "file": "003_provider_platform_reviews.sql",
+      "sha256": "f460d62e3a25a947df45200d592cab67c9a58357969c618acad5c727fdb44288"
+    },
+    {
+      "version": "004_network_identifiers",
+      "file": "004_network_identifiers.sql",
+      "sha256": "59633e86b5801a74dc801a488d8afc3288ddc1055213fa742db9d508329f0240"
+    },
+    {
+      "version": "005_asset_representations_relationships",
+      "file": "005_asset_representations_relationships.sql",
+      "sha256": "a853a0c06dfb875f64e40f6e4afac06201dd2152e2cd49e5a476bcb61ddf8e0b"
+    },
+    {
+      "version": "006_asset_identity_resolution",
+      "file": "006_asset_identity_resolution.sql",
+      "sha256": "fd814281aeb5c6235c7342e66462643c15915fda9b316c371c48383c40ae4bb1"
+    },
+    {
+      "version": "007_market_instrument_catalog",
+      "file": "007_market_instrument_catalog.sql",
+      "sha256": "657e08839516f09b4f1051b698bf5f9ba2d967ebe35959a8ad20fbbace17e07f"
+    },
+    {
+      "version": "008_ingestion_requests_dataset_sources",
+      "file": "008_ingestion_requests_dataset_sources.sql",
+      "sha256": "c6b9f1e46070484d1f6eb230eff26dc54e9c5abdbdd0dcf6e19e73be9a4edbfc"
+    },
+    {
+      "version": "009_lineage_validation_research_runs",
+      "file": "009_lineage_validation_research_runs.sql",
+      "sha256": "7371d031d9066f643c94ceef53862fa2a2df9f25ffa410e811b27640266b58fa"
+    },
+    {
+      "version": "010_runtime_role_bootstrap",
+      "file": "010_runtime_role_bootstrap.sql",
+      "sha256": "de3991febc2e4c41718a23bb21d618622e8d54b03ec1adf94d0aa5af4e3457de"
+    },
+    {
+      "version": "011_migration_checksums",
+      "file": "011_migration_checksums.sql",
+      "sha256": "f2a189ef89054cbac3df62cd886a964d09d687a7f51f8c5a1e3cb556cab2685d"
+    }
+  ]
+}
