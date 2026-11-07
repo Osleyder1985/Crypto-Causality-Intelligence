@@ -25,10 +25,10 @@ class FundingHistoryTests(unittest.TestCase):
             calls.append(params)
             if len(calls) == 1:
                 return [record(100), record(200)]
-            return [record(200), record(300)]
+            return [record(201), record(300)]
 
         result = fetch_funding_history("BTCUSDT", 100, 300, page_fetcher=fetch, limit=2)
-        self.assertEqual([item["funding_time_ms"] for item in result], [100, 200, 300])
+        self.assertEqual([item["funding_time_ms"] for item in result], [100, 200, 201, 300])
         self.assertEqual(calls[1]["startTime"], 201)
         self.assertEqual(calls[0]["endTime"], 300)
 
@@ -70,10 +70,10 @@ class FundingHistoryTests(unittest.TestCase):
     def test_reports_observed_gaps_without_filling_them(self):
         report = _coverage_summary(
             [{"funding_time_ms": 0}, {"funding_time_ms": 8 * 3_600_000},
-             {"funding_time_ms": 32 * 3_600_000}],
+             {"funding_time_ms": 16 * 3_600_000}, {"funding_time_ms": 48 * 3_600_000}],
             0, 40 * 3_600_000,
         )
-        self.assertEqual(report["settlement_count"], 3)
+        self.assertEqual(report["settlement_count"], 4)
         self.assertEqual(len(report["gaps_above_1_5x_median"]), 1)
         self.assertEqual(report["gaps_above_1_5x_median"][0]["gap_hours"], 24)
 
