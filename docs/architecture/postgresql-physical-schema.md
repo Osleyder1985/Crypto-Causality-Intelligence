@@ -686,14 +686,39 @@ La implementación física no se considerará aceptada hasta que las pruebas aut
 
 Las pruebas unitarias de parsers y de contratos de representación no prueban todavía el esquema físico PostgreSQL. La suite Python actual incluye 48 métodos `test_*`, de los cuales 13 cubren representaciones con fixtures sintéticos. Son pruebas de contrato de aplicación, no pruebas de restricciones ejecutadas por el motor PostgreSQL; ambas capas deberán reportarse por separado.
 
-## 10. Decisiones pendientes que bloquean el DDL
+## 10. Decisiones cerradas y bloqueos restantes para el DDL
 
-1. **Resolución de identidad de activos:** decidir los criterios documentales para asociar los códigos nativos de base/cotización con `assets`; el diseño admite identidad aún no resuelta.
-2. **Identificadores externos temporales:** definir cómo se representan observaciones corregidas y periodos solapados antes de añadir índices únicos parciales definitivos.
-3. **Auditoría de cambios administrativos:** definir si se añade `audit_events` y qué operaciones requieren actor, motivo y evidencia.
-4. **Almacenamiento Parquet:** seleccionar el backend concreto antes de definir validación de URI, publicación atómica y reconciliación.
+### 10.1 Identidad canónica de activos — contrato cerrado
 
-La evaluación de políticas queda modelada mediante `policy_evaluations`; sus reglas de aplicabilidad y el flujo de autorización deberán probarse antes de permitir escrituras. Las demás decisiones pueden cerrarse en iteraciones previas a las migraciones que dependan de ellas.
+Se adopta la política `asset-identity-resolution-policy.md`:
+
+- `assets.id` es la identidad interna estable; `canonical_code` es una clave interna, no un ticker de exchange.
+- No se equiparan activos por ticker, nombre, prefijo ni similitud textual. `BTC`, `XBT` y `XXBT` permanecen como identificadores nativos distintos hasta que exista evidencia y una revisión aceptada.
+- `market_instruments` representa instrumentos concretos por fuente/mercado. Un símbolo como `BTCUSDT` nunca es una identidad de activo.
+- Si falta evidencia, `base_asset_id`/`quote_asset_id` permanecen NULL; el catálogo no inventa una correspondencia.
+- Para la primera carga, solo se insertarán identidades canónicas con evidencia aprobada; no se poblará un catálogo de activos por inferencia automática.
+
+### 10.2 Identificadores externos temporales — contrato cerrado
+
+Se adopta la semántica bitemporal reconstruible ya definida en §5.1:
+
+- Intervalos semiabiertos `[valid_from, valid_until)`; `recorded_at` inmutable representa tiempo de conocimiento.
+- Las correcciones son nuevas revisiones append-only vinculadas por `supersedes_review_id`; nunca se reescribe una decisión anterior.
+- Cada namespace es global o por red, nunca ambos. La clave de identidad y el alcance se bloquean de forma determinista antes de validar y publicar.
+- Una transacción/función PostgreSQL valida cadena lineal, no solapamiento de mappings accepted y publicación atómica de revisión + mapping. CHECK/FK por sí solos no bastan.
+- No se añadirá `btree_gist` como dependencia inicial: el bloqueo por clave y la validación transaccional resuelven también el alcance global frente a red. Las pruebas de dos sesiones concurrentes son obligatorias.
+
+### 10.3 Auditoría administrativa — bloqueo acotado
+
+No se incorporará una tabla genérica `audit_events` al catálogo de 34 entidades en esta iteración sin un contrato de actor y retención aprobado. Sin embargo, **no se habilitarán operaciones administrativas de cambio de retención, borrado lógico/físico, modificación de políticas o bypass de inmutabilidad** hasta que exista un mecanismo append-only que registre como mínimo actor (tipo e identificador), acción, objeto, instante, motivo, referencia de evidencia y correlación de operación. Los roles SQL identifican servicios, no personas. El DDL inicial podrá crear los objetos y funciones sin conceder esas operaciones; el grant permanecerá cerrado hasta completar y probar ese mecanismo.
+
+### 10.4 Almacenamiento Parquet — bloqueo de despliegue, no del contrato relacional
+
+ADR-001 mantiene Parquet como formato y PostgreSQL como catálogo; no selecciona proveedor cloud ni almacenamiento local. No se inventará una elección de infraestructura sin requisitos de alojamiento, región, presupuesto, credenciales y retención. El contrato relacional conservará URI opaca sin secretos, checksum SHA-256, formato, esquema, versión y tamaño. La implementación del backend debe proporcionar escritura en staging, verificación de hash, publicación sin sobrescritura, reconciliación tras fallo y política de retención. No se concederá publicación productiva hasta elegir backend y probar su semántica real.
+
+### 10.5 Gate para migraciones
+
+Quedan cerrados los contratos de identidad y tiempo; permanecen bloqueados los grants de mutación administrativa y la publicación durable de artefactos. La primera migración integral puede prepararse con estas operaciones deshabilitadas, pero no se declarará infraestructura productiva hasta que auditoría y almacenamiento estén implementados y probados. La evaluación de políticas mediante `policy_evaluations` seguirá siendo condición previa a toda persistencia de datos de proveedor.
 
 ## 11. Secuencia de trabajo posterior
 
