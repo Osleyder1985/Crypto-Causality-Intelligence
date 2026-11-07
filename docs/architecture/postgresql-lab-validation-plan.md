@@ -191,3 +191,10 @@ Esta auditoría es estática y cubre el subsistema reducido de seis tablas. No d
 
 Además, las pruebas de concurrencia existentes cubren el protocolo con lock explícito previo. Antes de promover el diseño a productivo debe mantenerse ese protocolo en la capa de repositorio y añadir una prueba de regresión que falle si un caller intenta publicar un mapping para una revisión que dejó de ser cabeza mientras espera el lock.
 
+
+
+## 12. Trazabilidad actual del artefacto SQL
+
+La auditoría del árbol Git realizada para PR #26 encontró que `tests/postgresql/001_provider_platform_lab.sql` no está presente en el HEAD de la rama de integración ni en `main`; tampoco hay archivos `.sql` ni rutas de migraciones versionadas en esos árboles. Por tanto, la evidencia histórica 29/29 de PostgreSQL 16.15 permanece documentada, pero el SQL fuente que permitiría reproducirla no está disponible en las ramas inspeccionadas.
+
+No se debe describir el laboratorio como reproducible desde el repositorio hasta recuperar el archivo desde su commit/artefacto histórico o reconstruirlo explícitamente como nueva implementación. La reconstrucción requerirá ejecutar otra vez las 25 pruebas PG-NET-01…PG-NET-25 en PostgreSQL 16. La auditoría está en `postgresql-ddl-source-traceability-audit.md`.
