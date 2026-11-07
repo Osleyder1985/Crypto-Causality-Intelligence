@@ -7,7 +7,7 @@ Estas migraciones son SQL versionado, secuencial y transaccional. No son un inst
 | Versión | Archivo | Alcance | Estado |
 |---|---|---|---|
 | 001 | `001_cci_root_entities.sql` | Esquema `cci`, ledger y ocho entidades raíz | Implementada y probada |
-| 002 | `002_source_policy_catalog.sql` | Endpoints, políticas de uso y evaluaciones concretas | Implementada; validación CI en curso |
+| 002 | `002_source_policy_catalog.sql` | Endpoints, políticas de uso y evaluaciones concretas | Implementada y probada |
 
 Las migraciones 001 y 002 requieren una base PostgreSQL vacía. Cada archivo abre y confirma su propia transacción. No deben ejecutarse de nuevo si su versión ya aparece en `cci.schema_migrations`; no usan `IF NOT EXISTS` deliberadamente, para que una divergencia no quede silenciada.
 
