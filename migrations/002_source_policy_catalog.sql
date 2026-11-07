@@ -110,6 +110,10 @@ CREATE TABLE cci.policy_evaluations (
         CHECK (evidence_sha256 IS NULL OR evidence_sha256 ~ '^[0-9a-f]{64}$'),
     decision_reference TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT policy_evaluations_fk_data_source
+        FOREIGN KEY (data_source_id)
+        REFERENCES cci.data_sources(id)
+        ON UPDATE RESTRICT ON DELETE RESTRICT,
     CONSTRAINT policy_evaluations_fk_policy_source
         FOREIGN KEY (source_usage_policy_id, data_source_id)
         REFERENCES cci.source_usage_policies(id, data_source_id)
