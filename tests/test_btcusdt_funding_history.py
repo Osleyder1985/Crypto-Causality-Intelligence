@@ -79,6 +79,16 @@ class FundingHistoryTests(unittest.TestCase):
         self.assertEqual(len(report["gaps_above_1_5x_median"]), 1)
         self.assertEqual(report["gaps_above_1_5x_median"][0]["gap_hours"], 32)
 
+    def test_asof_does_not_carry_stale_funding_across_cohort_gaps(self):
+        spot = [{"_ts": 100 * 3_600_000}]
+        funding = [
+            {"funding_time_ms": 0, "funding_rate": 0.001, "funding_interval_hours": 8}
+        ]
+        aligned = attach_funding_asof(spot, funding)
+        self.assertIsNone(aligned[0]["funding_latest_rate_asof"])
+        self.assertIsNone(aligned[0]["funding_latest_age_hours"])
+        self.assertEqual(aligned[0]["funding_settlements_available_asof"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()
