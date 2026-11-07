@@ -9,7 +9,7 @@ from typing import Any
 
 from scripts.research.analyze_btcusdt_hac import FEATURES, _features
 from scripts.research.analyze_btcusdt_multifactor import HORIZONS_HOURS, load_cohorts
-from scripts.research.btcusdt_block_bootstrap import paired_block_bootstrap
+from scripts.research.btcusdt_block_bootstrap import benjamini_yekutieli, paired_block_bootstrap
 
 
 def _solve(matrix: list[list[float]], vector: list[float]) -> list[float]:
@@ -118,7 +118,7 @@ def evaluate_cohort(rows: list[dict[str, Any]], min_train: int = 168,
 def analyze(cohorts: dict[str, list[dict[str, Any]]], min_train: int = 168,
             ridge_alpha: float = 1e-6, block_length: int = 24,
             bootstrap_replicates: int = 2000, bootstrap_seed: int = 20261106) -> dict:
-    return {
+    report = {
         "status": "walk_forward_out_of_sample_evaluation",
         "provider": "binance", "market_type": "SPOT", "symbol": "BTCUSDT", "interval": "1h",
         "model": "standardized ridge regression; scaling fitted only on each training window",
@@ -157,6 +157,30 @@ def analyze(cohorts: dict[str, list[dict[str, Any]]], min_train: int = 168,
             for name, rows in sorted(cohorts.items())
         }
     }
+    # Correct the full confirmatory family across all available cohort/horizon/metric
+    # tests; BY is conservative and remains valid under arbitrary test dependence.
+    test_locations = []
+    p_values = []
+    for cohort_name, cohort_result in report["cohorts"].items():
+        for horizon_name, horizon_result in cohort_result["horizons"].items():
+            inference = horizon_result.get("block_bootstrap_inference", {})
+            tests = inference.get("one_sided_superiority_tests", {})
+            for metric_name, test_result in tests.items():
+                if "p_value_one_sided" in test_result:
+                    test_locations.append((cohort_name, horizon_name, metric_name, test_result))
+                    p_values.append(test_result["p_value_one_sided"])
+    q_values = benjamini_yekutieli(p_values)
+    for (cohort_name, horizon_name, metric_name, test_result), q_value in zip(test_locations, q_values):
+        test_result["by_q_value"] = q_value
+        test_result["fdr_adjustment"] = "Benjamini-Yekutieli"
+        test_result["fdr_family_size"] = len(p_values)
+    report["multiple_testing"] = {
+        "method": "Benjamini-Yekutieli",
+        "family": "all bootstrap superiority tests across available cohorts, horizons and metrics",
+        "tests": len(p_values),
+        "reason": "controls false discovery rate under arbitrary dependence",
+    }
+    return report
 
 
 def main() -> int:
