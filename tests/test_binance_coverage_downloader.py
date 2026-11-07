@@ -91,5 +91,8 @@ class PaginationRegressionTests(unittest.TestCase):
         self.assertEqual(report["windows"][0]["missing_open_times"], 3)
         self.assertEqual(report["windows"][0]["status"], "pending_review")
 
+
 if __name__ == "__main__":
     unittest.main()
+
+# CI trigger: keep this suite covered by the PR validation workflow.
