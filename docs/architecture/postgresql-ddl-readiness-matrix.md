@@ -3,7 +3,7 @@
 - Rama: `integration/issue-25-postgresql-foundation`
 - Contrato físico: `postgresql-physical-schema.md` v0.8
 - Alcance: 34 tablas del esquema `cci`
-- Estado: nueve migraciones de esquema y una migración de roles implementadas; 34/34 entidades, 60/60 FKs y 12/12 claves compuestas verificadas en PostgreSQL 16. El gate DDL está cerrado; los gates de operación productiva permanecen abiertos.
+- Estado: once migraciones versionadas implementadas (nueve de esquema de dominio, bootstrap de roles y ledger de checksums); 34/34 entidades, 60/60 FKs y 12/12 claves compuestas verificadas en PostgreSQL 16. El gate DDL está cerrado; los gates de operación productiva permanecen abiertos.
 
 ## 1. Decisiones de diseño
 
