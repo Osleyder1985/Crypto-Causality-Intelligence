@@ -2,6 +2,11 @@ name: Binance BTCUSDT intraday research coverage
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/binance-intraday-research.yml'
+      - 'scripts/research/download_binance_btcusdt_intraday.py'
 
 permissions:
   contents: read
