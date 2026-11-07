@@ -34,6 +34,7 @@ La ejecución automatizada de CI aplica las migraciones desde una instalación l
 
 - La versión 001 instala 8 de las 34 entidades del contrato global.
 - La versión 002 añade 3 entidades: cobertura acumulada 11/34.
+- La CI PostgreSQL 16 valida 18 pruebas del esquema global y 29 del laboratorio aislado: 47/47 aprobadas en [Run #42327032198](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42327032198).
 - El laboratorio de plataformas de proveedor continúa en el esquema aislado `cci_lab`; no debe contarse como tablas instaladas en `cci`.
 - Todavía no están implementadas las restantes entidades, todas las FKs globales, funciones/triggers de identidad, roles/grants, vistas, ni backup/restore.
 - No se deben insertar datos reales de proveedores ni OHLCV. Las pruebas usan fixtures sintéticos.
