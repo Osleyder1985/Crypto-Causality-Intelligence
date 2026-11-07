@@ -31,6 +31,26 @@ def _moving_block_indices(n: int, block_length: int, rng: random.Random) -> list
     return sampled[:n]
 
 
+
+def benjamini_yekutieli(p_values: Sequence[float]) -> list[float]:
+    """Return BY-adjusted q-values, controlling FDR under arbitrary dependence."""
+    if any(not math.isfinite(p) or p < 0 or p > 1 for p in p_values):
+        raise ValueError("p-values must be finite and within [0, 1]")
+    m = len(p_values)
+    if not m:
+        return []
+    harmonic = sum(1.0 / rank for rank in range(1, m + 1))
+    ordered = sorted(enumerate(p_values), key=lambda item: item[1])
+    adjusted = [1.0] * m
+    running = 1.0
+    for index in range(m - 1, -1, -1):
+        original_index, p_value = ordered[index]
+        rank = index + 1
+        running = min(running, p_value * m * harmonic / rank)
+        adjusted[original_index] = min(1.0, running)
+    return adjusted
+
+
 def paired_block_bootstrap(
     actual: Sequence[float],
     predicted: Sequence[float],
