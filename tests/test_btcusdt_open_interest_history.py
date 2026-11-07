@@ -54,6 +54,8 @@ class OpenInterestHistoryTests(unittest.TestCase):
         self.assertIsNone(aligned[2]["open_interest_base_asof"])
         self.assertEqual(report["cohorts"]["test"]["fresh_asof_candles"], 1)
         self.assertEqual(report["cohorts"]["test"]["raw_unique_5m_snapshots_in_window"], 3)
+        self.assertEqual(report["cohorts"]["test"]["gap_count_over_5_minutes"], 1)
+        self.assertGreater(report["cohorts"]["test"]["gaps_over_5_minutes"][0]["gap_minutes"], 5)
 
 
     def test_change_features_reject_stale_comparison_snapshots(self):
