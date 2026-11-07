@@ -50,8 +50,9 @@ La ejecución automatizada de CI aplica las migraciones desde una instalación l
 - La versión 004 añade `network_identifiers`: cobertura acumulada 15/34 entidades y 15/60 FKs. Implementa validación de procedencia, literal/namespace, estado accepted, mapping único por revisión, inmutabilidad y vista de mappings vigentes.
 - La versión 005 añade `asset_representations` y `asset_relationships`: cobertura acumulada 17/34 entidades, 19/60 FKs y 8/12 claves compuestas destino.
 - La versión 006 añade revisiones de identidad y mappings accepted de activos/representaciones: cobertura acumulada 20/34 entidades, 29/60 FKs y 10/12 claves compuestas.
-- La versión 007 añade `market_instruments`, `instrument_identifiers`, `instrument_metadata_versions` e `instrument_trading_rules`: cobertura acumulada **24/34 entidades**, **36/60 FKs** y **11/12 claves compuestas destino**. Conserva los símbolos nativos por fuente, no los usa como identidad canónica, permite instrumentos sin activos resueltos y versiona metadata/reglas append-only.
-- La CI PostgreSQL 16 [Run #42328632150](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42328632150) aprueba 78 pruebas del esquema global y 29 del laboratorio aislado: **107/107**.
+- La versión 007 añade el catálogo de instrumentos: cobertura acumulada 24/34 entidades, 36/60 FKs y 11/12 claves compuestas destino.
+- La versión 008 añade `ingestion_requests`, `run_datasets` y `dataset_sources`: cobertura acumulada **27/34 entidades**, **48/60 FKs** y **12/12 claves compuestas destino**. Las contribuciones de datasets quedan ligadas a la fuente, endpoint, instrumento opcional, request opcional y evaluación concreta de permiso; UK-12 queda materializada.
+- La CI PostgreSQL 16 [Run #42328891406](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42328891406) aprueba 90 pruebas del esquema global y 29 del laboratorio aislado: **119/119**.
 - El laboratorio de plataformas de proveedor continúa en el esquema aislado `cci_lab`; no debe contarse como tablas instaladas en `cci`.
 - Todavía no están implementadas las restantes entidades, todas las FKs globales, funciones/triggers de identidad, roles/grants, vistas, ni backup/restore.
 - No se deben insertar datos reales de proveedores ni OHLCV. Las pruebas usan fixtures sintéticos.
