@@ -38,6 +38,11 @@ def _finite(value: Any, field: str, allow_zero: bool = True) -> float:
     return result
 
 
+def effective_snapshot_time_ms(label_ms: int, archive_day: date) -> int:
+    """Normalize Binance UM metrics labels to the effective snapshot timestamp."""
+    return int(label_ms) + (5 * MINUTE_MS if archive_day >= SNAPSHOT_LABEL_CHANGE else 0)
+
+
 def _download(url: str, timeout: float = 30.0) -> bytes:
     request = Request(url, headers={"User-Agent": "Crypto-Causality-Intelligence/1.0"})
     try:
@@ -77,7 +82,7 @@ def _parse_metrics_archive(symbol: str, day: date, timeout: float = 30.0) -> tup
                 # before that date create_time is the snapshot instant;
                 # from that date it labels the start of a 5-minute bucket,
                 # and the snapshot is effective five minutes later.
-                effective_ms = label_ms + (5 * MINUTE_MS if day >= SNAPSHOT_LABEL_CHANGE else 0)
+                effective_ms = effective_snapshot_time_ms(label_ms, day)
                 oi = _finite(row["sum_open_interest"], "sum_open_interest")
                 oi_value = _finite(row["sum_open_interest_value"], "sum_open_interest_value")
                 rows.append({
