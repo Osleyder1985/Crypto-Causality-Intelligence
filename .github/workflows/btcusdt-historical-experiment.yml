@@ -1,0 +1,46 @@
+name: BTCUSDT historical experiment reconciliation
+
+on:
+  pull_request:
+    paths:
+      - "scripts/research/reconcile_btcusdt_experiment.py"
+      - "tests/test_btcusdt_experiment_reconciliation.py"
+      - ".github/workflows/btcusdt-historical-experiment.yml"
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: Existing Binance coverage workflow run ID
+        required: true
+        default: "42320400840"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  reconcile-historical-episodes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Download the already-retained Binance coverage artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: binance-btcusdt-coverage-${{ inputs.source_run_id || '42320400840' }}
+          run-id: ${{ inputs.source_run_id || '42320400840' }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: artifacts/source
+      - name: Reconcile the five approved BTCUSDT episodes
+        run: |
+          python scripts/research/reconcile_btcusdt_experiment.py \
+            --input artifacts/source/btc_usdt_1h.jsonl \
+            --output artifacts/research/btcusdt_experiment_reconciliation.json
+      - name: Preserve derived reconciliation report temporarily
+        uses: actions/upload-artifact@v4
+        with:
+          name: btcusdt-experiment-reconciliation-${{ github.run_id }}
+          path: artifacts/research/btcusdt_experiment_reconciliation.json
+          if-no-files-found: error
+          retention-days: 30
