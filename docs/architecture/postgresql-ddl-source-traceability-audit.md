@@ -65,6 +65,11 @@ La discrepancia de trazabilidad descrita arriba quedó resuelta parcialmente med
 - Commit de restauración: `463ae7480d683efc135a6772e22b501f898f65ff`.
 - Se disparó una nueva ejecución PostgreSQL 16 para ese HEAD: [Run #42326316626](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42326316626).
 
-**Estado de esta actualización:** los tres archivos ya están versionados y el workflow se inició, pero al redactar esta actualización la ejecución seguía `in_progress`; no se declara todavía una nueva reproducción aprobada de 29/29. La evidencia histórica Run #38 continúa siendo evidencia de su commit histórico, no del HEAD restaurado.
+**Resultado de reejecución confirmado:** el primer intento sobre el commit restaurado desde el padre histórico falló por un fragmento SQL duplicado residual; se reemplazó el DDL por la versión corregida exacta del commit histórico probado. Además, el descubrimiento general de tests ejecuta también esta suite, por lo que se añadió `unittest.SkipTest` cuando no existe `CCI_TEST_DATABASE_URL`; el workflow PostgreSQL dedicado sí define esa variable y ejecuta la suite íntegra.
 
-El gate de DDL global permanece abierto: recuperar el laboratorio de seis tablas no crea migraciones productivas ni valida las 34 entidades de `cci`.
+- Ejecución confirmatoria sobre el HEAD actual `7e783980a47e35054728c166ceb200444ed78567`: [Run #42326438856](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42326438856).
+- Servicio PostgreSQL: **16.15**.
+- Resultado: **29/29 pruebas aprobadas**, `Ran 29 tests in 1.658s`, `OK`.
+- Incluye pruebas de dos sesiones concurrentes, integridad FK/UNIQUE/CHECK, inmutabilidad, rollback y consulta bitemporal.
+
+La trazabilidad del laboratorio reducido queda restablecida y reproducida en la rama de integración. El gate de DDL global permanece abierto: seis tablas de laboratorio no crean migraciones productivas ni validan las 34 entidades de `cci`.
