@@ -23,9 +23,9 @@ INTERVAL = "1m"
 INTERVAL_MS = 60_000
 LIMIT = 1000
 
-# User-facing research clock is UTC-5. Boundaries below are converted to UTC.
+# User-facing research clock is UTC-5. August starts one hour before the user-defined\n# 16:00 UTC-5 boundary to provide a pre-event baseline; the analytical anchor\n# remains 2026-08-16T21:00:00Z. Boundaries use UTC.
 WINDOWS = [
-    ("august_rally_2026", "2026-08-16T21:00:00Z", "2026-09-21T21:00:00Z"),
+    ("august_rally_2026", "2026-08-16T20:00:00Z", "2026-09-21T21:00:00Z"),
     ("september_vote_reaction_2026", "2026-09-15T17:00:00Z", "2026-09-21T21:00:00Z"),
     ("october_selloff_2026", "2026-10-06T05:00:00Z", "2026-10-07T05:00:00Z"),
     ("binance_incident_2026", "2026-10-29T05:00:00Z", "2026-10-31T05:00:00Z"),
