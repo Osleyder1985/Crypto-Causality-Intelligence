@@ -2,21 +2,21 @@
 
 - Fuente revisada: `postgresql-physical-schema.md` v0.8, incluidas §4 y §13.
 - Matriz relacionada: `postgresql-fk-normalized-matrix.md`.
-- Estado: revisión documental y contraste parcial contra PostgreSQL global; siete de las doce claves compuestas destino ya están materializadas en migraciones 002–003. No equivale a validar el esquema completo.
+- Estado: revisión documental y contraste parcial contra PostgreSQL global; ocho de las doce claves compuestas destino ya están materializadas en migraciones 002, 003 y 005. No equivale a validar el esquema completo.
 - Resultado: 12 claves compuestas destino identificadas para las FKs compuestas normalizadas.
 
 ## 1. Claves compuestas destino
 
 | ID | Tabla destino | Columnas UNIQUE requeridas (orden) | FKs consumidoras | Evidencia del contrato | Estado documental |
 |---|---|---|---|---|---|
-| UK-01 | data_endpoints | (id, data_source_id) | FK-003, FK-039, FK-045 | §4.1 declara UNIQUE candidato (id, data_source_id). | Declarada como candidata; debe materializarse en DDL. |
-| UK-02 | source_usage_policies | (id, data_source_id) | FK-004 | §4.1 declara UNIQUE (id, data_source_id). | Declarada explícitamente; no probada en esquema global. |
-| UK-03 | policy_evaluations | (id, data_source_id, data_endpoint_id, data_type, intended_use) | FK-048 | §4.1 declara UNIQUE con las cinco columnas para dataset_sources. | Declarada explícitamente; no probada en esquema global. |
-| UK-04 | provider_platforms | (id, data_source_id) | FK-008, FK-011, FK-012 | §13.1 nombra provider_platforms_uq_id_source. | Normativa en contrato; laboratorio no equivale al esquema cci global. |
-| UK-05 | provider_platform_observations | (id, provider_platform_id, data_source_id) | FK-013 | §13.1 nombra provider_platform_observations_uq_id_platform_source. | Normativa en contrato. |
-| UK-06 | provider_platform_resolution_reviews | (id, provider_platform_id) | FK-015 | §13.1 nombra provider_platform_resolution_reviews_uq_id_platform. | Normativa en contrato. |
-| UK-07 | provider_platform_resolution_reviews | (id, provider_platform_id, candidate_network_id, resolution_status) | FK-009 | §13.1 nombra provider_platform_resolution_reviews_uq_mapping. | Normativa en contrato; cuatro columnas. |
-| UK-08 | asset_representations | (id, network_id) | FK-028 | §4.2 declara UNIQUE candidato en asset_representations(id, network_id). | Candidata; requiere DDL. |
+| UK-01 | data_endpoints | (id, data_source_id) | FK-003, FK-039, FK-045 | §4.1 declara UNIQUE candidato (id, data_source_id). | Materializada y probada en migración 002. |
+| UK-02 | source_usage_policies | (id, data_source_id) | FK-004 | §4.1 declara UNIQUE (id, data_source_id). | Materializada y probada en migración 002. |
+| UK-03 | policy_evaluations | (id, data_source_id, data_endpoint_id, data_type, intended_use) | FK-048 | §4.1 declara UNIQUE con las cinco columnas para dataset_sources. | Materializada en migración 002; pendiente test consumidor FK-048. |
+| UK-04 | provider_platforms | (id, data_source_id) | FK-008, FK-011, FK-012 | §13.1 nombra provider_platforms_uq_id_source. | Materializada y probada en migración 003. |
+| UK-05 | provider_platform_observations | (id, provider_platform_id, data_source_id) | FK-013 | §13.1 nombra provider_platform_observations_uq_id_platform_source. | Materializada y probada en migración 003. |
+| UK-06 | provider_platform_resolution_reviews | (id, provider_platform_id) | FK-015 | §13.1 nombra provider_platform_resolution_reviews_uq_id_platform. | Materializada y probada en migración 003. |
+| UK-07 | provider_platform_resolution_reviews | (id, provider_platform_id, candidate_network_id, resolution_status) | FK-009 | §13.1 nombra provider_platform_resolution_reviews_uq_mapping. | Materializada y probada en migración 003. |
+| UK-08 | asset_representations | (id, network_id) | FK-028 | §4.2 declara UNIQUE candidato en asset_representations(id, network_id). | Materializada y probada en migración 005. |
 | UK-09 | asset_identity_resolution_reviews | (id, candidate_asset_id, resolution_status, namespace, external_identifier) | FK-027 | §4.2 declara UNIQUE candidato para asset_identifiers. | Candidata; requiere DDL. |
 | UK-10 | asset_identity_resolution_reviews | (id, candidate_asset_representation_id, resolution_status, namespace, external_identifier, network_id) | FK-029 | §4.2 declara UNIQUE candidato para asset_representation_identifiers. | Candidata; requiere DDL. |
 | UK-11 | market_instruments | (id, data_source_id) | FK-040, FK-046 | §4.2 declara UNIQUE candidato (id, data_source_id). | Candidata; requiere DDL. |
@@ -53,11 +53,11 @@ No deben confundirse con las 12 claves compuestas destino de esta auditoría.
 ## 5. Hallazgos y gates
 
 1. La clave destino de FK-009 tiene **cuatro columnas**: `(id, provider_platform_id, candidate_network_id, resolution_status)`. Se corrigió en la especificación física la frase aislada que decía “cinco columnas”.
-2. Las claves UK-01, UK-08 a UK-12 se expresan como candidatas o necesarias, pero no hay una migración global que pruebe su existencia en el esquema `cci`.
-3. Las claves de proveedor están definidas normativamente en §13.1, pero el laboratorio `cci_lab` no prueba su integración con las 34 tablas en `cci`.
+2. Las claves UK-09 a UK-12 se expresan como candidatas o necesarias y aún no tienen materialización global.
+3. Las claves de proveedor UK-04 a UK-07 ya están materializadas y probadas en `cci`; el laboratorio `cci_lab` sigue siendo evidencia separada.
 4. Las FKs que referencian claves con componentes nullable (UK-09/UK-10 y FK-009) deben probar inserciones accepted y estados no accepted; la FK compuesta debe impedir mappings a destinos nulos o estados distintos de accepted.
 5. Ninguna de estas comprobaciones valida por sí sola los triggers de cadena, inmutabilidad, concurrencia o publicación atómica.
 
 ## 6. Dictamen
 
-Las 12 claves compuestas destino necesarias están identificadas. Siete ya se materializan en el esquema global `cci` mediante las migraciones 002–003: UK-01 a UK-07. Las cinco restantes (UK-08 a UK-12) continúan pendientes de DDL global. Las pruebas de migración verifican instalación y parte de la integridad compuesta, pero el gate permanece abierto hasta materializar y probar todas las claves, las FKs consumidoras y sus casos negativos desde base vacía.
+Las 12 claves compuestas destino necesarias están identificadas. Ocho ya se materializan en el esquema global `cci`: UK-01 a UK-07 en migraciones 002–003 y UK-08 en migración 005. Las cuatro restantes (UK-09 a UK-12) continúan pendientes de DDL global. Las pruebas de migración verifican instalación y parte de la integridad compuesta, pero el gate permanece abierto hasta materializar y probar todas las claves, las FKs consumidoras y sus casos negativos desde base vacía.
