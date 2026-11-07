@@ -1,6 +1,6 @@
 # Diseño físico de PostgreSQL
 
-- **Estado:** especificación física reconciliada v0.8; implementación parcial en `migrations/001`–`003` (14 de 34 entidades, 12 de 60 FKs) probada en PostgreSQL 16.15. El laboratorio NET-04/05/06 permanece aislado en `cci_lab`; no equivale a su promoción al esquema `cci`. El esquema global no está completo.
+- **Estado:** especificación física reconciliada v0.8; implementación parcial en `migrations/001`–`005` (17 de 34 entidades, 19 de 60 FKs y 8 de 12 claves compuestas destino) probada en PostgreSQL 16.15. El laboratorio NET-04/05/06 permanece aislado en `cci_lab`; no equivale a su promoción al esquema `cci`. El esquema global no está completo.
 - **Fecha:** 2026-11-06.
 - **Modelo lógico:** `postgresql-logical-data-model.md`, contrato reconciliado v0.8.
 - **Revisión:** `postgresql-logical-model-review.md`.
@@ -1084,4 +1084,4 @@ El contrato de laboratorio está materializado en `tests/postgresql/001_provider
 
 ### 10.6 Evidencia de implementación inicial
 
-Las migraciones `001`–`004` implementan quince entidades de este contrato y registran sus versiones en `cci.schema_migrations`. La ejecución PostgreSQL 16 [Run #42327857620](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42327857620) ejecutó 41 pruebas del esquema global junto con las 29 pruebas del laboratorio aislado; las 70 pasaron. La evidencia incluye 15 FKs globales, cadenas append-only, concurrencia de revisiones/mappings y validación de mappings accepted, pero no cubre las 34 tablas ni todas las FKs globales.
+Las migraciones `001`–`005` implementan diecisiete entidades de este contrato y registran sus versiones en `cci.schema_migrations`. La ejecución PostgreSQL 16 [Run #42328084372](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42328084372) ejecutó 50 pruebas del esquema global junto con las 29 pruebas del laboratorio aislado; las 79 pasaron. La evidencia incluye 19 FKs globales, ocho claves compuestas destino, cadenas append-only, concurrencia de revisiones/mappings y representación de activos, pero no cubre las 34 tablas ni todas las FKs globales.
