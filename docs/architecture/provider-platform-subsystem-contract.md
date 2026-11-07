@@ -12,7 +12,7 @@
 
 Fijar el contrato funcional y temporal del subsistema de identidad de plataformas de proveedores antes de integrarlo en el esquema productivo `cci`. El congelamiento evita que la adaptación de nombres, dependencias, roles o grants altere silenciosamente la semántica ya revisada.
 
-Este documento **no** declara congelado el esquema PostgreSQL completo de 32 entidades, no autoriza migraciones productivas y no convierte el DDL del laboratorio en DDL de producción.
+Este documento **no** declara congelado el esquema PostgreSQL completo de 34 entidades, no autoriza migraciones productivas y no convierte el DDL del laboratorio en DDL de producción.
 
 ## 2. Alcance exacto
 
@@ -107,7 +107,7 @@ La propuesta de roles y grants se desarrolla en `postgresql-security-roles-and-g
 3. Definir propiedad de objetos, `search_path` seguro y grants explícitos para secuencias/funciones/vistas cuando correspondan.
 4. Implementar el protocolo transaccional en la capa de repositorio y prohibir caminos de escritura que omitan el lock previo.
 5. Añadir la regresión concurrente de publicación obsoleta: un escritor espera el lock mientras otra transacción registra una sucesora; tras adquirirlo, el escritor debe releer la cabeza y rechazar la publicación antigua.
-6. Integrar las 32 entidades y ejecutar migración desde una base vacía en PostgreSQL real con datos sintéticos.
+6. Integrar las 34 entidades y ejecutar migración desde una base vacía en PostgreSQL real con datos sintéticos.
 7. Verificar constraints, FKs, grants, vistas, consultas bitemporales, rollback y concurrencia en el esquema integrado.
 
 ## 9. Exclusiones explícitas
@@ -115,6 +115,6 @@ La propuesta de roles y grants se desarrolla en `postgresql-security-roles-and-g
 - No es una migración SQL.
 - No debe ejecutarse en una base persistente.
 - No autoriza insertar plataformas, redes ni mappings reales.
-- No valida las 32 entidades del esquema completo.
+- No valida las 34 entidades del esquema completo.
 - No sustituye la revisión de políticas/licencias de proveedores.
 - No autoriza fusionar el PR #16, que permanece Draft.
