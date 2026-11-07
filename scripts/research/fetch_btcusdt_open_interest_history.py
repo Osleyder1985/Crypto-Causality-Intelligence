@@ -40,7 +40,11 @@ def _finite(value: Any, field: str, allow_zero: bool = True) -> float:
 
 def effective_snapshot_time_ms(label_ms: int, archive_day: date) -> int:
     """Normalize Binance UM metrics labels to the effective snapshot timestamp."""
-    return int(label_ms) + (5 * MINUTE_MS if archive_day >= SNAPSHOT_LABEL_CHANGE else 0)
+    # Conservative availability time: delay every snapshot by one full 5-minute
+    # bucket. Before the reported transition this is intentionally later than
+    # the observed snapshot label; after it, it matches the reported T+5 rule.
+    # This avoids look-ahead even if the historical convention is ambiguous.
+    return int(label_ms) + 5 * MINUTE_MS
 
 
 def _download(url: str, timeout: float = 30.0) -> bytes:
@@ -149,6 +153,17 @@ def collect_for_cohorts(cohorts: dict[str, list[dict[str, Any]]],
                 conflicting_duplicates += 1
         by_timestamp[timestamp] = row
     records = [by_timestamp[key] for key in sorted(by_timestamp)]
+    file_label_ranges = {}
+    for day_text, digest in checksums.items():
+        filename = f"BTCUSDT-metrics-{day_text}.zip"
+        file_rows = [row for row in all_rows if row["source_file"] == filename]
+        if file_rows:
+            labels = sorted(row["create_time_label_ms"] for row in file_rows)
+            file_label_ranges[day_text] = {
+                "rows": len(labels),
+                "first_create_time_label_utc": datetime.fromtimestamp(labels[0] / 1000, tz=timezone.utc).isoformat(),
+                "last_create_time_label_utc": datetime.fromtimestamp(labels[-1] / 1000, tz=timezone.utc).isoformat(),
+            }
     report = {
         "symbol": "BTCUSDT",
         "market_type": "USD_M_FUTURES",
@@ -163,11 +178,14 @@ def collect_for_cohorts(cohorts: dict[str, list[dict[str, Any]]],
         "conflicting_duplicate_effective_timestamps": conflicting_duplicates,
         "timestamp_convention_change_utc": SNAPSHOT_LABEL_CHANGE.isoformat(),
         "timestamp_convention_note": (
-            "Community-reported archive label change; pre-change create_time is snapshot time, "
-            "from 2026-06-25 create_time labels a 5-minute bucket whose snapshot is at +5m. "
-            "The convention is explicitly versioned and must be revalidated against source files."
+            "Community issue #491 reports a change at 2026-06-25 00:00 UTC. However, the "
+            "downloaded 2026-06-24 BTCUSDT file currently labels 00:00-23:55, not the "
+            "reported 00:05-next-day 00:00 range. To prevent look-ahead, all labels are "
+            "conservatively delayed by 5 minutes. Raw labels are retained; exact semantics "
+            "remain unverified pending publisher clarification."
         ),
         "file_checksums_sha256": checksums,
+        "archive_file_label_ranges": file_label_ranges,
         "cohorts": {},
     }
     return records, report
