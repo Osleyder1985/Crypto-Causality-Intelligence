@@ -1,0 +1,51 @@
+[
+  {
+    "event_id": "august_user_window_start",
+    "cohort_window": "august_rally_2026",
+    "event_at_utc": "2026-08-16T21:00:00Z",
+    "event_type": "user_defined_market_window_boundary",
+    "note": "User-defined start at 16:00 UTC-5; not an identified external catalyst."
+  },
+  {
+    "event_id": "clarity_act_scheduled_vote",
+    "cohort_window": "september_vote_reaction_2026",
+    "event_at_utc": "2026-09-15T18:15:00Z",
+    "event_type": "scheduled_political_event",
+    "note": "Scheduled vote time from Senate floor schedule; do not treat as exact roll-call timestamp without primary floor timestamp."
+  },
+  {
+    "event_id": "october_selloff_price_peak",
+    "cohort_window": "october_selloff_2026",
+    "event_at_utc": "2026-10-06T15:01:00Z",
+    "event_type": "endogenous_market_marker",
+    "note": "Observed local price maximum; not external news."
+  },
+  {
+    "event_id": "october_liquidation_acceleration",
+    "cohort_window": "october_selloff_2026",
+    "event_at_utc": "2026-10-07T01:52:00Z",
+    "event_type": "endogenous_market_marker",
+    "note": "Exploratory price/volume acceleration marker; not an external event or pre-registered detector."
+  },
+  {
+    "event_id": "binance_hot_wallet_transfers",
+    "cohort_window": "binance_incident_2026",
+    "event_at_utc": "2026-10-29T20:05:00Z",
+    "event_type": "on_chain_event",
+    "note": "First transfer window later described in Binance postmortem; not equivalent to first public market awareness."
+  },
+  {
+    "event_id": "ap_senate_control_call",
+    "cohort_window": "midterm_election_2026",
+    "event_at_utc": "2026-11-04T04:36:00Z",
+    "event_type": "newsroom_call",
+    "note": "AP call of Democratic control of the Senate."
+  },
+  {
+    "event_id": "ap_house_control_call",
+    "cohort_window": "midterm_election_2026",
+    "event_at_utc": "2026-11-04T06:24:00Z",
+    "event_type": "newsroom_call",
+    "note": "AP call of Democratic control of the House."
+  }
+]
