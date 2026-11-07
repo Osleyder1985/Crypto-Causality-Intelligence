@@ -1,0 +1,54 @@
+name: BTCUSDT USD-M funding history audit
+
+on:
+  push:
+    branches:
+      - feat/btcusdt-funding-rate-coverage
+    paths:
+      - ".github/workflows/btcusdt-funding-history-audit.yml"
+      - "scripts/research/fetch_btcusdt_funding_history.py"
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: Existing Binance Spot coverage workflow run ID
+        required: true
+        default: "42320400840"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  audit-funding-history:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Download the retained Spot cohort dataset
+        uses: actions/download-artifact@v4
+        with:
+          name: binance-btcusdt-coverage-${{ inputs.source_run_id || '42320400840' }}
+          run-id: ${{ inputs.source_run_id || '42320400840' }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: artifacts/source
+      - name: Fetch and audit historical USD-M funding settlements
+        run: |
+          mkdir -p artifacts/funding
+          python -m scripts.research.fetch_btcusdt_funding_history \
+            --spot-input artifacts/source/btc_usdt_1h.jsonl \
+            --funding-output artifacts/funding/btcusdt_usdm_funding.jsonl \
+            --coverage-report artifacts/funding/funding_coverage_report.json \
+            --aligned-output artifacts/funding/btcusdt_spot_with_funding.jsonl
+      - name: Preserve funding data and coverage evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btcusdt-usdm-funding-audit-${{ github.run_id }}
+          path: artifacts/funding/
+          if-no-files-found: error
+          retention-days: 90
