@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import time
 import urllib.error
 import urllib.parse
@@ -80,18 +81,36 @@ def fetch_page(start_ms: int, end_exclusive_ms: int, timeout: int = 20) -> tuple
 
 def validate_candle(row: list) -> list[str]:
     problems: list[str] = []
-    if len(row) != 12:
+    if not isinstance(row, list) or len(row) != 12:
         return ["invalid_field_count"]
+    if (not isinstance(row[0], int) or isinstance(row[0], bool)
+            or not isinstance(row[6], int) or isinstance(row[6], bool)):
+        return ["invalid_timestamp_type"]
+    if row[0] % INTERVAL_MS != 0:
+        problems.append("unaligned_open_time")
+    if row[6] != row[0] + INTERVAL_MS - 1:
+        problems.append("invalid_close_time")
+
+    # Binance kline layout includes close_time at index 6 and an ignored
+    # field at index 11; neither is a market-volume value.
+    market_fields = [row[index] for index in (1, 2, 3, 4, 5, 7, 9, 10)]
     try:
-        open_price, high, low, close, volume = map(float, (row[1], row[2], row[3], row[4], row[5]))
-    except (TypeError, ValueError):
-        return ["non_numeric_ohlcv"]
-    if not (low <= open_price <= high and low <= close <= high and low <= high):
+        values = [float(value) for value in market_fields]
+    except (TypeError, ValueError, OverflowError):
+        return problems + ["non_numeric_market_fields"]
+    if not all(math.isfinite(value) for value in values):
+        return problems + ["non_finite_market_fields"]
+
+    open_price, high, low, close, volume, quote_volume, taker_base, taker_quote = values
+    trade_count = row[8]
+    if not (0 < low <= open_price <= high and low <= close <= high):
         problems.append("ohlc_invariant_violation")
-    if volume < 0:
+    if volume < 0 or quote_volume < 0 or taker_base < 0 or taker_quote < 0:
         problems.append("negative_volume")
-    if not isinstance(row[0], int) or not isinstance(row[6], int):
-        problems.append("invalid_timestamp_type")
+    if taker_base > volume or taker_quote > quote_volume:
+        problems.append("taker_volume_exceeds_total")
+    if not isinstance(row[8], int) or isinstance(row[8], bool) or row[8] < 0:
+        problems.append("invalid_trade_count")
     return problems
 
 
@@ -148,8 +167,6 @@ def download(output: Path) -> dict[str, Any]:
             if next_cursor <= cursor:
                 raise RuntimeError(f"{name}: pagination cursor did not advance")
             cursor = next_cursor
-            if len(payload) < LIMIT:
-                break
 
         opens = [r[0] for r in rows]
         expected_opens = list(range(start_ms, end_ms, INTERVAL_MS))
