@@ -189,7 +189,15 @@ def run_conformance(input_path: Path, output_dir: Path, postgres_url: str) -> di
           CHECK (low <= open AND open <= high AND low <= close AND close <= high),
           CHECK (taker_buy_base_volume <= volume_base)
         )""")
-        con.execute("INSERT INTO candles SELECT * FROM read_parquet(?)", [str(parquet_path)])
+        insert_columns = ("cohort_window", "provider", "market_type", "symbol", "interval",
+                          "open_time_ms", "open_time_utc", *DECIMAL_FIELDS[:5],
+                          "close_time_ms", "quote_volume", "trade_count",
+                          "taker_buy_base_volume", "taker_buy_quote_volume", "source_ignore_field")
+        con.execute(
+            f"INSERT INTO candles ({','.join(insert_columns)}) "
+            f"SELECT {','.join(insert_columns)} FROM read_parquet(?)",
+            [str(parquet_path)],
+        )
         duck_rows = con.execute("SELECT * FROM candles ORDER BY cohort_window, open_time_ms").fetch_arrow_table().to_pylist()
         if _canonical(duck_rows) != _canonical(rows):
             raise AssertionError("DuckDB round-trip differs from JSONL reference")
