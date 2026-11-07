@@ -157,7 +157,7 @@ TO cci_reader;
 
 GRANT EXECUTE ON FUNCTION
     cci.provider_platform_resolution_as_known(TIMESTAMPTZ, TIMESTAMPTZ)
-TO cci_reader, cci_identity_resolver;
+TO cci_identity_resolver;
 
 INSERT INTO cci.schema_migrations (version, description)
 VALUES ('010_runtime_role_bootstrap', 'Create NOLOGIN role groups and deny-by-default runtime privileges');
