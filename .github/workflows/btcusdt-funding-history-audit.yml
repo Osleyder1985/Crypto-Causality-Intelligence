@@ -42,7 +42,8 @@ jobs:
           python -m scripts.research.fetch_btcusdt_funding_history \
             --spot-input artifacts/source/btc_usdt_1h.jsonl \
             --funding-output artifacts/funding/btcusdt_usdm_funding.jsonl \
-            --coverage-report artifacts/funding/funding_coverage_report.json
+            --coverage-report artifacts/funding/funding_coverage_report.json \
+            --aligned-output artifacts/funding/btcusdt_spot_with_funding.jsonl
       - name: Preserve funding data and coverage evidence
         if: always()
         uses: actions/upload-artifact@v4
