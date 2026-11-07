@@ -153,7 +153,8 @@ def write_candle_batch(
 
         # Serialize retries sharing the same key; the UNIQUE constraint remains the final guard.
         conn.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))", (idempotency_key,))
-        existing = conn.execute(\n            """SELECT run_id, payload_sha256, row_count
+        existing = conn.execute(
+            """SELECT run_id, payload_sha256, row_count
                FROM cci.ingestion_runs WHERE idempotency_key = %s""",
             (idempotency_key,),
         ).fetchone()
