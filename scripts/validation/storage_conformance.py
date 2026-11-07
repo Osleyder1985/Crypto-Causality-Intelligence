@@ -238,7 +238,7 @@ def run_conformance(input_path: Path, output_dir: Path, postgres_url: str) -> di
             raise AssertionError("PostgreSQL round-trip differs from JSONL reference")
         try:
             with pg.transaction():
-                pg.execute(insert_sql, values[:1])
+                pg.execute(insert_sql, values[0])
         except psycopg.errors.UniqueViolation:
             pass
         else:
@@ -248,7 +248,7 @@ def run_conformance(input_path: Path, output_dir: Path, postgres_url: str) -> di
         try:
             with pg.transaction():
                 bad = list(values[0])
-                bad[columns.index("volume_base")] = Decimal("-1")
+                bad[columns.index("open_time_ms")] = bad[columns.index("open_time_ms")] + 1\n                bad[columns.index("volume_base")] = Decimal("-1")
                 pg.execute(insert_sql, tuple(bad))
         except psycopg.errors.CheckViolation:
             pass
