@@ -1,6 +1,6 @@
 # Diseño físico de PostgreSQL
 
-- **Estado:** especificación física reconciliada v0.8; implementación parcial en `migrations/001`–`005` (17 de 34 entidades, 19 de 60 FKs y 8 de 12 claves compuestas destino) probada en PostgreSQL 16.15. El laboratorio NET-04/05/06 permanece aislado en `cci_lab`; no equivale a su promoción al esquema `cci`. El esquema global no está completo.
+- **Estado:** especificación física reconciliada v0.8; las nueve migraciones implementan 34/34 entidades, 60/60 FKs y 12/12 claves compuestas destino, con pruebas PostgreSQL 16. El cierre de DDL no implica todavía aprobación de seguridad, persistencia, backups ni operación productiva. El laboratorio NET-04/05/06 permanece aislado en `cci_lab`; no equivale a su promoción al esquema `cci`. El esquema global no está completo.
 - **Fecha:** 2026-11-06.
 - **Modelo lógico:** `postgresql-logical-data-model.md`, contrato reconciliado v0.8.
 - **Revisión:** `postgresql-logical-model-review.md`.
