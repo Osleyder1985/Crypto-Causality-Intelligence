@@ -10,7 +10,7 @@
 
 La especificación física establece como convención general `ON DELETE RESTRICT ON UPDATE RESTRICT` para FKs históricas y prefiere RESTRICT también en tablas asociativas. Esta matriz lo registra como **acción propuesta por convención**, no como DDL ya ejecutado.
 
-La especificación no fija individualmente `MATCH`, `DEFERRABLE` ni `INITIALLY DEFERRED`. Para no ocultar esa ausencia:
+La especificación no fija individualmente `MATCH`, `DEFERRABLE` ni `INITIALLY DEFERRED` para la mayoría de las FKs. La sección 13 sí fija nombres y acciones concretas para el subsistema de plataformas de proveedor; esos casos se reflejan en §8. Para no ocultar las ausencias restantes:
 - `MATCH SIMPLE`: comportamiento PostgreSQL por defecto propuesto; requiere ratificación, especialmente en FKs compuestas opcionales.
 - `NOT DEFERRABLE`: comportamiento PostgreSQL por defecto propuesto; requiere ratificación.
 - `INITIALLY IMMEDIATE`: comportamiento por defecto si la FK no es diferible; requiere ratificación.
@@ -232,14 +232,14 @@ Este overlay completa los atributos de implementación que no estaban especifica
 | FK-005 | `fk_005_policy_evaluations_data_sources` | SIMPLE (provisional) | RESTRICT (provisional) | RESTRICT (provisional) | NO (provisional) | NO (provisional) | `P-FK-005`, `N-FK-005` (propuestos; no ejecutados) |
 | FK-006 | `fk_006_policy_evaluations_data_endpoints` | SIMPLE (provisional) | RESTRICT (provisional) | RESTRICT (provisional) | NO (provisional) | NO (provisional) | `P-FK-006`, `N-FK-006` (propuestos; no ejecutados) |
 | FK-007 | `fk_007_network_identifiers_networks` | SIMPLE (provisional) | RESTRICT (provisional) | RESTRICT (provisional) | NO (provisional) | NO (provisional) | `P-FK-007`, `N-FK-007` (propuestos; no ejecutados) |
-| FK-008 | `fk_008_network_identifiers_provider_platforms` | SIMPLE (provisional; FULL a evaluar) | RESTRICT (provisional) | RESTRICT (provisional) | NO (provisional) | NO (provisional) | `P-FK-008`, `N-FK-008` (propuestos; no ejecutados) |
-| FK-009 | `fk_009_network_identifiers_provider_platform_resolution_reviews` | SIMPLE (provisional; FULL a evaluar) | RESTRICT (provisional) | RESTRICT (provisional) | NO (provisional) | NO (provisional) | `P-FK-009`, `N-FK-009` (propuestos; no ejecutados) |
+| FK-008 | `fk_008_network_identifiers_provider_platforms` | SIMPLE (con CHECK de grupo) | RESTRICT | RESTRICT | NO (provisional) | NO (provisional) | `P-FK-008`, `N-FK-008` (propuestos; no ejecutados) |
+| FK-009 | `fk_009_network_identifiers_provider_platform_resolution_reviews` | SIMPLE (necesario: network_id siempre NN) | RESTRICT | RESTRICT | NO (provisional) | NO (provisional) | `P-FK-009`, `N-FK-009` (propuestos; no ejecutados) |
 | FK-010 | `fk_010_provider_platforms_data_sources` | SIMPLE (provisional) | RESTRICT (provisional) | RESTRICT (provisional) | NO (provisional) | NO (provisional) | `P-FK-010`, `N-FK-010` (propuestos; no ejecutados) |
-| FK-011 | `fk_011_provider_platform_observations_provider_platforms` | SIMPLE (provisional) | RESTRICT (provisional) | RESTRICT (provisional) | NO (provisional) | NO (provisional) | `P-FK-011`, `N-FK-011` (propuestos; no ejecutados) |
-| FK-012 | `fk_012_provider_platform_resolution_reviews_provider_platforms` | SIMPLE (provisional) | RESTRICT (provisional) | RESTRICT (provisional) | NO (provisional) | NO (provisional) | `P-FK-012`, `N-FK-012` (propuestos; no ejecutados) |
-| FK-013 | `fk_013_provider_platform_resolution_reviews_provider_platform_observations` | SIMPLE (provisional) | RESTRICT (provisional) | RESTRICT (provisional) | NO (provisional) | NO (provisional) | `P-FK-013`, `N-FK-013` (propuestos; no ejecutados) |
+| FK-011 | `provider_platform_observations_fk_platform_source` | SIMPLE (provisional) | RESTRICT (provisional) | RESTRICT (provisional) | NO (provisional) | NO (provisional) | `P-FK-011`, `N-FK-011` (propuestos; no ejecutados) |
+| FK-012 | `provider_platform_resolution_reviews_fk_platform_source` | SIMPLE (provisional) | RESTRICT (provisional) | RESTRICT (provisional) | NO (provisional) | NO (provisional) | `P-FK-012`, `N-FK-012` (propuestos; no ejecutados) |
+| FK-013 | `provider_platform_resolution_reviews_fk_observation` | SIMPLE (explícito en §13.2) | RESTRICT | RESTRICT | NO (provisional) | NO (provisional) | `P-FK-013`, `N-FK-013` (propuestos; no ejecutados) |
 | FK-014 | `fk_014_provider_platform_resolution_reviews_networks` | SIMPLE (provisional) | RESTRICT (provisional) | RESTRICT (provisional) | NO (provisional) | NO (provisional) | `P-FK-014`, `N-FK-014` (propuestos; no ejecutados) |
-| FK-015 | `fk_015_provider_platform_resolution_reviews_provider_platform_resolution_reviews` | SIMPLE (provisional) | RESTRICT (provisional) | RESTRICT (provisional) | NO (provisional) | NO (provisional) | `P-FK-015`, `N-FK-015` (propuestos; no ejecutados) |
+| FK-015 | `provider_platform_resolution_reviews_fk_successor_chain` | SIMPLE (provisional) | RESTRICT (provisional) | RESTRICT (provisional) | NO (provisional) | NO (provisional) | `P-FK-015`, `N-FK-015` (propuestos; no ejecutados) |
 | FK-016 | `fk_016_asset_representations_assets` | SIMPLE (provisional) | RESTRICT (provisional) | RESTRICT (provisional) | NO (provisional) | NO (provisional) | `P-FK-016`, `N-FK-016` (propuestos; no ejecutados) |
 | FK-017 | `fk_017_asset_representations_networks` | SIMPLE (provisional) | RESTRICT (provisional) | RESTRICT (provisional) | NO (provisional) | NO (provisional) | `P-FK-017`, `N-FK-017` (propuestos; no ejecutados) |
 | FK-018 | `fk_018_asset_relationships_assets` | SIMPLE (provisional) | RESTRICT (provisional) | RESTRICT (provisional) | NO (provisional) | NO (provisional) | `P-FK-018`, `N-FK-018` (propuestos; no ejecutados) |
@@ -287,3 +287,8 @@ Este overlay completa los atributos de implementación que no estaban especifica
 | FK-060 | `fk_060_experiment_datasets_datasets` | SIMPLE (provisional) | RESTRICT (provisional) | RESTRICT (provisional) | NO (provisional) | NO (provisional) | `P-FK-060`, `N-FK-060` (propuestos; no ejecutados) |
 
 La columna `constraint_name` propone nombres estables únicos; puede ajustarse a la convención final del repositorio, conservando el ID FK como referencia cruzada. `MATCH SIMPLE`, `RESTRICT`, `NOT DEFERRABLE` e `INITIALLY IMMEDIATE` se registran como baseline provisional. Para FK-008/009 debe decidirse si `MATCH FULL` es compatible con la semántica exacta de sus columnas y CHECKs. Para FK-047, no basta elegir MATCH: primero debe resolverse la contradicción de nulabilidad documentada en §5.
+
+
+### 8.1 Inconsistencia interna detectada en el contrato de proveedor
+
+La sección 13.2 describe la FK `network_identifiers_fk_accepted_review` con cuatro columnas de origen y cuatro de destino, pero a continuación afirma que su clave candidata destino es de cinco columnas. La lista explícita de columnas y el UNIQUE declarado en §13.1 contienen cuatro columnas: `(id, provider_platform_id, candidate_network_id, resolution_status)`. La matriz conserva la FK de cuatro columnas y marca la frase “cinco columnas” como error documental que debe corregirse en la especificación física antes de generar DDL.
