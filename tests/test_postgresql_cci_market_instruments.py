@@ -134,6 +134,21 @@ class CCIMarketInstrumentMigrationTests(unittest.TestCase):
             ).fetchone()[0],
             "007_market_instrument_catalog",
         )
+        fk_count = self.conn.execute(
+            """
+            SELECT count(*) FROM pg_constraint con
+            JOIN pg_namespace n ON n.oid = con.connamespace
+            WHERE n.nspname = 'cci' AND con.contype = 'f'
+            """
+        ).fetchone()[0]
+        self.assertEqual(fk_count, 36)
+        candidate_key = self.conn.execute(
+            """
+            SELECT count(*) FROM pg_constraint
+            WHERE conname = 'market_instruments_uq_id_source' AND contype = 'u'
+            """
+        ).fetchone()[0]
+        self.assertEqual(candidate_key, 1)
 
     def test_instrument_can_remain_unresolved_without_canonical_asset_ids(self):
         instrument_id = self.insert_instrument()
