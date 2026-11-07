@@ -1,0 +1,69 @@
+name: BTCUSDT multiday Spot vs Futures event study
+
+on:
+  workflow_dispatch:
+    inputs:
+      start_date:
+        description: First UTC date in the acquired dataset
+        required: true
+        default: "2026-10-01"
+        type: string
+      days:
+        description: Number of consecutive UTC dates to acquire
+        required: true
+        default: "6"
+        type: string
+      event_start_utc:
+        description: Event start timestamp in UTC
+        required: true
+        default: "2026-10-06T09:25:45Z"
+        type: string
+      baseline_hours:
+        description: Pre-event baseline duration in hours
+        required: true
+        default: "120"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  multiday-event-study:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Acquire consecutive checksum-verified Binance daily flows
+        run: |
+          python scripts/research/download_binance_btcusdt_multiday_flow.py \
+            --start-date "${{ inputs.start_date }}" \
+            --days "${{ inputs.days }}" \
+            --output artifacts/btcusdt_multiday
+      - name: Run equal-duration event study with multiplicity correction
+        run: |
+          python scripts/research/analyze_btcusdt_spot_futures_extremeness.py \
+            --spot-flow artifacts/btcusdt_multiday/spot_flow_1s.jsonl \
+            --futures-flow artifacts/btcusdt_multiday/usd_m_flow_1s.jsonl \
+            --date-utc "${{ inputs.start_date }}" \
+            --days "${{ inputs.days }}" \
+            --event-start-utc "${{ inputs.event_start_utc }}" \
+            --event-seconds 15 \
+            --baseline-hours "${{ inputs.baseline_hours }}" \
+            --horizons 1,2,3,5 \
+            --block-lengths 30,60,300,900 \
+            --replicates 1500 \
+            --seed 20261107 \
+            --output artifacts/btcusdt_multiday/spot_futures_event_study.json
+      - name: Upload raw archives, checksums, manifest and analysis
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btcusdt-multiday-event-study-${{ github.run_id }}
+          path: artifacts/btcusdt_multiday/
+          if-no-files-found: warn
+          retention-days: 90
