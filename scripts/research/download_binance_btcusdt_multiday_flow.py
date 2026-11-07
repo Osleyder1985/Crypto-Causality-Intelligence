@@ -14,7 +14,12 @@ import tempfile
 from datetime import date, timedelta
 from pathlib import Path
 
-from scripts.research.download_binance_btcusdt_aggtrades import run as acquire_day
+try:
+    from .download_binance_btcusdt_aggtrades import run as acquire_day
+except ImportError:
+    # Direct execution puts this file's directory, not the repository root,
+    # on sys.path.
+    from download_binance_btcusdt_aggtrades import run as acquire_day
 
 
 def sha256_file(path: Path) -> str:
