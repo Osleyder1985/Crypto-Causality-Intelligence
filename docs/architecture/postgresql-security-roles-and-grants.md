@@ -65,7 +65,7 @@ No se crea un rol genérico `cci_app` con privilegios amplios. Una misma identid
 
 **Notación:** DDL/DML solo para el propietario durante migraciones y mantenimiento autorizado; no es una concesión de runtime. Las operaciones de revisión y publicación no se hacen mediante INSERT directo del rol `cci_reviewer`.
 
-### 4.2 Alcance de la matriz para las 32 entidades
+### 4.2 Alcance de la matriz para las 34 entidades
 
 Esta matriz es normativa para el subsistema NET-PLATFORM y define el patrón global, pero **no autoriza aún grants sobre las otras 28 entidades**. Antes de crear grants de producción se debe clasificar cada tabla en un inventario con:
 - dominio y sensibilidad;
@@ -195,7 +195,7 @@ Las pruebas SEC-01–SEC-16 se integrarán al workflow de PostgreSQL real una ve
 
 ## 12. Decisiones pendientes antes de DDL productivo
 
-1. Completar el inventario de acceso para las 32 entidades.
+1. Completar el inventario de acceso para las 34 entidades.
 2. Cerrar si la ingestión de plataformas se hará mediante INSERT acotado o función API; no cambia el contrato append-only.
 3. Definir cómo se obtiene y conserva el actor humano/servicio que aprueba una revisión.
 4. Definir las credenciales LOGIN por entorno, rotación y gestor de secretos; nunca incluir secretos en Git.
@@ -207,4 +207,4 @@ Las pruebas SEC-01–SEC-16 se integrarán al workflow de PostgreSQL real una ve
 
 Esta es una propuesta de roles y grants. No crea roles, usuarios, funciones, grants ni políticas RLS. No es una migración SQL. No se ha ejecutado en PostgreSQL. No autoriza cambios de privilegios en una instancia compartida.
 
-La próxima etapa debe completar el inventario de permisos de las 32 entidades y el contrato de auditoría de actor antes de producir DDL ejecutable. El PR #16 permanece Draft.
+La próxima etapa debe completar el inventario de permisos de las 34 entidades y el contrato de auditoría de actor antes de producir DDL ejecutable. El PR #16 permanece Draft.
