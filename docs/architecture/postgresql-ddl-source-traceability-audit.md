@@ -40,8 +40,8 @@ La cobertura global comprende 20 de las 34 entidades, 29 de las 60 FKs y diez de
 
 ## Pendientes para cerrar el gate global
 
-1. Implementar las 17 entidades restantes, incluidas revisiones/mappings de identidad de activos, instrumentos, ingesta, datasets y linaje, y entidades de investigación faltantes.
-2. Materializar y probar las 41 relaciones FK restantes y las claves compuestas destino correspondientes.
+1. Implementar las 14 entidades restantes, incluidos instrumentos, metadata/reglas, solicitudes/intentos de ingesta, fuentes/linaje de datasets y entidades de investigación faltantes.
+2. Materializar y probar las 31 relaciones FK restantes y las claves compuestas destino correspondientes.
 3. Implementar y probar los guards de publicación de mappings de plataforma y resolución de activos, así como inmutabilidad, transiciones, ciclos y concurrencia.
 4. Cerrar roles, grants mínimos y auditoría de operaciones privilegiadas.
 5. Añadir verificación de checksums/drift al ejecutor de migraciones y validar actualización desde versiones anteriores.
