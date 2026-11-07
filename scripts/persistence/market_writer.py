@@ -151,8 +151,7 @@ def write_candle_batch(
                 f"durable storage is not authorized for {provider}/{market_type}/{symbol}"
             )
 
-        existing = conn.execute(
-            """SELECT run_id, payload_sha256, row_count
+        # Serialize retries sharing the same key; the UNIQUE constraint remains the final guard.\n        conn.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))", (idempotency_key,))\n        existing = conn.execute(\n            """SELECT run_id, payload_sha256, row_count
                FROM cci.ingestion_runs WHERE idempotency_key = %s""",
             (idempotency_key,),
         ).fetchone()
