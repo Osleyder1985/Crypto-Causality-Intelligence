@@ -338,6 +338,18 @@ def main() -> int:
         encoding="utf-8",
     )
     report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    if args.aligned_output:
+        cohorts = load_cohorts(args.spot_input)
+        aligned_rows = []
+        for cohort_name, spot_rows in sorted(cohorts.items()):
+            aligned_rows.extend(attach_funding_asof(spot_rows, records))
+        aligned_rows.sort(key=lambda row: (row.get("cohort_window", ""), row["_ts"]))
+        aligned_path = Path(args.aligned_output)
+        aligned_path.parent.mkdir(parents=True, exist_ok=True)
+        aligned_path.write_text(
+            "".join(json.dumps(row, sort_keys=True) + "\n" for row in aligned_rows),
+            encoding="utf-8",
+        )
     print(json.dumps(report, indent=2, sort_keys=True))
     return 0
 
