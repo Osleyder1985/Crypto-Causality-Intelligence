@@ -16,7 +16,7 @@
 | FK-002 | `P-FK-002` | Crear primero la fila destino en `data_sources` con `id`; insertar después la fila origen en `source_usage_policies` con `data_source_id` exactamente coincidentes. Esperado: INSERT aceptado. |
 | FK-002 | `N-FK-002` | Insertar la fila origen en `source_usage_policies` con un valor `data_source_id` que no exista en `data_sources.id`. Esperado: violación FK (SQLSTATE 23503). |
 | FK-003 | `P-FK-003` | Crear primero la fila destino en `data_endpoints` con `id, data_source_id`; insertar después la fila origen en `source_usage_policies` con `data_endpoint_id, data_source_id` exactamente coincidentes. Esperado: INSERT aceptado. |
-| FK-003 | `N-FK-003` | Conservar una fila destino válida, pero alterar un componente de `data_endpoint_id, data_source_id` para que no coincida con la tupla `id, data_source_id`. Esperado: violación FK (SQLSTATE 23503), salvo que la semántica nullable explícita permita omitirla. |
+| FK-003 | `N-FK-003` | Conservar una fila destino válida, mantener **todos los componentes de la FK NOT NULL**, y alterar un componente no nulo de `data_endpoint_id, data_source_id` para que no coincida con la tupla `id, data_source_id`. Esperado: violación FK (SQLSTATE 23503). Mantener todos los componentes no nulos; con MATCH SIMPLE, un NULL podría omitir la comprobación compuesta. |
 | FK-004 | `P-FK-004` | Crear primero la fila destino en `source_usage_policies` con `id, data_source_id`; insertar después la fila origen en `policy_evaluations` con `source_usage_policy_id, data_source_id` exactamente coincidentes. Esperado: INSERT aceptado. |
 | FK-004 | `N-FK-004` | Conservar una fila destino válida, pero alterar un componente de `source_usage_policy_id, data_source_id` para que no coincida con la tupla `id, data_source_id`. Esperado: violación FK (SQLSTATE 23503), salvo que la semántica nullable explícita permita omitirla. |
 | FK-005 | `P-FK-005` | Crear primero la fila destino en `data_sources` con `id`; insertar después la fila origen en `policy_evaluations` con `data_source_id` exactamente coincidentes. Esperado: INSERT aceptado. |
@@ -163,3 +163,15 @@ No se aceptará un test Python que simule la FK como sustituto de la ejecución 
 ## 4. Gate de aceptación
 
 El gate se cierra solo cuando los 120 casos planificados estén implementados y ejecutados en PostgreSQL 16 global `cci`, además de las pruebas transversales de concurrencia, rollback, triggers, claves candidatas y reinstalación. El laboratorio `cci_lab` y sus 29/29 pruebas no sustituyen esta suite.
+
+
+## 5.1 Reglas de construcción para casos negativos compuestos
+
+La suite no debe generar una falsa aceptación por semántica NULL. Para toda FK compuesta que use MATCH SIMPLE (o cuyo MATCH aún no esté ratificado):
+
+- el caso negativo de referencia inexistente debe asignar valores NOT NULL a **todos** los componentes;
+- se conserva una fila destino válida y se altera exactamente un componente de la tupla origen;
+- los escenarios con NULL se prueban aparte como casos de nulabilidad/MATCH, nunca como sustitutos de la prueba negativa de integridad;
+- el test debe verificar constraint name y SQLSTATE 23503, y confirmar rollback de la sentencia/transacción según el harness.
+
+Para FK compuestas con un componente nullable (FK-003, FK-008/009, FK-013/015, FK-047), se deben incluir explícitamente los estados nativo/opcional válidos y los estados parciales inválidos definidos por CHECK/trigger. Un NULL no puede ser el valor “alterado” de la prueba de referencia inexistente, porque podría desactivar la FK.
