@@ -96,3 +96,4 @@ if __name__ == "__main__":
     unittest.main()
 
 # CI trigger: keep this suite covered by the PR validation workflow.
+# Regression fixtures intentionally use Binance's documented positional kline schema.
