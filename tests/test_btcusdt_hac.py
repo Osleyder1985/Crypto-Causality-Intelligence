@@ -23,8 +23,8 @@ class HacRegressionTests(unittest.TestCase):
         a, b, c = {}, {}, {}
         _bh_adjust([(0.01, a), (0.04, b), (0.03, c)])
         self.assertAlmostEqual(a["bh_q_value"], 0.03)
-        self.assertAlmostEqual(c["bh_q_value"], 0.045)
-        self.assertAlmostEqual(b["bh_q_value"], 0.045)
+        self.assertAlmostEqual(c["bh_q_value"], 0.04)
+        self.assertAlmostEqual(b["bh_q_value"], 0.04)
 
 
 if __name__ == "__main__":
