@@ -174,6 +174,10 @@ class PostgreSQLTransactionalWriterTests(unittest.TestCase):
         )
         self.conn.commit()
         with psycopg.connect(os.environ["RETENTION_DATABASE_URL"]) as retention_conn:
+            identity = retention_conn.execute(
+                "SELECT current_user, has_table_privilege(current_user, 'cci.market_candles', 'DELETE')"
+            ).fetchone()
+            self.assertEqual(identity, ("cci_retention", True))
             result = purge_expired_market_data(retention_conn, actor="cci-retention")
             self.assertEqual(result["deleted_rows"], 1)
             with self.assertRaises(psycopg.errors.InsufficientPrivilege):
