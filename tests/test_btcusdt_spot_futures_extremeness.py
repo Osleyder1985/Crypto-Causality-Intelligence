@@ -80,6 +80,11 @@ class SpotFuturesExtremenessTests(unittest.TestCase):
             spot, futures, day, event, 5, 40, [1], [5], 20, 7
         )
         self.assertEqual(result["input_days"], 2)
+        self.assertIn(
+            "inference is conditional on the configured pre-event baseline and may not generalize across market regimes",
+            result["limitations"],
+        )
+        self.assertFalse(any("single UTC-day" in item for item in result["limitations"]))
         self.assertEqual(result["results"][0]["baseline_observations"], 36)
         self.assertEqual(result["results"][0]["spot_event_max_sell_usdt"], 100.0)
 
