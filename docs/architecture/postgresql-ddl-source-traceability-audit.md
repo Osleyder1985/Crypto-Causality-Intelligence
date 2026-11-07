@@ -30,29 +30,30 @@ Se inspeccionaron los árboles Git de `main` y `integration/issue-25-postgresql-
 
 ## Evidencia PostgreSQL
 
-La CI [Run #42327494420](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42327494420) aplicó las tres migraciones globales desde un esquema limpio en PostgreSQL 16 y ejecutó:
+La CI PostgreSQL 16 [Run #42329699551](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42329699551) aplicó las diez migraciones desde un esquema limpio y ejecutó:
 
-- 30 pruebas contra el esquema global `cci`.
+- 102 pruebas contra el esquema global `cci`.
 - 29 pruebas contra el laboratorio independiente `cci_lab`.
-- **59/59 pruebas aprobadas**.
+- 9 pruebas de ownership, roles, GRANT/REVOKE y aislamiento por sesión.
+- **140/140 pruebas aprobadas**.
 
-La cobertura global comprende 27 de las 34 entidades, 48 de las 60 FKs y las doce claves compuestas destino. La prueba no representa una instalación integral de CCI.
+La cobertura global comprende 34/34 entidades, 60/60 FKs y 12/12 claves compuestas destino. La tabla operativa `cci.schema_migrations` eleva a 35 el número de tablas físicas en el esquema.
 
 ## Hallazgo sobre almacenamiento y OHLCV
 
 `scripts/validation/storage_conformance.py` crea una tabla temporal `candles` para comparar JSONL/Parquet/DuckDB/PostgreSQL en CI. No es una tabla del catálogo `cci`, no es una migración productiva y no autoriza almacenar OHLCV en PostgreSQL.
 
-## Pendientes para cerrar el gate global
+## Pendientes operativos tras el cierre del DDL
 
-1. Implementar las 7 entidades restantes, incluidas linaje/validaciones, ejecuciones de transformación y entidades de investigación faltantes.
-2. Materializar y probar las 12 relaciones FK restantes y las claves compuestas destino correspondientes.
-3. Implementar y probar los guards de publicación de mappings de plataforma y resolución de activos, así como inmutabilidad, transiciones, ciclos y concurrencia.
-4. Cerrar roles, grants mínimos y auditoría de operaciones privilegiadas.
-5. Añadir verificación de checksums/drift al ejecutor de migraciones y validar actualización desde versiones anteriores.
-6. Probar backup/restore en una instancia separada y reconciliar hashes/metadata.
-7. Comparar `pg_class`, `pg_constraint`, `pg_indexes`, `pg_proc` y grants con un manifiesto aprobado.
+1. Implementar funciones transaccionales de escritura por dominio, con `SECURITY DEFINER`, `search_path` seguro, validación de actor y grants EXECUTE explícitos.
+2. Aprobar un contrato append-only de auditoría para actor, acción, objeto, instante, motivo, evidencia y correlación.
+3. Crear identidades LOGIN individuales por servicio y gestionar credenciales fuera de las migraciones; el bootstrap actual crea solo grupos NOLOGIN.
+4. Añadir verificación de checksums/drift al ejecutor de migraciones y validar actualización desde versiones anteriores.
+5. Comparar `pg_class`, `pg_constraint`, `pg_indexes`, `pg_proc`, ownership y grants con un manifiesto aprobado.
+6. Probar backup/restore en una instancia persistente separada y reconciliar hashes/metadata.
+7. Confirmar la política de retención/licencias de cada proveedor antes de habilitar ingestión real o persistencia de OHLCV.
 
-**Dictamen:** gate DDL iniciado y reproducible, pero incompleto. PR #26 debe permanecer Draft y no se debe habilitar ingestión real ni persistencia de OHLCV hasta instalar y validar las 34 entidades, las 60 relaciones FK y los gates de seguridad y recuperación.
+**Dictamen:** gate DDL cerrado y reproducible en CI. El bootstrap de roles es fail-closed, pero los roles de runtime no pueden escribir todavía. PR #26 debe permanecer Draft y no se debe habilitar ingestión real ni persistencia de OHLCV hasta cerrar los gates operativos y de seguridad.
 
 ## 13. Actualización: recuperación de la fuente histórica
 
