@@ -1,6 +1,6 @@
 import unittest
 
-from scripts.research.btcusdt_block_bootstrap import paired_block_bootstrap
+from scripts.research.btcusdt_block_bootstrap import benjamini_yekutieli, paired_block_bootstrap
 
 
 class PairedBlockBootstrapTests(unittest.TestCase):
@@ -26,6 +26,16 @@ class PairedBlockBootstrapTests(unittest.TestCase):
         result = paired_block_bootstrap([0.1] * 10, [0.0] * 10, [0.0] * 10, block_length=24)
         self.assertEqual(result["status"], "insufficient_observations_for_block_bootstrap")
         self.assertEqual(result["replicates"], 0)
+
+    def test_benjamini_yekutieli_controls_adjusted_values_under_dependence(self):
+        adjusted = benjamini_yekutieli([0.01, 0.04, 0.03])
+        self.assertAlmostEqual(adjusted[0], 0.055)
+        self.assertAlmostEqual(adjusted[1], 0.07333333333333333)
+        self.assertAlmostEqual(adjusted[2], 0.07333333333333333)
+
+    def test_benjamini_yekutieli_rejects_invalid_p_values(self):
+        with self.assertRaisesRegex(ValueError, "within"):
+            benjamini_yekutieli([1.2])
 
     def test_rejects_mismatched_or_nonfinite_series(self):
         with self.assertRaisesRegex(ValueError, "equal lengths"):
