@@ -34,7 +34,7 @@ La CI [Run #42327494420](https://github.com/Osleyder1985/Crypto-Causality-Intell
 - 29 pruebas contra el laboratorio independiente `cci_lab`.
 - **59/59 pruebas aprobadas**.
 
-La cobertura global comprende 24 de las 34 entidades, 36 de las 60 FKs y once de las doce claves compuestas destino. La prueba no representa una instalación integral de CCI.
+La cobertura global comprende 27 de las 34 entidades, 48 de las 60 FKs y las doce claves compuestas destino. La prueba no representa una instalación integral de CCI.
 
 ## Hallazgo sobre almacenamiento y OHLCV
 
