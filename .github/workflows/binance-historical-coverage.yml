@@ -6,6 +6,9 @@ on:
     branches: [main]
     paths:
       - .github/workflows/binance-historical-coverage.yml
+      - scripts/validation/storage_conformance.py
+      - scripts/research/download_binance_btcusdt_coverage.py
+      - requirements-validation.txt
 
 permissions:
   contents: read
