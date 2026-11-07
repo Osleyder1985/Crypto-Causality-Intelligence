@@ -84,7 +84,7 @@ Los nombres son identificadores de diseño, no roles creados en PostgreSQL.
 | `cci_ingest_writer` | Registrar Runs, solicitudes, datasets de captura y procedencia | No modifica historia ni omite evaluación de política |
 | `cci_identity_resolver` | Publicar revisiones y mappings de identidad | Solo funciones transaccionales; sin escritura directa a mappings |
 | `cci_transform_writer` | Registrar transformaciones, ejecuciones, linaje y validaciones | No altera datasets publicados ni rompe linaje |
-| `cci_research_writer` | Registrar experimentos, hipótesis y asociaciones | No cambia datasets ni permisos de adquisición |
+| `cci_research_writer` | Registrar experimentos, hipótesis, runs analíticos, artefactos y asociaciones | No cambia datasets ni permisos de adquisición; no borra runs ni almacena bytes OHLCV |
 | `cci_reader` | Consultar vistas de lectura autorizadas | Sin DML y sin acceso general a tablas base |
 
 Los roles de servicio deben ser NOLOGIN y heredarse desde cuentas LOGIN individuales de servicio cuando se implemente la autenticación. No se compartirán credenciales humanas ni se concederá membresía de escritura al rol lector.
