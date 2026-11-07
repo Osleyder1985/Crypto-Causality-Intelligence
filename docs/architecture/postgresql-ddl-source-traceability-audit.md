@@ -6,10 +6,10 @@ Se inspeccionaron los árboles Git de `main` y `integration/issue-25-postgresql-
 
 | Elemento | Rama de integración | main |
 |---|---:|---:|
-| Archivos SQL versionados | 5 (1 laboratorio + 4 migraciones) | 0 |
-| Migraciones globales `cci` | 4 | 0 |
-| Entidades del contrato instaladas en `cci` | 15/34 | 0 |
-| Relaciones FK globales implementadas | 15/60 | 0 |
+| Archivos SQL versionados | 6 (1 laboratorio + 5 migraciones) | 0 |
+| Migraciones globales `cci` | 5 | 0 |
+| Entidades del contrato instaladas en `cci` | 17/34 | 0 |
+| Relaciones FK globales implementadas | 19/60 | 0 |
 | Laboratorio `cci_lab` | Recuperado y reproducido | Ausente |
 
 ## Fuentes SQL y alcance
@@ -19,6 +19,7 @@ Se inspeccionaron los árboles Git de `main` y `integration/issue-25-postgresql-
 - `migrations/002_source_policy_catalog.sql`: endpoints, políticas y evaluaciones; seis relaciones FK.
 - `migrations/003_provider_platform_reviews.sql`: plataformas, observaciones y revisiones; seis relaciones FK.
 - `migrations/004_network_identifiers.sql`: identificadores de red y mappings de plataforma accepted; tres relaciones FK.
+- `migrations/005_asset_representations_relationships.sql`: representaciones y relaciones de activos; cuatro relaciones FK y clave compuesta `(id, network_id)`.
 - `migrations/README.md`: orden de aplicación y límites operativos.
 - `tests/postgresql/fk-integrity-test-catalog.md`: catálogo documental de escenarios; no es SQL ejecutable.
 
@@ -30,7 +31,7 @@ La CI [Run #42327494420](https://github.com/Osleyder1985/Crypto-Causality-Intell
 - 29 pruebas contra el laboratorio independiente `cci_lab`.
 - **59/59 pruebas aprobadas**.
 
-La cobertura global comprende 15 de las 34 entidades y 15 de las 60 FKs inventariadas. La prueba no representa una instalación integral de CCI.
+La cobertura global comprende 17 de las 34 entidades, 19 de las 60 FKs y ocho de las doce claves compuestas destino. La prueba no representa una instalación integral de CCI.
 
 ## Hallazgo sobre almacenamiento y OHLCV
 
@@ -38,8 +39,8 @@ La cobertura global comprende 15 de las 34 entidades y 15 de las 60 FKs inventar
 
 ## Pendientes para cerrar el gate global
 
-1. Implementar las 19 entidades restantes, incluidas representaciones/revisiones/identificadores de activos, instrumentos, ingesta, datasets y linaje, y entidades de investigación faltantes.
-2. Materializar y probar las 45 relaciones FK restantes y las claves compuestas destino correspondientes.
+1. Implementar las 17 entidades restantes, incluidas revisiones/mappings de identidad de activos, instrumentos, ingesta, datasets y linaje, y entidades de investigación faltantes.
+2. Materializar y probar las 41 relaciones FK restantes y las claves compuestas destino correspondientes.
 3. Implementar y probar los guards de publicación de mappings de plataforma y resolución de activos, así como inmutabilidad, transiciones, ciclos y concurrencia.
 4. Cerrar roles, grants mínimos y auditoría de operaciones privilegiadas.
 5. Añadir verificación de checksums/drift al ejecutor de migraciones y validar actualización desde versiones anteriores.
