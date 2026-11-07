@@ -127,6 +127,24 @@ CREATE TABLE cci.policy_evaluations (
         )
 );
 
+CREATE INDEX source_usage_policies_ix_source_valid_from
+    ON cci.source_usage_policies (data_source_id, valid_from DESC);
+
+CREATE INDEX source_usage_policies_ix_endpoint_valid_from
+    ON cci.source_usage_policies (data_endpoint_id, valid_from DESC)
+    WHERE data_endpoint_id IS NOT NULL;
+
+CREATE INDEX policy_evaluations_ix_scope_time
+    ON cci.policy_evaluations (
+        data_source_id, data_endpoint_id, data_type, intended_use, evaluated_at DESC
+    );
+
+CREATE INDEX policy_evaluations_ix_policy_source
+    ON cci.policy_evaluations (source_usage_policy_id, data_source_id);
+
+CREATE INDEX policy_evaluations_ix_endpoint_source
+    ON cci.policy_evaluations (data_endpoint_id, data_source_id);
+
 INSERT INTO cci.schema_migrations (version, description)
 VALUES ('002_source_policy_catalog', 'Create endpoints, source usage policies and policy evaluations');
 
