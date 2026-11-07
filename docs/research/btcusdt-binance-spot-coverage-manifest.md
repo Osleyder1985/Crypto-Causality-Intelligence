@@ -84,12 +84,13 @@ Las velas `1d` podrán recuperarse como contraste secundario, pero no sustituyen
 ## 7. Ejecución empírica, reconciliación y conclusión
 
 Ejecución automatizada:
-- Workflow: [Binance BTCUSDT historical coverage](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42320078342)
-- Run ID: `42320078342`; conclusión GitHub Actions: `success`.
-- Commit de configuración: `3d54edb9fe907ab6970c37a16fb98c1b5aed10f3`.
-- Artefacto: `binance-btcusdt-coverage-42320078342` (Artifact ID `13552034122`).
-- SHA-256 del ZIP: `ca6bc1d73b23c4ad38da42a6d30c4570023519dc77514d111ea2270a49ea09d9`.
-- Tamaño: 776,707 bytes; retención de GitHub hasta 2026-12-07T00:45:00Z.
+- Ejecución inicial: [Run 42320078342](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42320078342), conclusión `success`.
+- Workflow actualizado para retener artefactos durante 90 días; commit: `f86f81065addfabdb768f13441df7f2dd2dd2701`.
+- Ejecución reproducida: [Run 42320400840](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42320400840), conclusión `success`.
+- Artefacto vigente: `binance-btcusdt-coverage-42320400840` (Artifact ID `13552925747`).
+- SHA-256 del ZIP: `2ae3516d879f7f75194ec0bd0ec1c3e738efef9fd6c3cef62424701eba823d3b`.
+- Tamaño: 776,704 bytes; retención de GitHub hasta 2027-02-05T00:47:51Z.
+- El JSONL normalizado y las nueve páginas originales coinciden byte a byte entre las dos ejecuciones; el informe difiere únicamente en metadatos propios de la ejecución.
 - El ZIP contiene nueve páginas originales, un JSONL normalizado y `coverage_report.json`.
 
 | Episodio | Esperadas | Recibidas | Cobertura | Huecos | Duplicados | Violaciones OHLCV |
