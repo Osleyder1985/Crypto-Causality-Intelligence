@@ -1,8 +1,8 @@
 # Diseño físico de PostgreSQL
 
-- **Estado:** especificación física reconciliada v0.7; contrato global propuesto, todavía no implementado integralmente. El registro de runs de investigación tiene migraciones parciales 001/002 probadas en CI, pero no instala el catálogo CCI completo. El subsistema NET-04/05/06 tiene contrato de laboratorio ejecutado, sin promoción a `cci`.
+- **Estado:** especificación física reconciliada v0.8; contrato global propuesto, todavía no implementado integralmente. El registro de runs de investigación tiene migraciones parciales 001/002 probadas en CI, pero no instala el catálogo CCI completo. El subsistema NET-04/05/06 tiene contrato de laboratorio ejecutado, sin promoción a `cci`.
 - **Fecha:** 2026-11-06.
-- **Modelo lógico:** `postgresql-logical-data-model.md`, contrato reconciliado v0.7.
+- **Modelo lógico:** `postgresql-logical-data-model.md`, contrato reconciliado v0.8.
 - **Revisión:** `postgresql-logical-model-review.md`.
 - **Decisión relacionada:** `ADR-001-storage-and-analytics-architecture.md`.
 - **Issue / PR:** #14 / #16.
@@ -781,7 +781,7 @@ No se han creado migraciones, no se han insertado registros y no se han ejecutad
 
 ## 10. Identidad, observaciones y resolución de plataformas de proveedores
 
-La política rectora es `network-identity-resolution-policy.md`. El inventario físico queda en **32 entidades**. Esta ampliación es de diseño: no añade filas de redes, plataformas ni mappings.
+La política rectora es `network-identity-resolution-policy.md`. El inventario físico queda en **34 entidades**. Esta ampliación es de diseño: no añade filas de redes, plataformas ni mappings.
 
 **`provider_platforms` — identidad estable de una plataforma dentro de un proveedor**
 - `id UUID PK`
@@ -871,7 +871,7 @@ La política rectora es `network-identity-resolution-policy.md`. El inventario f
 
 El contrato lógico/físico de este subsistema está definido en esta sección y en la sección 13. Su DDL de laboratorio se encuentra en `tests/postgresql/001_provider_platform_lab.sql` y sus pruebas de motor en `tests/test_postgresql_lab.py`; la ejecución confirmatoria documentada en el plan de laboratorio alcanzó 29/29 pruebas en PostgreSQL 16.15.
 
-Esto no constituye una migración productiva: el laboratorio usa el esquema desechable `cci_lab`, no integra todavía todas las FKs con las 32 entidades del esquema `cci` y no define roles/grants productivos. No se han creado migraciones productivas ni se han cargado datos reales. Las pruebas Python de contratos siguen siendo distintas de las pruebas del motor.
+Esto no constituye una migración productiva: el laboratorio usa el esquema desechable `cci_lab`, no integra todavía todas las FKs con las 34 entidades del esquema `cci` y no define roles/grants productivos. No se han creado migraciones productivas ni se han cargado datos reales. Las pruebas Python de contratos siguen siendo distintas de las pruebas del motor.
 
 
 ## 13. Garantías SQL concretas para resolución de plataformas
@@ -1054,4 +1054,4 @@ NET-04/NET-05 quedan traducidos a claves, FKs, índices, triggers, vistas, flujo
 
 El contrato de laboratorio está materializado en `tests/postgresql/001_provider_platform_lab.sql` y fue ejecutado contra PostgreSQL 16.15 con 29/29 pruebas aprobadas (Run #38, HEAD probado `55ba44449a1016e7902e90271801ef8ee3f05fa2`). La auditoría de equivalencia laboratorio ↔ especificación está documentada en `postgresql-lab-validation-plan.md`.
 
-**Límite de promoción:** este resultado valida únicamente el subsistema reducido de seis tablas dentro de `cci_lab`. No valida el esquema completo de 32 entidades, la migración desde una base vacía, ni los roles/grants productivos. La especificación de producción sigue siendo propuesta y no se han creado migraciones productivas ni cargado datos reales. La integración en `cci` debe conservar este contrato funcional y añadir sus dependencias, permisos y pruebas de integración.
+**Límite de promoción:** este resultado valida únicamente el subsistema reducido de seis tablas dentro de `cci_lab`. No valida el esquema completo de 34 entidades, la migración desde una base vacía, ni los roles/grants productivos. La especificación de producción sigue siendo propuesta y no se han creado migraciones productivas ni cargado datos reales. La integración en `cci` debe conservar este contrato funcional y añadir sus dependencias, permisos y pruebas de integración.
