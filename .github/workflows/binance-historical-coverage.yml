@@ -1,0 +1,31 @@
+name: Binance BTCUSDT historical coverage
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  download-and-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Download and audit five BTCUSDT windows
+        run: |
+          python scripts/research/download_binance_btcusdt_coverage.py \
+            --output artifacts/binance_btcusdt_coverage
+      - name: Upload raw pages and coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: binance-btcusdt-coverage-${{ github.run_id }}
+          path: artifacts/binance_btcusdt_coverage/
+          if-no-files-found: error
+          retention-days: 30
