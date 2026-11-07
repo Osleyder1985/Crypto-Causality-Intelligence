@@ -31,6 +31,7 @@ psql "$CCI_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/005_asset_represe
 psql "$CCI_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/006_asset_identity_resolution.sql
 psql "$CCI_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/007_market_instrument_catalog.sql
 psql "$CCI_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/008_ingestion_requests_dataset_sources.sql
+psql "$CCI_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/009_lineage_validation_research_runs.sql
 ```
 
 Verificar el ledger:
