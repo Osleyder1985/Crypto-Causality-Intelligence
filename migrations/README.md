@@ -21,6 +21,7 @@ Desde la raíz del repositorio, usando una conexión de PostgreSQL 16 de pruebas
 psql "$CCI_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/001_cci_root_entities.sql
 psql "$CCI_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/002_source_policy_catalog.sql
 psql "$CCI_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/003_provider_platform_reviews.sql
+psql "$CCI_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/004_network_identifiers.sql
 ```
 
 Verificar el ledger:
