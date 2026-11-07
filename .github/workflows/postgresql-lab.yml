@@ -5,6 +5,8 @@ on:
     paths:
       - "tests/postgresql/**"
       - "migrations/*.sql"
+      - "migrations/manifest.json"
+      - "scripts/postgresql/**"
       - "tests/test_postgresql*.py"
       - ".github/workflows/postgresql-lab.yml"
   push:
