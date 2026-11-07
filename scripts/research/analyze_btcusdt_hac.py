@@ -89,8 +89,9 @@ def _fit_hac(x: list[list[float]], y: list[float], max_lag: int) -> dict:
     ss_tot = sum((v - mean_y) ** 2 for v in y)
     ss_res = sum(v * v for v in residuals)
     std_y = math.sqrt(ss_tot / n) if ss_tot else None
+    means_x = [sum(row[j] for row in x) / n for j in range(1, k)]
     std_x = [
-        math.sqrt(sum((row[j] - sum(item[j] for item in x) / n) ** 2 for row in x) / n)
+        math.sqrt(sum((row[j] - means_x[j-1]) ** 2 for row in x) / n)
         for j in range(1, k)
     ]
     coefficients = []
