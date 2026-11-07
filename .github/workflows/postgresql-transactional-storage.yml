@@ -51,7 +51,8 @@ jobs:
           from pathlib import Path
           import psycopg
           with psycopg.connect(os.environ["DATABASE_URL"], autocommit=True) as conn:
-              conn.execute(Path("migrations/001_transactional_market_storage.sql").read_text())
+              for migration in sorted(Path("migrations").glob("*.sql")):
+                  conn.execute(migration.read_text())
           print("migration applied")
           PY
       - name: Run transactional writer validation tests
