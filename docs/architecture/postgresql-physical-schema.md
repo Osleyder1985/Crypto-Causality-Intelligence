@@ -88,6 +88,8 @@ Todas las tablas siguientes pertenecen a `cci`.
 | `research_experiments` | `id` | Experimentos reproducibles. |
 | `research_hypotheses` | `id` | Hipótesis y criterios de falsación. |
 | `experiment_datasets` | `experiment_id, dataset_id, dataset_role` | Datasets utilizados por experimentos. |
+| `research_experiment_runs` | `id` | Ejecuciones individuales de experimentos, con parámetros, commit, estado y métricas. |
+| `research_run_artifacts` | `id` | Referencias verificables a artefactos externos producidos/consumidos por runs. |
 
 ## 4. Definición de columnas y restricciones
 
@@ -490,6 +492,31 @@ La FK compuesta impide combinar endpoint de una fuente con instrumento de otra. 
 - `conclusion_summary TEXT NULL`, `created_at TIMESTAMPTZ NOT NULL`
 - CHECK `finished_at IS NULL OR started_at IS NULL OR finished_at >= started_at`.
 
+**`research_experiment_runs`**
+- `id UUID PK`
+- `experiment_id UUID NOT NULL FK research_experiments(id)`
+- `run_key TEXT NOT NULL`; UNIQUE `(experiment_id, run_key)`
+- `status TEXT NOT NULL`: CHECK `queued, running, succeeded, failed, cancelled`.
+- `code_commit TEXT NOT NULL`, `protocol_version TEXT NOT NULL`
+- `parameters JSONB NOT NULL DEFAULT '{}'`, `input_manifest JSONB NOT NULL DEFAULT '{}'`; ambos objetos JSON.
+- `metrics JSONB NULL`; si existe debe ser objeto JSON.
+- `started_at TIMESTAMPTZ NULL`, `finished_at TIMESTAMPTZ NULL`
+- `error_code TEXT NULL`, `error_summary TEXT NULL`, `created_at TIMESTAMPTZ NOT NULL`.
+- CHECK: fin no anterior al inicio; estado terminal exige `finished_at`; `running` exige `started_at`; `failed` exige `error_summary`.
+- Transiciones: `queued → running|cancelled`; `running → succeeded|failed|cancelled`. Terminales inmutables. Trigger transaccional impide saltos y cambios de identidad.
+
+**`research_run_artifacts`**
+- `id UUID PK`, `run_id UUID NOT NULL FK research_experiment_runs(id)`
+- `artifact_role TEXT NOT NULL`: CHECK `input_manifest, summary, metrics, report, dataset, log, other`.
+- `logical_uri TEXT NOT NULL`, `media_type TEXT NOT NULL`
+- `format TEXT NOT NULL`: CHECK `json, csv, parquet, text, other`.
+- `sha256 TEXT NOT NULL`: hexadecimal minúsculo de 64 caracteres.
+- `byte_size BIGINT NOT NULL CHECK (byte_size >= 0)`
+- `schema_version TEXT NULL`
+- `retention_class TEXT NOT NULL`: CHECK `ephemeral, research, restricted, do_not_retain`.
+- `created_at TIMESTAMPTZ NOT NULL`; UNIQUE `(run_id, artifact_role, logical_uri, sha256)`.
+- Almacena referencias y metadatos, no bytes ni series OHLCV.
+
 **`research_hypotheses`**
 - `id UUID PK`, `experiment_id UUID NOT NULL FK research_experiments(id)`
 - `hypothesis_key TEXT NOT NULL`, `statement TEXT NOT NULL`
@@ -536,6 +563,8 @@ Se crearán índices explícitos para FKs usadas en joins y patrones de consulta
 | `transformation_runs` | `(transformation_id, started_at DESC)`; `(ingestion_run_id)` | Historial de ejecuciones. |
 | `research_hypotheses` | UNIQUE `(experiment_id, hypothesis_key)` | Identidad de hipótesis. |
 | `experiment_datasets` | PK compuesta; índice `(dataset_id)` | Consultas por experimento y dataset. |
+| `research_experiment_runs` | UNIQUE `(experiment_id, run_key)`; `(experiment_id, created_at DESC)`; `(status, created_at DESC)` | Idempotencia lógica y operación por estado. |
+| `research_run_artifacts` | UNIQUE `(run_id, artifact_role, logical_uri, sha256)`; `(run_id, created_at)` | Trazabilidad e integridad de artefactos. |
 
 No crear índices GIN sobre todos los JSONB ni índices parciales sin consulta concreta. No particionar tablas operativas antes de disponer de volúmenes medidos. No añadir índices duplicados que ya cubra una PK/UNIQUE.
 
