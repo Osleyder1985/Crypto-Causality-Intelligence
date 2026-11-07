@@ -1,0 +1,58 @@
+name: PostgreSQL transactional storage
+
+on:
+  pull_request:
+    paths:
+      - "migrations/**"
+      - "scripts/persistence/**"
+      - "tests/test_transactional_market_writer.py"
+      - ".github/workflows/postgresql-transactional-storage.yml"
+  push:
+    branches: [main]
+    paths:
+      - "migrations/**"
+      - "scripts/persistence/**"
+      - "tests/test_transactional_market_writer.py"
+      - ".github/workflows/postgresql-transactional-storage.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  transactional-storage:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: cci_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d cci_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: python -m pip install "psycopg[binary]>=3.2,<4"
+      - name: Apply production migration to empty PostgreSQL
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/cci_test
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          import psycopg
+          with psycopg.connect(os.environ["DATABASE_URL"], autocommit=True) as conn:
+              conn.execute(Path("migrations/001_transactional_market_storage.sql").read_text())
+          print("migration applied")
+          PY
+      - name: Run transactional writer validation tests
+        run: python -m unittest tests.test_transactional_market_writer -v
