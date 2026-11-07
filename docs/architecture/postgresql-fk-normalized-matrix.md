@@ -70,7 +70,7 @@ En la columna de nulabilidad, `NN` significa que todos los componentes de la FK 
 | FK-044 | dataset_sources | data_source_id | data_sources | id | NN | Fuente de la contribución. |
 | FK-045 | dataset_sources | data_endpoint_id, data_source_id | data_endpoints | id, data_source_id | NN | Endpoint de la misma fuente. |
 | FK-046 | dataset_sources | market_instrument_id, data_source_id | market_instruments | id, data_source_id | OPT | Instrumento opcional; si existe debe pertenecer a la fuente. |
-| FK-047 | dataset_sources | ingestion_request_id, data_source_id, data_endpoint_id | ingestion_requests | id, data_source_id, data_endpoint_id | OPT | Los tres componentes deben ser NULL o completos; comprobar CHECK para evitar NULL parcial. |
+| FK-047 | dataset_sources | ingestion_request_id, data_source_id, data_endpoint_id | ingestion_requests | id, data_source_id, data_endpoint_id | OPT | Solo ingestion_request_id es nullable; data_source_id y data_endpoint_id son NOT NULL. MATCH SIMPLE omite la referencia si no hay request. La prosa de v0.8 dice que los tres pueden ser NULL sin que las definiciones de columnas lo permitan: contradicción bloqueante que debe resolverse. |
 | FK-048 | dataset_sources | policy_evaluation_id, data_source_id, data_endpoint_id, data_type, evaluated_intended_use | policy_evaluations | id, data_source_id, data_endpoint_id, data_type, intended_use | NN | Exige coincidencia exacta de fuente, endpoint, tipo y uso; requiere UNIQUE candidato en destino. |
 | FK-049 | dataset_lineage | input_dataset_id | datasets | id | NN | Dataset de entrada. |
 | FK-050 | dataset_lineage | output_dataset_id | datasets | id | NN | Dataset de salida; CHECK prohíbe input=output; ciclos requieren lógica transaccional. |
@@ -142,7 +142,6 @@ Además de las PK primarias, el DDL debe declarar UNIQUE compatibles para las re
 | asset_representations | (id, network_id) | FK-028 |
 | asset_identity_resolution_reviews | (id, candidate_asset_id, resolution_status, namespace, external_identifier) | FK-027 |
 | asset_identity_resolution_reviews | (id, candidate_asset_representation_id, resolution_status, namespace, external_identifier, network_id) | FK-029 |
-| asset_identity_resolution_reviews | (id, clave de sustitución por identidad) | FK-024; pendiente de concretar constraint/índice |
 | market_instruments | (id, data_source_id) | FK-040, 046 |
 | ingestion_requests | (id, data_source_id, data_endpoint_id) | FK-047 |
 
@@ -152,13 +151,14 @@ La especificación usa la expresión “UNIQUE candidato” en varios de estos p
 
 1. **Recuento y cobertura:** validar automáticamente los 34 nombres contra el inventario físico; confirmar que la tabla de cobertura no contiene duplicados ni omisiones.
 2. **Claves destino:** comprobar PK/UNIQUE real para cada referencia compuesta, especialmente las marcadas como candidatas.
-3. **Nulabilidad:** añadir CHECK para grupos de procedencia opcionales que deben ser todos NULL o todos completos: FK-008/009 y FK-047; revisar FK-040 y FK-046.
-4. **MATCH:** ratificar SIMPLE o FULL por relación. MATCH FULL puede ser apropiado para grupos opcionales compuestos que deban ser todos NULL/completos; no cambiarlo sin evaluar las columnas y restricciones.
-5. **Acciones:** confirmar RESTRICT/RESTRICT por relación, sin asumir CASCADE en asociaciones.
-6. **Diferibilidad:** confirmar NOT DEFERRABLE/INITIALLY IMMEDIATE o justificar diferibilidad para inserciones cíclicas/operaciones atómicas.
-7. **Triggers/funciones:** especificar y probar igualdad NULL-safe de scope, cadenas append-only, no ciclos de sustitución y publicación atómica de mappings; una FK no implementa esas invariantes.
-8. **Grafo:** cálculo provisional completado en §7: 34/34 tablas ordenables, dos autorreferencias y cero ciclos entre tablas distintas. Recalcular cuando cambie una relación o se cierre una decisión pendiente.
-9. **Tests:** asignar IDs de pruebas positivas/negativas a cada FK y ejecutar contra PostgreSQL 16 desde base vacía.
+3. **Nulabilidad:** resolver el grupo de procedencia de FK-008 y FK-009 (todos NULL o completos, según contrato); en FK-047 existe contradicción entre columnas NOT NULL y la prosa que permite los tres campos NULL. FK-040 y FK-046 tienen solo el ID de instrumento nullable, por lo que MATCH SIMPLE omite la referencia cuando ese ID es NULL.
+4. **MATCH:** ratificar SIMPLE o FULL por relación. MATCH FULL puede ser apropiado para FK-008/009 si todos sus componentes son nullable; no es aplicable a FK-047 mientras data_source_id y data_endpoint_id permanezcan NOT NULL.
+5. **Claves candidatas:** el auto-referenciado FK-024 usa la PK (id) y no necesita una UNIQUE compuesta adicional; la consistencia de la misma clave de identidad debe imponerse mediante trigger/función.
+6. **Acciones:** confirmar RESTRICT/RESTRICT por relación, sin asumir CASCADE en asociaciones.
+7. **Diferibilidad:** confirmar NOT DEFERRABLE/INITIALLY IMMEDIATE o justificar diferibilidad para inserciones cíclicas/operaciones atómicas.
+8. **Triggers/funciones:** especificar y probar igualdad NULL-safe de scope, cadenas append-only, no ciclos de sustitución y publicación atómica de mappings; una FK no implementa esas invariantes.
+9. **Grafo:** cálculo provisional completado en §7: 34/34 tablas ordenables, dos autorreferencias y cero ciclos entre tablas distintas. Recalcular cuando cambie una relación o se cierre una decisión pendiente.
+10. **Tests:** asignar IDs de pruebas positivas/negativas a cada FK y ejecutar contra PostgreSQL 16 desde base vacía.
 
 ## 6. Dictamen
 
