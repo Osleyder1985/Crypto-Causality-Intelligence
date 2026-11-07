@@ -14,6 +14,20 @@
     "note": "Scheduled vote time from Senate floor schedule; do not treat as exact roll-call timestamp without primary floor timestamp."
   },
   {
+    "event_id": "clarity_act_actual_vote_open",
+    "cohort_window": "september_vote_reaction_2026",
+    "event_at_utc": "2026-09-15T18:33:00Z",
+    "event_type": "observed_vote_start_media_timestamp",
+    "note": "CoinDesk live coverage timestamp for the Senate vote opening (14:33 EDT). Distinct from the scheduled time; source timestamp is newsroom update time, not a Senate machine log."
+  },
+  {
+    "event_id": "clarity_act_failure_unofficial_tally",
+    "cohort_window": "september_vote_reaction_2026",
+    "event_at_utc": "2026-09-15T18:43:00Z",
+    "event_type": "observed_unofficial_failure_tally_media_timestamp",
+    "note": "CoinDesk reported the unofficial floor-webcast tally showing the bill would fail at 14:43 EDT. Distinct from final certified roll-call record."
+  },
+  {
     "event_id": "october_selloff_price_peak",
     "cohort_window": "october_selloff_2026",
     "event_at_utc": "2026-10-06T15:01:00Z",
@@ -47,5 +61,12 @@
     "event_at_utc": "2026-11-04T06:24:00Z",
     "event_type": "newsroom_call",
     "note": "AP call of Democratic control of the House."
+  },
+  {
+    "event_id": "binance_first_public_signal_in_source_set",
+    "cohort_window": "binance_incident_2026",
+    "event_at_utc": "2026-10-29T21:52:00Z",
+    "event_type": "media_reported_public_confirmation",
+    "note": "CoinDesk live update at 17:52 EDT reports CZ publicly saying it appeared to be a Binance hack. This is the earliest verified public-awareness marker in the current source set, not proof of the first market-wide awareness or exact X-post timestamp."
   }
 ]
