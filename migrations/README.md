@@ -16,7 +16,7 @@ Estas migraciones son SQL versionado, secuencial y transaccional. No son un inst
 | 008 | `008_ingestion_requests_dataset_sources.sql` | Solicitudes de ingesta, asociación run-dataset y procedencia de dataset vinculada a policy evaluation | Implementada y probada |
 | 009 | `009_lineage_validation_research_runs.sql` | Linaje/validación de datasets, ejecuciones de transformación e investigación, hipótesis y artifacts | Implementada y probada |
 
-La cadena 001→002→003→004→005 requiere una base PostgreSQL vacía. Cada archivo abre y confirma su propia transacción. No deben ejecutarse de nuevo si su versión ya aparece en `cci.schema_migrations`; no usan `IF NOT EXISTS` deliberadamente, para que una divergencia no quede silenciada.
+La cadena 001→002→003→004→005→006→007→008→009 requiere una base PostgreSQL vacía. Cada archivo abre y confirma su propia transacción. No deben ejecutarse de nuevo si su versión ya aparece en `cci.schema_migrations`; no usan `IF NOT EXISTS` deliberadamente, para que una divergencia no quede silenciada.
 
 ## Aplicación controlada
 
