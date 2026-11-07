@@ -194,3 +194,63 @@ def write_candle_batch(
         )
     return {"run_id": run_id, "row_count": len(normalized),
             "payload_sha256": digest, "replayed": False}
+
+
+def purge_expired_market_data(
+    conn: psycopg.Connection, *, actor: str
+) -> dict[str, Any]:
+    """Delete candles whose storage permission is denied or has expired.
+
+    Deletion and its metadata-only audit event commit atomically. Permission
+    rows are locked so a concurrent writer cannot race the retention decision.
+    """
+    if not isinstance(actor, str) or not actor.strip():
+        raise ValueError("actor must be a non-empty string")
+    deleted_sources: list[dict[str, Any]] = []
+    with conn.transaction():
+        permissions = conn.execute(
+            """SELECT provider, market_type, symbol, retention_until, evidence_ref
+               FROM cci.source_permissions
+               WHERE storage_allowed = FALSE OR retention_until <= clock_timestamp()
+               ORDER BY provider, market_type, symbol
+               FOR UPDATE"""
+        ).fetchall()
+        for provider, market_type, symbol, retention_until, evidence_ref in permissions:
+            result = conn.execute(
+                """DELETE FROM cci.market_candles
+                   WHERE provider = %s AND market_type = %s AND symbol = %s""",
+                (provider, market_type, symbol),
+            )
+            deleted_count = result.rowcount
+            if not deleted_count:
+                continue
+            audit_payload = {
+                "provider": provider,
+                "market_type": market_type,
+                "symbol": symbol,
+                "deleted_rows": deleted_count,
+                "retention_until": retention_until,
+                "permission_evidence_ref": evidence_ref,
+            }
+            encoded = json.dumps(
+                audit_payload, sort_keys=True, separators=(",", ":"), default=_jsonable
+            ).encode("utf-8")
+            digest = hashlib.sha256(encoded).hexdigest()
+            entity_key = f"{provider}:{market_type}:{symbol}"
+            correlation_id = f"retention-purge:{entity_key}:{retention_until.isoformat()}"
+            conn.execute(
+                """INSERT INTO cci.audit_events
+                   (event_type, entity_type, entity_key, actor, payload,
+                    payload_sha256, correlation_id)
+                   VALUES ('market_data.retention_purged', 'market_source',
+                           %s, %s, %s, %s, %s)""",
+                (entity_key, actor, Jsonb(audit_payload), digest, correlation_id),
+            )
+            deleted_sources.append({
+                "provider": provider, "market_type": market_type,
+                "symbol": symbol, "deleted_rows": deleted_count,
+            })
+    return {
+        "deleted_rows": sum(item["deleted_rows"] for item in deleted_sources),
+        "deleted_sources": deleted_sources,
+    }
