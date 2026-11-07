@@ -58,6 +58,11 @@ class SpotFuturesExtremenessTests(unittest.TestCase):
         second = circular_block_ci(a, b, 2, 100, random.Random(123))
         self.assertEqual(first, second)
         self.assertLessEqual(first["lower_95"], first["upper_95"])
+        simultaneous = circular_block_ci(a, b, 2, 100, random.Random(123), family_size=4)
+        self.assertEqual(simultaneous["family_size"], 4)
+        self.assertEqual(simultaneous["multiplicity_method"], "Bonferroni across configured horizons")
+        self.assertLessEqual(simultaneous["lower_familywise_95_bonferroni"], simultaneous["lower_95"])
+        self.assertGreaterEqual(simultaneous["upper_familywise_95_bonferroni"], simultaneous["upper_95"])
 
 
 if __name__ == "__main__":
