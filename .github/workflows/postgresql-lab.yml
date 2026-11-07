@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - "tests/postgresql/**"
-      - "migrations/**"
+      - "migrations/*.sql"
       - "tests/test_postgresql*.py"
       - ".github/workflows/postgresql-lab.yml"
   push:
@@ -13,7 +13,7 @@ on:
       - integration/issue-25-postgresql-foundation
     paths:
       - "tests/postgresql/**"
-      - "migrations/**"
+      - "migrations/*.sql"
       - "tests/test_postgresql*.py"
       - ".github/workflows/postgresql-lab.yml"
   workflow_dispatch:
