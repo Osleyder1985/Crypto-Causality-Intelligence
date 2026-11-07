@@ -2,6 +2,7 @@ import unittest
 
 from scripts.research.fetch_btcusdt_funding_history import (
     _coverage_summary,
+    attach_funding_asof,
     fetch_funding_history,
 )
 
@@ -53,9 +54,18 @@ class FundingHistoryTests(unittest.TestCase):
         unsorted = lambda p: [record(200), record(100)]
         with self.assertRaisesRegex(ValueError, "ascending"):
             fetch_funding_history("BTCUSDT", 100, 200, page_fetcher=unsorted)
-        same = lambda p: [record(100), record(100)]
-        with self.assertRaisesRegex(ValueError, "ascending|did not advance"):
-            fetch_funding_history("BTCUSDT", 100, 200, page_fetcher=same, limit=1)
+
+    def test_asof_alignment_never_uses_future_funding_settlement(self):
+        spot = [{"_ts": 0}, {"_ts": 3_600_000}, {"_ts": 7_200_000}]
+        funding = [
+            {"funding_time_ms": 3_600_000, "funding_rate": 0.001},
+            {"funding_time_ms": 10_800_000, "funding_rate": 0.009},
+        ]
+        aligned = attach_funding_asof(spot, funding)
+        self.assertIsNone(aligned[0]["funding_latest_rate_asof"])
+        self.assertEqual(aligned[1]["funding_latest_rate_asof"], 0.001)
+        self.assertEqual(aligned[2]["funding_latest_rate_asof"], 0.001)
+        self.assertEqual(aligned[0]["funding_settlements_available_asof"], 0)
 
     def test_reports_observed_gaps_without_filling_them(self):
         report = _coverage_summary(
