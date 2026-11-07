@@ -53,6 +53,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: binance-btcusdt-coverage-${{ github.run_id }}
-          path: artifacts/binance_btcusdt_coverage/\n            artifacts/storage_conformance/
+          path: |\n            artifacts/binance_btcusdt_coverage/\n            artifacts/storage_conformance/
           if-no-files-found: error
           retention-days: 90
