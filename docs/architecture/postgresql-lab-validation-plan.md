@@ -8,7 +8,7 @@
 
 ## 1. Objetivo
 
-Convertir la especificación de las secciones 10 y 13 de `postgresql-physical-schema.md` en DDL de laboratorio y comprobar sus garantías en un servidor PostgreSQL real. El laboratorio no es una migración de producción ni crea el esquema completo de 32 entidades.
+Convertir la especificación de las secciones 10 y 13 de `postgresql-physical-schema.md` en DDL de laboratorio y comprobar sus garantías en un servidor PostgreSQL real. El laboratorio no es una migración de producción ni crea el esquema completo de 34 entidades.
 
 ## 2. Resultado de la auditoría previa
 
@@ -139,7 +139,7 @@ Se amplió el laboratorio y se ejecutó la matriz completa de 25 condiciones. La
 
 La cobertura PG-NET-01–PG-NET-25 está ejecutada en el DDL reducido del laboratorio, con datos sintéticos y PostgreSQL 16.15. Esto **no** equivale a:
 
-- validar las 32 entidades del esquema físico completo;
+- validar las 34 entidades del esquema físico completo;
 - aplicar migraciones productivas desde una base vacía;
 - validar roles/permisos de producción o resistencia frente al propietario/superusuario;
 - implementar la función bitemporal en la capa productiva de repositorio;
@@ -155,7 +155,7 @@ La auditoría estática de equivalencia del subsistema reducido y su regresión 
 2. Incorporar al DDL productivo roles y grants que impidan UPDATE/DELETE de snapshots y revisiones a los roles de aplicación; los triggers no protegen frente al propietario/superusuario que puede deshabilitarlos.
 3. Implementar el protocolo de escritura en repositorio: lock de identidad en sentencia independiente, lectura de head, INSERT de revisión, INSERT de mapping cuando sea accepted, COMMIT/ROLLBACK.
 4. Añadir una prueba de regresión para una publicación de mapping obsoleta que espera el lock mientras otra transacción registra una sucesora.
-5. Integrar este subsistema en el esquema completo de 32 entidades y ejecutar migración desde base vacía, sin datos reales.
+5. Integrar este subsistema en el esquema completo de 34 entidades y ejecutar migración desde base vacía, sin datos reales.
 
 El laboratorio no se promoverá literalmente a producción. El PR #16 permanece Draft; no se han creado migraciones productivas ni se ha fusionado.
 
@@ -187,7 +187,7 @@ Revisión estática realizada sobre `tests/postgresql/001_provider_platform_lab.
 
 ### Límites y pendientes
 
-Esta auditoría es estática y cubre el subsistema reducido de seis tablas. No demuestra equivalencia del esquema completo de 32 entidades ni reemplaza la ejecución de regresión. Tras los cambios, debe repetirse el workflow PostgreSQL y revisar sus logs.
+Esta auditoría es estática y cubre el subsistema reducido de seis tablas. No demuestra equivalencia del esquema completo de 34 entidades ni reemplaza la ejecución de regresión. Tras los cambios, debe repetirse el workflow PostgreSQL y revisar sus logs.
 
 Además, las pruebas de concurrencia existentes cubren el protocolo con lock explícito previo. Antes de promover el diseño a productivo debe mantenerse ese protocolo en la capa de repositorio y añadir una prueba de regresión que falle si un caller intenta publicar un mapping para una revisión que dejó de ser cabeza mientras espera el lock.
 
