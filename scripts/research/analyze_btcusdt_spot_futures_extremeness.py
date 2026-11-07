@@ -140,15 +140,26 @@ def analyze(
     for horizon in horizons:
         spot_roll = rolling_sell(spot_values, horizon)
         futures_roll = rolling_sell(futures_values, horizon)
+        if event_seconds < horizon:
+            raise ValueError("event duration must be at least the rolling horizon")
         baseline_start = event_offset - baseline_seconds
-        baseline_stop = event_offset - horizon + 1  # windows fully precede event
-        if baseline_stop <= baseline_start:
-            raise ValueError("baseline is too short for rolling horizon")
+        baseline_episode_stop = event_offset - event_seconds + 1
+        if baseline_episode_stop <= baseline_start:
+            raise ValueError("baseline is too short for equal-duration episodes")
         event_stop = event_offset + event_seconds - horizon + 1
-        spot_baseline = spot_roll[baseline_start:baseline_stop]
-        futures_baseline = futures_roll[baseline_start:baseline_stop]
+        episode_window_count = event_seconds - horizon + 1
         spot_event = spot_roll[event_offset:event_stop]
         futures_event = futures_roll[event_offset:event_stop]
+        # Compare the event maximum with maxima from baseline episodes of the
+        # same duration, not with individual rolling windows.
+        spot_baseline = [
+            max(spot_roll[start:start + episode_window_count])
+            for start in range(baseline_start, baseline_episode_stop)
+        ]
+        futures_baseline = [
+            max(futures_roll[start:start + episode_window_count])
+            for start in range(baseline_start, baseline_episode_stop)
+        ]
         spot_max = max(spot_event)
         futures_max = max(futures_event)
         spot_exceed = [int(value >= spot_max) for value in spot_baseline]
@@ -183,6 +194,8 @@ def analyze(
         "event_start_utc": event_start.isoformat(),
         "event_seconds": event_seconds,
         "baseline_seconds": baseline_seconds,
+        "baseline_episode_seconds": event_seconds,
+        "comparison_unit": "maximum sell-flow over equal-duration event and baseline episodes",
         "seed": seed,
         "results": results,
         "limitations": [
