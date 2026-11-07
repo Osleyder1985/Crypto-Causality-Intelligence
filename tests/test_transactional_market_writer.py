@@ -129,7 +129,7 @@ class PostgreSQLTransactionalWriterTests(unittest.TestCase):
         self.authorize()
         self.write()
         self.conn.execute(
-            "UPDATE cci.source_permissions SET storage_allowed = FALSE "
+            "UPDATE cci.source_permissions SET storage_allowed = FALSE, retention_until = NULL "
             "WHERE provider = 'binance' AND market_type = 'SPOT' AND symbol = 'BTCUSDT'"
         )
         self.conn.commit()
