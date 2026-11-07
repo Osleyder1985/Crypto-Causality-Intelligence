@@ -48,7 +48,7 @@
       "sha256": "7371d031d9066f643c94ceef53862fa2a2df9f25ffa410e811b27640266b58fa"
     },
     {
-      "version": "cci_owner",
+      "version": "010_runtime_role_bootstrap",
       "file": "010_runtime_role_bootstrap.sql",
       "sha256": "de3991febc2e4c41718a23bb21d618622e8d54b03ec1adf94d0aa5af4e3457de"
     },
