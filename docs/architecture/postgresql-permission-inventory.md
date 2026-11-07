@@ -65,8 +65,10 @@ La clasificación T no significa que se permita modificar libremente la fila. So
 | 30 | `research_experiments` | Investigación | T | Investigación y vistas aprobadas | Servicio de investigación: alta y transición mediante función |
 | 31 | `research_hypotheses` | Investigación | T | Investigación y vistas aprobadas | Servicio de investigación: alta y transición mediante función |
 | 32 | `experiment_datasets` | Investigación | B | Investigación y auditoría | Servicio de investigación, mediante INSERT |
+| 33 | `research_experiment_runs` | Investigación | T | Investigación, operaciones y auditoría | Servicio de investigación: alta y transiciones permitidas mediante función transaccional; terminales inmutables |
+| 34 | `research_run_artifacts` | Investigación y artefactos | A | Investigación y auditoría | Servicio de investigación, mediante INSERT de referencias/hash; sin escritura de bytes ni OHLCV en PostgreSQL |
 
-**Resultado de clasificación:** 34 entidades inventariadas; 17 A, 4 V, 3 B y 8 T. Las clases describen la política de escritura propuesta, no privilegios ya concedidos.
+**Resultado de clasificación:** 34 entidades inventariadas; 18 A, 4 V, 3 B y 9 T. Las clases describen la política de escritura propuesta, no privilegios ya concedidos.
 
 ## 4. Roles de aplicación propuestos
 
