@@ -178,7 +178,6 @@ def audit_and_align(cohorts: dict[str, list[dict[str, Any]]],
     times = [row["snapshot_time_ms"] for row in records]
     aligned = []
     for name, spot_rows in sorted(cohorts.items()):
-        cohort_snapshots = []
         fresh = 0
         missing = 0
         stale = 0
@@ -226,8 +225,13 @@ def audit_and_align(cohorts: dict[str, list[dict[str, Any]]],
                     else:
                         result[key] = None
             aligned.append(result)
-            if snapshot is not None:
-                cohort_snapshots.append(snapshot)
+        window_start_ms = spot_rows[0]["_ts"] if spot_rows else 0
+        window_end_ms = spot_rows[-1]["_ts"] + HOUR_MS - 1 if spot_rows else -1
+        # Audit every raw 5-minute observation, not only the hourly as-of selections.
+        cohort_snapshots = [
+            row for row in records
+            if window_start_ms <= row["snapshot_time_ms"] <= window_end_ms
+        ]
         unique_times = sorted({r["snapshot_time_ms"] for r in cohort_snapshots})
         intervals = [(b - a) / MINUTE_MS for a, b in zip(unique_times, unique_times[1:])]
         report["cohorts"][name] = {
@@ -236,7 +240,7 @@ def audit_and_align(cohorts: dict[str, list[dict[str, Any]]],
             "fresh_asof_pct": 100 * fresh / len(spot_rows) if spot_rows else None,
             "missing_before_first_snapshot": missing,
             "stale_snapshot_candles": stale,
-            "unique_snapshots_in_window": len(unique_times),
+            "raw_unique_5m_snapshots_in_window": len(unique_times),
             "median_snapshot_interval_minutes": median(intervals) if intervals else None,
             "max_snapshot_gap_minutes": max(intervals) if intervals else None,
             "zero_open_interest_snapshots": sum(r["sum_open_interest"] == 0 for r in cohort_snapshots),
