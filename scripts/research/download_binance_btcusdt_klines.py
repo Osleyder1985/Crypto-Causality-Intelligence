@@ -47,7 +47,9 @@ def parse_zip(payload: bytes, market: str, day_start_ms: int) -> tuple[list[dict
             continue
         if len(row) != 12:
             raise ValueError(f"{market}:{line}: expected 12 kline columns, got {len(row)}")
-        timestamp = int(row[0])
+        timestamp_original = int(row[0])
+        timestamp_divisor = 1000 if market == "spot" else 1
+        timestamp = timestamp_original // timestamp_divisor
         if not day_start_ms <= timestamp < day_start_ms + 86_400_000:
             raise ValueError(f"{market}:{line}: open timestamp outside UTC date")
         if timestamp in seen or (previous is not None and timestamp <= previous):
@@ -65,12 +67,13 @@ def parse_zip(payload: bytes, market: str, day_start_ms: int) -> tuple[list[dict
         if trade_count < 0 or not (0 <= taker_base <= volume) or not (0 <= taker_quote <= quote_volume):
             raise ValueError(f"{market}:{line}: inconsistent trade/taker volumes")
         result.append({
-            "market": market, "open_time_ms": timestamp, "interval": "1m",
+            "market": market, "open_time_ms": timestamp, "open_time_original": timestamp_original,
+            "timestamp_unit": "microseconds" if market == "spot" else "milliseconds", "interval": "1m",
             "open": str(open_), "high": str(high), "low": str(low), "close": str(close),
             "volume_base": str(volume), "quote_volume_usdt": str(quote_volume),
             "trade_count": trade_count, "taker_buy_base_volume": str(taker_base),
             "taker_buy_quote_volume_usdt": str(taker_quote),
-            "close_time_ms": int(row[6]), "source_ignore_field": row[11],
+            "close_time_ms": int(row[6]) // timestamp_divisor, "source_ignore_field": row[11],
         })
     if not result:
         raise ValueError(f"{market}: empty kline archive")
