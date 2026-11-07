@@ -181,6 +181,24 @@ class CCISourcePolicyMigrationTests(unittest.TestCase):
                     ),
                 )
 
+    def test_policy_lookup_and_composite_fk_indexes_are_installed(self):
+        indexes = {
+            row[0]
+            for row in self.conn.execute(
+                """
+                SELECT indexname FROM pg_indexes
+                WHERE schemaname = 'cci'
+                """
+            ).fetchall()
+        }
+        self.assertTrue({
+            "source_usage_policies_ix_source_valid_from",
+            "source_usage_policies_ix_endpoint_valid_from",
+            "policy_evaluations_ix_scope_time",
+            "policy_evaluations_ix_policy_source",
+            "policy_evaluations_ix_endpoint_source",
+        }.issubset(indexes))
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
