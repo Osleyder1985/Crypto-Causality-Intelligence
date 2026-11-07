@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import bisect
 import math
 import random
 import zlib
@@ -38,24 +39,54 @@ def _solve(matrix: list[list[float]], vector: list[float]) -> list[float]:
     return [aug[i][-1] for i in range(n)]
 
 
-def _ridge_predict(train_x: list[list[float]], train_y: list[float],
-                   test_x: list[float], alpha: float) -> float:
-    k = len(train_x[0])
-    means = [sum(row[j] for row in train_x) / len(train_x) for j in range(k)]
+def _prefix_statistics(features: list[list[float]], targets: list[float]) -> dict[str, Any]:
+    """Build cumulative sufficient statistics so each expanding fit is O(k^3), not O(n*k^2)."""
+    if not features or len(features) != len(targets):
+        raise ValueError("features and targets must be non-empty and aligned")
+    k = len(features[0])
+    sum_x = [[0.0] * (len(features) + 1) for _ in range(k)]
+    sum_xx = [[[0.0] * (len(features) + 1) for _ in range(k)] for _ in range(k)]
+    sum_xy = [[0.0] * (len(features) + 1) for _ in range(k)]
+    sum_y = [0.0] * (len(features) + 1)
+    for index, (row, target) in enumerate(zip(features, targets), start=1):
+        sum_y[index] = sum_y[index - 1] + target
+        for i in range(k):
+            sum_x[i][index] = sum_x[i][index - 1] + row[i]
+            sum_xy[i][index] = sum_xy[i][index - 1] + row[i] * target
+            for j in range(k):
+                sum_xx[i][j][index] = sum_xx[i][j][index - 1] + row[i] * row[j]
+    return {"count": len(features), "sum_x": sum_x, "sum_xx": sum_xx,
+            "sum_xy": sum_xy, "sum_y": sum_y}
+
+
+def _ridge_predict_from_prefix(stats: dict[str, Any], train_count: int,
+                               test_x: list[float], alpha: float) -> tuple[float, float]:
+    k = len(test_x)
+    n = train_count
+    if n < 1 or n > stats["count"]:
+        raise ValueError("invalid prefix training count")
+    sx, sxx, sxy, sy = stats["sum_x"], stats["sum_xx"], stats["sum_xy"], stats["sum_y"]
+    y_mean = sy[n] / n
+    means = [sx[i][n] / n for i in range(k)]
     scales = []
-    for j in range(k):
-        variance = sum((row[j] - means[j]) ** 2 for row in train_x) / len(train_x)
+    for i in range(k):
+        variance = max(0.0, sxx[i][i][n] / n - means[i] * means[i])
         scales.append(math.sqrt(variance) or 1.0)
-    z_train = [[(row[j] - means[j]) / scales[j] for j in range(k)] for row in train_x]
-    y_mean = sum(train_y) / len(train_y)
-    centered_y = [value - y_mean for value in train_y]
-    gram = [[sum(row[i] * row[j] for row in z_train) for j in range(k)] for i in range(k)]
-    for j in range(k):
-        gram[j][j] += alpha
-    cross = [sum(row[j] * value for row, value in zip(z_train, centered_y)) for j in range(k)]
+    gram = []
+    cross = []
+    for i in range(k):
+        cross.append((sxy[i][n] - sx[i][n] * sy[n] / n) / scales[i])
+        gram_row = []
+        for j in range(k):
+            covariance_sum = sxx[i][j][n] - sx[i][n] * sx[j][n] / n
+            gram_row.append(covariance_sum / (scales[i] * scales[j]))
+        gram.append(gram_row)
+    for i in range(k):
+        gram[i][i] += alpha
     beta = _solve(gram, cross)
-    z_test = [(test_x[j] - means[j]) / scales[j] for j in range(k)]
-    return y_mean + sum(a * b for a, b in zip(beta, z_test))
+    z_test = [(test_x[i] - means[i]) / scales[i] for i in range(k)]
+    prediction = y_mean + sum(a * b for a, b in zip(beta, z_test))
+    return prediction, y_mean
 
 
 def _quantile(values: list[float], probability: float) -> float:
@@ -148,33 +179,37 @@ def evaluate_cohort(rows: list[dict[str, Any]], min_train: int = 168,
         spot_predictions: list[float] = []
         augmented_predictions: list[float] = []
         mean_predictions: list[float] = []
+        eligible_indices = [
+            index for index in sorted(feature_rows) if index + horizon < len(rows)
+        ]
+        horizon_targets = [
+            math.log(closes[index + horizon] / closes[index])
+            for index in eligible_indices
+        ]
+        spot_stats = _prefix_statistics(
+            [feature_rows[index][0] for index in eligible_indices], horizon_targets
+        )
+        augmented_stats = _prefix_statistics(
+            [feature_rows[index][1] for index in eligible_indices], horizon_targets
+        )
         for origin in range(min_train + horizon, len(rows) - horizon):
             if origin not in feature_rows:
                 continue
-            # Only training labels ending at or before this forecast origin are admissible.
-            train_indices = [
-                index for index in range(origin - horizon + 1)
-                if index in feature_rows
-            ]
-            if len(train_indices) < min_train:
+            # Only eligible training labels ending at or before this forecast origin are admissible.
+            train_count = bisect.bisect_right(eligible_indices, origin - horizon)
+            if train_count < min_train:
                 continue
-            train_y = [
-                math.log(closes[index + horizon] / closes[index])
-                for index in train_indices
-            ]
-            train_spot = [feature_rows[index][0] for index in train_indices]
-            train_augmented = [feature_rows[index][1] for index in train_indices]
             target = math.log(closes[origin + horizon] / closes[origin])
-            spot_prediction = _ridge_predict(
-                train_spot, train_y, feature_rows[origin][0], ridge_alpha
+            spot_prediction, train_mean = _ridge_predict_from_prefix(
+                spot_stats, train_count, feature_rows[origin][0], ridge_alpha
             )
-            augmented_prediction = _ridge_predict(
-                train_augmented, train_y, feature_rows[origin][1], ridge_alpha
+            augmented_prediction, _ = _ridge_predict_from_prefix(
+                augmented_stats, train_count, feature_rows[origin][1], ridge_alpha
             )
             actual.append(target)
             spot_predictions.append(spot_prediction)
             augmented_predictions.append(augmented_prediction)
-            mean_predictions.append(sum(train_y) / len(train_y))
+            mean_predictions.append(train_mean)
 
         n = len(actual)
         if n == 0:
