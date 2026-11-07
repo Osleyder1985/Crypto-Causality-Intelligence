@@ -91,14 +91,18 @@ def validate_candle(row: list) -> list[str]:
     if row[6] != row[0] + INTERVAL_MS - 1:
         problems.append("invalid_close_time")
 
+    # Binance kline layout includes close_time at index 6 and an ignored
+    # field at index 11; neither is a market-volume value.
+    market_fields = [row[index] for index in (1, 2, 3, 4, 5, 7, 9, 10)]
     try:
-        values = [float(value) for value in row[1:11]]
+        values = [float(value) for value in market_fields]
     except (TypeError, ValueError, OverflowError):
         return problems + ["non_numeric_market_fields"]
     if not all(math.isfinite(value) for value in values):
         return problems + ["non_finite_market_fields"]
 
-    open_price, high, low, close, volume, quote_volume, trade_count, taker_base, taker_quote, _ = values
+    open_price, high, low, close, volume, quote_volume, taker_base, taker_quote = values
+    trade_count = row[8]
     if not (0 < low <= open_price <= high and low <= close <= high):
         problems.append("ohlc_invariant_violation")
     if volume < 0 or quote_volume < 0 or taker_base < 0 or taker_quote < 0:
