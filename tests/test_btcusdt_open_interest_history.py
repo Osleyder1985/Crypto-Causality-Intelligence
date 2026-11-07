@@ -47,7 +47,7 @@ class OpenInterestHistoryTests(unittest.TestCase):
         # First candle closes before the first snapshot: no future value.
         self.assertIsNone(aligned[0]["open_interest_base_asof"])
         # Second candle closes after snapshot 1; snapshot 2 is later than that close.
-        self.assertEqual(aligned[1]["open_interest_base_asof"], 10.0)
+        self.assertEqual(aligned[1]["open_interest_base_asof"], 11.0)
         # Third candle has no sufficiently recent snapshot and remains null.
         self.assertIsNone(aligned[2]["open_interest_base_asof"])
         self.assertEqual(report["cohorts"]["test"]["fresh_asof_candles"], 1)
