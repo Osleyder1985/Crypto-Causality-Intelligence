@@ -41,19 +41,19 @@ jobs:
       - name: Acquire consecutive checksum-verified Binance daily flows
         run: |
           python scripts/research/download_binance_btcusdt_multiday_flow.py \
-            --start-date "${{ inputs.start_date }}" \
-            --days "${{ inputs.days }}" \
+            --start-date "${{ inputs.start_date || '2026-10-01' }}" \
+            --days "${{ inputs.days || '6' }}" \
             --output artifacts/btcusdt_multiday
       - name: Run equal-duration event study with multiplicity correction
         run: |
           python scripts/research/analyze_btcusdt_spot_futures_extremeness.py \
             --spot-flow artifacts/btcusdt_multiday/spot_flow_1s.jsonl \
             --futures-flow artifacts/btcusdt_multiday/usd_m_flow_1s.jsonl \
-            --date-utc "${{ inputs.start_date }}" \
-            --days "${{ inputs.days }}" \
-            --event-start-utc "${{ inputs.event_start_utc }}" \
+            --date-utc "${{ inputs.start_date || '2026-10-01' }}" \
+            --days "${{ inputs.days || '6' }}" \
+            --event-start-utc "${{ inputs.event_start_utc || '2026-10-06T09:25:45Z' }}" \
             --event-seconds 15 \
-            --baseline-hours "${{ inputs.baseline_hours }}" \
+            --baseline-hours "${{ inputs.baseline_hours || '120' }}" \
             --horizons 1,2,3,5 \
             --block-lengths 30,60,300,900 \
             --replicates 1500 \
