@@ -36,6 +36,22 @@ class SpotFuturesExtremenessTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "duplicate"):
                 load_dense_flow(path, day, 4)
 
+    def test_dense_flow_loader_accepts_consecutive_utc_days(self):
+        first_day = datetime(2026, 10, 5, tzinfo=timezone.utc)
+        start_ms = int(first_day.timestamp() * 1000)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "multiday.jsonl"
+            rows = [
+                {"bucket_ms": 1000, "bucket_start_ms": start_ms, "signed_taker_notional_usdt": "-2"},
+                {"bucket_ms": 1000, "bucket_start_ms": start_ms + 86400000, "signed_taker_notional_usdt": "-3"},
+            ]
+            path.write_text("".join(json.dumps(row) + "\\n" for row in rows), encoding="utf-8")
+            values = load_dense_flow(path, first_day, 86402)
+            self.assertEqual(len(values), 86402)
+            self.assertEqual(values[0], -2.0)
+            self.assertEqual(values[86400], -3.0)
+            self.assertEqual(values[-1], 0.0)
+
     def test_event_max_is_compared_with_equal_duration_baseline_episode_maxima(self):
         day = datetime(2026, 10, 6, tzinfo=timezone.utc)
         event = datetime(2026, 10, 6, 0, 0, 50, tzinfo=timezone.utc)
