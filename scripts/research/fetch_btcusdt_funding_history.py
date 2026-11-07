@@ -201,11 +201,22 @@ def _coverage_summary(rows: list[dict[str, Any]], start_ms: int, end_ms: int) ->
         "requested_end_time_ms": end_ms,
         "first_funding_time_ms": timestamps[0] if timestamps else None,
         "last_funding_time_ms": timestamps[-1] if timestamps else None,
+        "leading_partial_interval_hours": (
+            (timestamps[0] - start_ms) / HOUR_MS if timestamps else None
+        ),
+        "trailing_partial_interval_hours": (
+            (end_ms - timestamps[-1]) / HOUR_MS if timestamps else None
+        ),
         "settlement_count": len(timestamps),
         "median_settlement_interval_hours": typical / HOUR_MS if typical is not None else None,
         "maximum_settlement_interval_hours": max(deltas) / HOUR_MS if deltas else None,
+        "internal_gap_count": len(gaps),
         "gaps_above_1_5x_median": gaps,
-        "status": "covered_with_observed_records" if timestamps else "no_records_returned",
+        "status": (
+            "no_records_returned" if not timestamps
+            else "records_found_internal_gaps_detected" if gaps
+            else "records_found_no_internal_gaps"
+        ),
     }
 
 
@@ -234,7 +245,9 @@ def collect_for_spot_cohorts(
         "market_type": "USD_M_FUTURES",
         "symbol": "BTCUSDT",
         "endpoint": API_URL,
+        "archive_source": "https://data.binance.vision/data/futures/um/monthly/fundingRate/BTCUSDT/",
         "source_is_spot": False,
+        "retrieval_policy": "REST first; verified Binance Vision monthly archive fallback when REST is geographically unavailable",
         "cohort_count": len(coverage),
         "cohorts": coverage,
         "funding_records_total_deduplicated": len(ordered),
