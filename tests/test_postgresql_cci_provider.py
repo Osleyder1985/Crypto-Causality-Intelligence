@@ -137,6 +137,21 @@ class CCIProviderPlatformMigrationTests(unittest.TestCase):
             ).fetchone()[0],
             1,
         )
+        fk_count = self.conn.execute(
+            """
+            SELECT count(*) FROM pg_constraint con
+            JOIN pg_namespace n ON n.oid = con.connamespace
+            WHERE n.nspname = 'cci' AND con.contype = 'f'
+            """
+        ).fetchone()[0]
+        self.assertEqual(fk_count, 12)
+        explicit_source_fk = self.conn.execute(
+            """
+            SELECT count(*) FROM pg_constraint
+            WHERE conname = 'policy_evaluations_fk_data_source'
+            """
+        ).fetchone()[0]
+        self.assertEqual(explicit_source_fk, 1)
 
     def test_observation_rejects_platform_source_mismatch(self):
         with self.assertRaises(errors.ForeignKeyViolation):
