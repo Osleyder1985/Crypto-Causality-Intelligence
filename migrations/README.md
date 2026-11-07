@@ -11,6 +11,7 @@ Estas migraciones son SQL versionado, secuencial y transaccional. No son un inst
 | 003 | `003_provider_platform_reviews.sql` | Plataformas de proveedor, observaciones inmutables, revisiones append-only y consultas bitemporales | Implementada y probada |
 | 004 | `004_network_identifiers.sql` | Identificadores de red y publicación validada de mappings de plataforma accepted | Implementada y probada |
 | 005 | `005_asset_representations_relationships.sql` | Representaciones canónicas de activos y relaciones dirigidas con evidencia | Implementada y probada |
+| 006 | `006_asset_identity_resolution.sql` | Revisiones append-only de identidad y mappings accepted de activo/representación | Implementada y probada |
 
 La cadena 001→002→003→004→005 requiere una base PostgreSQL vacía. Cada archivo abre y confirma su propia transacción. No deben ejecutarse de nuevo si su versión ya aparece en `cci.schema_migrations`; no usan `IF NOT EXISTS` deliberadamente, para que una divergencia no quede silenciada.
 
