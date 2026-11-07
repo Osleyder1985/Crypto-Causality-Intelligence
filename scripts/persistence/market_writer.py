@@ -237,7 +237,7 @@ def purge_expired_market_data(
             ).encode("utf-8")
             digest = hashlib.sha256(encoded).hexdigest()
             entity_key = f"{provider}:{market_type}:{symbol}"
-            correlation_id = f"retention-purge:{entity_key}:{retention_until.isoformat()}"
+            retention_marker = retention_until.isoformat() if retention_until else "not-set"\n            correlation_id = f"retention-purge:{entity_key}:{retention_marker}"
             conn.execute(
                 """INSERT INTO cci.audit_events
                    (event_type, entity_type, entity_key, actor, payload,
