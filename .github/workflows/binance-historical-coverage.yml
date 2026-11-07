@@ -32,4 +32,4 @@ jobs:
           name: binance-btcusdt-coverage-${{ github.run_id }}
           path: artifacts/binance_btcusdt_coverage/
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 90
