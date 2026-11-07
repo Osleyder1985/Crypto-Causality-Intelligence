@@ -13,7 +13,21 @@ permissions:
 jobs:
   download-and-audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: cci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d cci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -21,15 +35,24 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Install storage validation dependencies
+        run: python -m pip install -r requirements-validation.txt
       - name: Download and audit five BTCUSDT windows
         run: |
           python scripts/research/download_binance_btcusdt_coverage.py \
             --output artifacts/binance_btcusdt_coverage
-      - name: Upload raw pages and coverage report
+      - name: Verify Parquet, DuckDB and PostgreSQL equivalence
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/cci
+        run: |
+          python scripts/validation/storage_conformance.py \
+            --input artifacts/binance_btcusdt_coverage/btc_usdt_1h.jsonl \
+            --output artifacts/storage_conformance
+      - name: Upload raw pages, coverage and storage conformance evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: binance-btcusdt-coverage-${{ github.run_id }}
-          path: artifacts/binance_btcusdt_coverage/
+          path: artifacts/binance_btcusdt_coverage/\n            artifacts/storage_conformance/
           if-no-files-found: error
           retention-days: 90
