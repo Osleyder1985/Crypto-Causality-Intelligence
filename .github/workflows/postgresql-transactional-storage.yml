@@ -57,5 +57,9 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/cci_test
         run: python scripts/persistence/apply_migrations.py
-      - name: Run transactional writer validation tests
-        run: python -m unittest tests.test_transactional_market_writer -v
+      - name: Run transactional writer, retention and role integration tests
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/cci_test
+          APP_DATABASE_URL: postgresql://cci_app:ci-app-password@localhost:5432/cci_test
+          RETENTION_DATABASE_URL: postgresql://cci_retention:ci-retention-password@localhost:5432/cci_test
+        run: python -m unittest discover -s tests -p "test_transactional_market_writer.py" -v
