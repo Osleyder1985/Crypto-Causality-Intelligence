@@ -53,7 +53,7 @@ No deben confundirse con las 12 claves compuestas destino de esta auditoría.
 ## 5. Hallazgos y gates
 
 1. La clave destino de FK-009 tiene **cuatro columnas**: `(id, provider_platform_id, candidate_network_id, resolution_status)`. Se corrigió en la especificación física la frase aislada que decía “cinco columnas”.
-2. Las claves UK-09 a UK-12 se expresan como candidatas o necesarias y aún no tienen materialización global.
+2. Las claves UK-11 y UK-12 se expresan como candidatas o necesarias y aún no tienen materialización global.
 3. Las claves de proveedor UK-04 a UK-07 ya están materializadas y probadas en `cci`; el laboratorio `cci_lab` sigue siendo evidencia separada.
 4. Las FKs que referencian claves con componentes nullable (UK-09/UK-10 y FK-009) deben probar inserciones accepted y estados no accepted; la FK compuesta debe impedir mappings a destinos nulos o estados distintos de accepted.
 5. Ninguna de estas comprobaciones valida por sí sola los triggers de cadena, inmutabilidad, concurrencia o publicación atómica.
