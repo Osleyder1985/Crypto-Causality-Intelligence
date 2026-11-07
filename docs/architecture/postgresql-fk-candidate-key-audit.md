@@ -60,4 +60,4 @@ No deben confundirse con las 12 claves compuestas destino de esta auditoría.
 
 ## 6. Dictamen
 
-Las 12 claves compuestas destino necesarias están identificadas y sus columnas se corresponden documentalmente con las FKs consumidoras. Ocho aparecen como candidatas o requeridas sin DDL global probado; las cuatro del subsistema de plataformas tienen contrato normativo específico, pero solo laboratorio aislado. El gate de generación de migraciones sigue abierto hasta que el DDL global declare las claves, las pruebas PostgreSQL 16 las verifiquen desde base vacía y las pruebas negativas demuestren el rechazo de referencias incompatibles.
+Las 12 claves compuestas destino necesarias están identificadas. Siete ya se materializan en el esquema global `cci` mediante las migraciones 002–003: UK-01 a UK-07. Las cinco restantes (UK-08 a UK-12) continúan pendientes de DDL global. Las pruebas de migración verifican instalación y parte de la integridad compuesta, pero el gate permanece abierto hasta materializar y probar todas las claves, las FKs consumidoras y sus casos negativos desde base vacía.
