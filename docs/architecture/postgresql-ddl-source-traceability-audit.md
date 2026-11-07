@@ -18,6 +18,7 @@ Se inspeccionaron los árboles Git de `main` y `integration/issue-25-postgresql-
 - `migrations/001_cci_root_entities.sql`: esquema `cci`, ledger y ocho entidades raíz.
 - `migrations/002_source_policy_catalog.sql`: endpoints, políticas y evaluaciones; seis relaciones FK.
 - `migrations/003_provider_platform_reviews.sql`: plataformas, observaciones y revisiones; seis relaciones FK.
+- `migrations/004_network_identifiers.sql`: identificadores de red y mappings de plataforma accepted; tres relaciones FK.
 - `migrations/README.md`: orden de aplicación y límites operativos.
 - `tests/postgresql/fk-integrity-test-catalog.md`: catálogo documental de escenarios; no es SQL ejecutable.
 
