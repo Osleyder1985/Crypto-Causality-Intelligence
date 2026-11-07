@@ -48,7 +48,7 @@ No es seguro crear una migración integral copiando supuestos del laboratorio si
 
 ## Dictamen
 
-**Gate DDL iniciado, pero incompleto:** el repositorio ya contiene una migración SQL versionada que instala ocho entidades raíz y una CI PostgreSQL 16 que aprueba sus nueve pruebas junto con las 29 del laboratorio. Restan 26 entidades, las 60 FKs normalizadas, las 12 claves compuestas destino, funciones/triggers, roles y permisos, y pruebas de restauración. No se debe promover el PR #26 ni habilitar ingestión productiva hasta que el gate global se cierre.
+**Gate DDL iniciado, pero incompleto:** el repositorio contiene dos migraciones SQL versionadas que instalan once entidades de `cci`. La CI PostgreSQL 16 aprueba 18 pruebas del esquema global y 29 del laboratorio aislado: 47/47 en total. Restan 23 entidades, el cierre y prueba integral de las 60 relaciones FK y 12 claves compuestas, funciones/triggers, roles y permisos, y pruebas de restauración. No se debe promover el PR #26 ni habilitar ingestión productiva hasta que el gate global se cierre.
 
 
 ## 13. Actualización: recuperación de la fuente histórica
