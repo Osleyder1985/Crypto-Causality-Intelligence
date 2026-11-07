@@ -64,10 +64,9 @@ Las 10 pruebas del registro de investigación, las 29 del laboratorio aislado de
 
 ## 5. Próximo entregable técnico
 
-Generar el grafo de dependencias de las 34 tablas y contrastarlo con las FKs compuestas de la especificación. A continuación, preparar la migración inicial versionada por bloques, sin activar grants administrativos ni publicación durable hasta cerrar sus gates. La ejecución se hará desde una base vacía PostgreSQL 16 y deberá producir evidencia vinculada al commit exacto.
+El grafo de 34 tablas y las 60 relaciones FK ya están documentados. La siguiente migración debe incorporar `network_identifiers` y el guard transaccional de publicación de mappings de plataforma. Debe conectar las revisiones accepted con la red canónica, comprobar namespace y literal exactos del proveedor, impedir doble mapping por revisión y probar rollback/concurrencia en el esquema global `cci`. No se activarán grants administrativos ni ingestión real.
 
-
-## 6. Implementación parcial verificada — migración 001
+## 6. Implementación parcial verificada — migraciones 001–003
 
 Se incorporó `migrations/001_cci_root_entities.sql`, que crea el esquema `cci`, la tabla operativa `cci.schema_migrations` y ocho entidades raíz sin dependencias FK entre ellas: `data_sources`, `assets`, `identity_namespaces`, `networks`, `ingestion_runs`, `datasets`, `transformations` y `research_experiments`.
 
