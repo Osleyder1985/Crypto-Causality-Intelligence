@@ -39,10 +39,10 @@ class OpenInterestHistoryTests(unittest.TestCase):
         snapshots = [
             {"snapshot_time_ms": 4_000_000, "sum_open_interest": 10.0,
              "sum_open_interest_value": 1_000.0},
-            {"snapshot_time_ms": 6_900_000, "sum_open_interest": 11.0,
-             "sum_open_interest_value": 1_100.0},
             {"snapshot_time_ms": 4_300_000, "sum_open_interest": 10.5,
              "sum_open_interest_value": 1_050.0},
+            {"snapshot_time_ms": 6_900_000, "sum_open_interest": 11.0,
+             "sum_open_interest_value": 1_100.0},
         ]
         report = {"cohorts": {}}
         aligned = audit_and_align({"test": rows}, snapshots, report)
