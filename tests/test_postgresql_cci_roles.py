@@ -86,6 +86,27 @@ class CCIRuntimeRoleBootstrapTests(unittest.TestCase):
             """
         ).fetchone()[0]
         self.assertEqual(non_owner_tables, 0)
+        non_owner_views = self.conn.execute(
+            """
+            SELECT count(*)
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            JOIN pg_roles r ON r.oid = c.relowner
+            WHERE n.nspname = 'cci' AND c.relkind IN ('v', 'm')
+              AND r.rolname <> 'cci_owner'
+            """
+        ).fetchone()[0]
+        self.assertEqual(non_owner_views, 0)
+        non_owner_functions = self.conn.execute(
+            """
+            SELECT count(*)
+            FROM pg_proc p
+            JOIN pg_namespace n ON n.oid = p.pronamespace
+            JOIN pg_roles r ON r.oid = p.proowner
+            WHERE n.nspname = 'cci' AND r.rolname <> 'cci_owner'
+            """
+        ).fetchone()[0]
+        self.assertEqual(non_owner_functions, 0)
 
     def test_migrator_is_member_of_owner_and_can_create_in_schema(self):
         member = self.conn.execute(
