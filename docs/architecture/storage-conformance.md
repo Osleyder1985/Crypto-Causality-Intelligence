@@ -1,7 +1,7 @@
 # Contrato de equivalencia de almacenamiento — BTCUSDT Spot 1h
 
 ## Estado
-Diseño inicial para una prueba de conformidad de almacenamiento. No representa todavía una migración ejecutada ni una certificación de Parquet, DuckDB o PostgreSQL.
+**Primera conformidad empírica ejecutada con éxito** para la cohorte Binance BTCUSDT Spot 1h en Parquet, DuckDB y PostgreSQL efímero de CI. No representa todavía una migración productiva ni un esquema operacional permanente.
 
 ## 1. Dataset de referencia
 - Fuente: Binance Spot REST API.
@@ -92,3 +92,24 @@ La conformidad solo se declara cuando los tres destinos contienen exactamente lo
 - Inferir esquema desde una muestra parcial.
 - Hacer pasar un test de contrato Python por una prueba real de motor PostgreSQL.
 - Usar los datos sintéticos de fixtures de identidad como mappings productivos.
+
+
+## 10. Primera ejecución empírica
+
+Ejecución automatizada: [GitHub Actions 42321280525](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42321280525), conclusión `success`.
+
+- Dataset JSONL: 5.976 filas de referencia.
+- Parquet: 5.976 filas; DECIMAL(38,18), timestamp[us, UTC].
+- DuckDB: 5.976 filas; DECIMAL(38,18), TIMESTAMPTZ y PK natural.
+- PostgreSQL 16: 5.976 filas; NUMERIC(38,18), TIMESTAMPTZ y PK natural.
+- Igualdad de todos los campos tras lectura de vuelta en los tres destinos.
+- Conteos por cohorte preservados: 1.099 / 532 / 2.145 / 1.336 / 864.
+- Parquet SHA-256: `e6ec2a702a33c66d5eb69556eb77080eacc028d5278ba891d6f8509bb3a306c8`.
+- Tamaño Parquet: 619.416 bytes.
+- Tamaño DuckDB: 1.585.152 bytes.
+- Pruebas negativas: PK duplicada en DuckDB y PostgreSQL; CHECK de volumen negativo en PostgreSQL; rollback transaccional confirmado.
+- Artefacto CI con datos y reporte: `binance-btcusdt-coverage-42321280525`, Artifact ID `13553615526`, SHA-256 `08622dcf713b5a27dbb2bfbd773e536cbd76fd59d125ecf7f7aca4bf1e92b719`, retención hasta 2027-02-05T00:57:01Z.
+
+El runner está implementado en `scripts/validation/storage_conformance.py`; dependencias declaradas en `requirements-validation.txt`. El workflow ejecuta la descarga real, inicia PostgreSQL 16 efímero, ejecuta las tres rutas de almacenamiento y publica evidencia.
+
+**Dictamen de esta ejecución:** conformidad de ida y vuelta para las 5.976 filas entre el JSONL de referencia, Parquet, DuckDB y PostgreSQL. Alcance limitado a la cohorte y esquema de prueba descritos; no equivale a desplegar PostgreSQL productivo, ni a certificar migraciones, backups, rendimiento o alta disponibilidad.
