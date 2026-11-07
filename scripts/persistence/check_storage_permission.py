@@ -16,7 +16,10 @@ def validate_permission(row, provider: str, market_type: str, symbol: str, now=N
     allowed, retention_until, evidence_ref, updated_at = row
     now = now or datetime.now(timezone.utc)
     if not allowed:
-        raise PermissionError(f"Storage is explicitly denied for {provider}/{market_type}/{symbol}")
+        raise PermissionError(
+            f"Storage is not authorized for {provider}/{market_type}/{symbol}; "
+            "the permission record may represent a pending review or an explicit denial"
+        )
     if retention_until is None or retention_until <= now:
         raise PermissionError(f"Storage authorization is absent or expired for {provider}/{market_type}/{symbol}")
     if not evidence_ref or not evidence_ref.strip():

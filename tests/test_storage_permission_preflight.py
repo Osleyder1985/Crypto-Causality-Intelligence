@@ -20,10 +20,10 @@ class StoragePermissionPreflightTests(unittest.TestCase):
         with self.assertRaisesRegex(PermissionError, "No storage authorization"):
             validate_permission(None, "binance", "SPOT", "BTCUSDT", now=NOW)
 
-    def test_denies_explicit_false(self):
-        with self.assertRaisesRegex(PermissionError, "explicitly denied"):
+    def test_fails_closed_without_calling_pending_review_a_prohibition(self):
+        with self.assertRaisesRegex(PermissionError, "not authorized"):
             validate_permission(
-                (False, FUTURE, "review-pending", UPDATED),
+                (False, FUTURE, "TERMS_SCOPE_UNRESOLVED", UPDATED),
                 "binance", "SPOT", "BTCUSDT", now=NOW,
             )
 
