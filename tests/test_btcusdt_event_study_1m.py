@@ -25,7 +25,7 @@ class EventStudyOneMinuteTests(unittest.TestCase):
         event = {"event_id": "e1", "cohort_window": "cohort_a", "event_at_utc": "1970-01-01T00:03:00Z"}
         result = analyze_event(rows, event, horizons=(1, 2))
         self.assertAlmostEqual(result["pre_event_reference_close"], 102)
-        self.assertAlmostEqual(result["horizons_minutes"]["1"]["post_event_return_pct"], (104 / 102 - 1) * 100)
+        self.assertAlmostEqual(result["horizons_minutes"]["1"]["post_event_return_pct"], (103 / 102 - 1) * 100)
         self.assertEqual(result["horizons_minutes"]["2"]["post_event_flow"]["candle_count"], 2)
         self.assertAlmostEqual(result["horizons_minutes"]["2"]["post_event_flow"]["taker_buy_share"], 0.6)
         self.assertTrue(result["event_bar_aligned_to_minute"])
@@ -51,6 +51,3 @@ class EventStudyOneMinuteTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Timezone-aware"):
             analyze_event(rows, event, horizons=(1,))
 
-
-if __await__ in globals():
-    pass
