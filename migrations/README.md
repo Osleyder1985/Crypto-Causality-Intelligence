@@ -25,6 +25,7 @@ psql "$CCI_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/002_source_policy
 psql "$CCI_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/003_provider_platform_reviews.sql
 psql "$CCI_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/004_network_identifiers.sql
 psql "$CCI_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/005_asset_representations_relationships.sql
+psql "$CCI_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/006_asset_identity_resolution.sql
 ```
 
 Verificar el ledger:
