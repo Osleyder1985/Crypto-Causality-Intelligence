@@ -265,6 +265,15 @@ def attach_funding_asof(
         position = bisect_right(times, origin_time)
         prior = ordered[max(0, position - 3):position]
         latest = prior[-1] if prior else None
+        # Do not carry a settlement across a long gap between disjoint cohorts.
+        # Binance's usual interval is 8h; archive rows provide the effective
+        # interval where available, while REST-only rows use the conservative default.
+        if latest is not None:
+            interval_hours = float(latest.get("funding_interval_hours") or 8)
+            max_age_ms = (interval_hours + 1 / 60) * HOUR_MS
+            if origin_time - int(latest["funding_time_ms"]) > max_age_ms:
+                prior = []
+                latest = None
         enriched = dict(row)
         enriched["funding_latest_rate_asof"] = (
             float(latest["funding_rate"]) if latest is not None else None
