@@ -8,8 +8,8 @@ Se inspeccionó el árbol Git recursivo de las ramas `main` y `integration/issue
 
 | Elemento | Rama de integración | main |
 |---|---:|---:|
-| Archivos `.sql` versionados | 3 (1 laboratorio + 2 migraciones) | 0 |
-| Rutas de migraciones SQL | 2 (`001_cci_root_entities.sql`, `002_source_policy_catalog.sql`) | 0 |
+| Archivos `.sql` versionados | 4 (1 laboratorio + 3 migraciones) | 0 |
+| Rutas de migraciones SQL | 3 (`001_cci_root_entities.sql`, `002_source_policy_catalog.sql`, `003_provider_platform_reviews.sql`) | 0 |
 | `tests/postgresql/001_provider_platform_lab.sql` | Presente y reproducido | Ausente |
 | Catálogo documental FK | Presente | Según árbol de main no hay migración |
 
