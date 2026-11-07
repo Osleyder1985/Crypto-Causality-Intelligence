@@ -165,3 +165,55 @@ La especificación usa la expresión “UNIQUE candidato” en varios de estos p
 Se han convertido las relaciones descritas explícitamente en v0.8 en registros tabulares, incluidas las FKs compuestas de consistencia de fuente, las revisiones de identidad y el subsistema de plataformas de proveedor. Esto es un avance de normalización documental, **no una aprobación de las 60 relaciones ni una prueba del motor**. Las acciones, MATCH, diferibilidad, claves candidatas y semánticas NULL que no están completamente especificadas permanecen como gates.
 
 No generar aún migraciones integrales a partir de esta matriz. El siguiente paso es una auditoría cruzada de cada clave candidata y de los grupos NULL, seguida de cálculo del grafo y revisión del orden de creación.
+
+
+## 7. Grafo de dependencias y orden topológico provisional
+
+Se calculó el grafo dirigido desde las 60 filas FK-001…FK-060, orientando cada arista desde la tabla destino (prerrequisito) hacia la tabla origen (dependiente). Resultado mecánico sobre la matriz actual:
+
+- Tablas incluidas: **34/34**.
+- Relaciones documentadas: **60**.
+- Componentes de autorreferencia: **2** (`provider_platform_resolution_reviews` y `asset_identity_resolution_reviews`).
+- Ciclos entre tablas distintas: **0 detectados** en este grafo.
+- Orden topológico resultante: **34/34 tablas**.
+
+Orden provisional de creación de tablas (las referencias a una misma tabla y las claves candidatas deben materializarse conforme a la revisión de constraints):
+
+1. `assets`
+2. `data_sources`
+3. `identity_namespaces`
+4. `ingestion_runs`
+5. `transformations`
+6. `research_experiments`
+7. `networks`
+8. `datasets`
+9. `data_endpoints`
+10. `asset_relationships`
+11. `data_validations`
+12. `market_instruments`
+13. `provider_platforms`
+14. `source_usage_policies`
+15. `asset_representations`
+16. `instrument_identifiers`
+17. `instrument_metadata_versions`
+18. `provider_platform_observations`
+19. `provider_platform_resolution_reviews`
+20. `asset_identity_resolution_reviews`
+21. `network_identifiers`
+22. `asset_identifiers`
+23. `asset_representation_identifiers`
+24. `instrument_trading_rules`
+25. `policy_evaluations`
+26. `ingestion_requests`
+27. `run_datasets`
+28. `transformation_runs`
+29. `research_experiment_runs`
+30. `research_hypotheses`
+31. `research_run_artifacts`
+32. `experiment_datasets`
+33. `dataset_sources`
+34. `dataset_lineage`
+
+**Interpretación limitada:** este orden resuelve dependencias de tablas expresadas en la matriz, no demuestra que las claves candidatas existan ni que el DDL compile. Las dos autorreferencias pueden declararse al crear su propia tabla o añadirse como ALTER TABLE posterior; se recomienda añadirlas después de crear PK/UNIQUE y probar cadena, ciclo y concurrencia. El orden de creación de tablas no sustituye el orden de creación de índices, triggers y funciones.
+
+Antes de convertirlo en plan de migraciones: ratificar las 60 relaciones, verificar todas las claves destino y cerrar MATCH/acciones/diferibilidad/semántica NULL. Una relación ausente o una clave compuesta mal definida cambiaría el grafo.
