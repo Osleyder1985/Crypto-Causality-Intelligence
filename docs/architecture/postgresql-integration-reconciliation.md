@@ -67,3 +67,31 @@ PR #19 además apunta como base a `research/issue-18-duckdb-parquet`, no a `main
 ## 7. Siguiente paso
 
 Cerrar la matriz atributo/columna/FK/índice/trigger/grant y producir una especificación física reconciliada única. Solo después se generará la primera migración integral del esquema CCI; las migraciones parciales 001/002 quedarán absorbidas o sustituidas de forma explícita y sin duplicación.
+
+
+## 8. Auditoría atributo y autorización — segunda pasada
+
+Se ejecutó una comparación automatizada de los atributos declarados por entidad en el modelo lógico contra las definiciones físicas. Los 34 bloques de entidad tienen definición física; los atributos declarados se encuentran representados en el contrato físico. La lectura detectó un desajuste real en `provider_platform_observations`: el modelo lógico nombraba dos campos separados (`reported_chain_identifier_raw` y `reported_chain_identifier_json_type`), mientras el contrato físico define `reported_chain_identifier_json JSONB` con CHECK para aceptar solo JSON number/null. Se alineó el modelo lógico con el contrato físico y se documentó que la evidencia HTTP con hash conserva el lexema original. El texto `known_at` que aparece en la descripción de `asset_identity_resolution_reviews` es parámetro temporal de consulta, no columna.
+
+La matriz de permisos también contenía solo 32 filas aunque el encabezado había sido actualizado a 34. Se añadieron explícitamente:
+- `research_experiment_runs`: clase transaccional (T), transiciones controladas y estados terminales inmutables.
+- `research_run_artifacts`: clase append-only (A), referencias y hashes; no almacena bytes ni OHLCV.
+
+La clasificación propuesta resultante es **18 A, 4 V, 3 B y 9 T** (34 en total). El rol `cci_research_writer` se amplió documentalmente para abarcar runs y referencias a artefactos. Esto sigue siendo una propuesta: no hay grants productivos ejecutados ni pruebas de roles.
+
+## 9. Estado real de las pruebas PostgreSQL disponibles
+
+- PR #19 reporta **10/10 pruebas PostgreSQL 16** para las migraciones parciales 001/002 y el registro de runs.
+- El laboratorio de plataformas de proveedor reporta **29/29 pruebas en PostgreSQL 16.15**, pero opera en el esquema aislado `cci_lab`; no valida su promoción a `cci` ni las 34 tablas globales.
+- El Issue #25 documenta conformidad de 5.976 filas con PostgreSQL efímero de CI, Parquet y DuckDB. Tampoco prueba un despliegue duradero.
+
+Ninguna de estas suites sustituye una instalación integral desde base vacía con todas las relaciones, funciones, grants y políticas del esquema CCI.
+
+## 10. Decisiones que continúan bloqueando DDL definitivo
+
+- Resolver las decisiones explícitamente pendientes del contrato físico: identidad canónica de activos y semántica de alias temporales; política de auditoría de actor; backend de Parquet y protocolo de publicación atómica/reconciliación.
+- Cerrar el diseño de permisos para las 34 entidades, las funciones API transaccionales, ownership, default privileges y auditoría administrativa.
+- Definir migraciones integrales y no superponerlas con las migraciones parciales 001/002.
+- Mantener separado el laboratorio `cci_lab` del esquema de producción `cci`.
+
+Por tanto, la correspondencia de inventario y atributos está cerrada a nivel documental en esta rama; la aprobación física integral y el DDL permanecen pendientes de resolver estos puntos y de ejecutar las pruebas de motor.
