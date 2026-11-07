@@ -9,7 +9,7 @@
 
 ## 1. Objetivo y límites
 
-Convertir el modelo lógico en una especificación implementable y verificable. Este documento fija nombres físicos, tipos, claves, restricciones, índices, reglas temporales y orden de migraciones. No crea todavía tablas, no ejecuta SQL y no despliega PostgreSQL.
+Convertir el modelo lógico en una especificación implementable y verificable. Este documento fija nombres físicos, tipos, claves, restricciones, índices, reglas temporales y orden de migraciones. La implementación ejecutable está en `migrations/001`–`011`; este documento no despliega por sí mismo PostgreSQL ni configura infraestructura persistente.
 
 PostgreSQL almacena catálogo, operaciones, procedencia, permisos evaluados y referencias a artefactos. No almacena las series históricas OHLCV como tablas de hechos: los datasets autorizados residen en Parquet y DuckDB los consulta.
 
