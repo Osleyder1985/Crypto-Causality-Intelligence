@@ -1,0 +1,55 @@
+name: BTCUSDT USD-M Open Interest history audit
+
+on:
+  push:
+    branches:
+      - feat/btcusdt-open-interest-coverage
+    paths:
+      - ".github/workflows/btcusdt-open-interest-history.yml"
+      - "scripts/research/fetch_btcusdt_open_interest_history.py"
+      - "tests/test_btcusdt_open_interest_history.py"
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: Successful Spot cohort coverage workflow run ID
+        required: true
+        default: "42320400840"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  audit-open-interest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Download retained Spot cohort dataset
+        uses: actions/download-artifact@v4
+        with:
+          name: binance-btcusdt-coverage-${{ inputs.source_run_id || '42320400840' }}
+          run-id: ${{ inputs.source_run_id || '42320400840' }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: artifacts/source
+      - name: Fetch and audit historical USD-M Open Interest
+        run: |
+          mkdir -p artifacts/open_interest
+          python -m scripts.research.fetch_btcusdt_open_interest_history \
+            --spot-input artifacts/source/btc_usdt_1h.jsonl \
+            --open-interest-output artifacts/open_interest/btcusdt_usdm_open_interest.jsonl \
+            --coverage-report artifacts/open_interest/open_interest_coverage_report.json \
+            --aligned-output artifacts/open_interest/btcusdt_spot_with_open_interest.jsonl
+      - name: Preserve Open Interest data and audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btcusdt-usdm-open-interest-audit-${{ github.run_id }}
+          path: artifacts/open_interest/
+          if-no-files-found: error
+          retention-days: 90
