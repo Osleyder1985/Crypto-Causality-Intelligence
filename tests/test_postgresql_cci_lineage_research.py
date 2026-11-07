@@ -128,6 +128,8 @@ class CCILineageResearchMigrationTests(unittest.TestCase):
             "research_experiment_runs", "research_run_artifacts",
             "research_hypotheses", "experiment_datasets",
         }.issubset(tables))
+        # 34 domain tables plus the operational migration ledger.
+        self.assertEqual(len(tables), 35)
         self.assertEqual(
             self.conn.execute(
                 "SELECT version FROM cci.schema_migrations WHERE version = '009_lineage_validation_research_runs'"
