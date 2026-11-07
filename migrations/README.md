@@ -1,65 +1,69 @@
 # Migraciones PostgreSQL de CCI
 
-Estas migraciones son SQL versionado, secuencial y transaccional. No son un instalador productivo completo todavía.
+El esquema global se instala mediante once migraciones SQL ordenadas, con ledger y checksums SHA-256. Las migraciones son transaccionales; el runner no reejecuta una versión ya aplicada y rechaza huecos, versiones desconocidas, archivos fuera del manifiesto o divergencias de checksum.
 
-## Orden actual
+## Inventario de migraciones
 
-| Versión | Archivo | Alcance | Estado |
-|---|---|---|---|
-| 001 | `001_cci_root_entities.sql` | Esquema `cci`, ledger y ocho entidades raíz | Implementada y probada |
-| 002 | `002_source_policy_catalog.sql` | Endpoints, políticas de uso y evaluaciones concretas | Implementada y probada |
-| 003 | `003_provider_platform_reviews.sql` | Plataformas de proveedor, observaciones inmutables, revisiones append-only y consultas bitemporales | Implementada y probada |
-| 004 | `004_network_identifiers.sql` | Identificadores de red y publicación validada de mappings de plataforma accepted | Implementada y probada |
-| 005 | `005_asset_representations_relationships.sql` | Representaciones canónicas de activos y relaciones dirigidas con evidencia | Implementada y probada |
-| 006 | `006_asset_identity_resolution.sql` | Revisiones append-only de identidad y mappings accepted de activo/representación | Implementada y probada |
-| 007 | `007_market_instrument_catalog.sql` | Instrumentos por fuente, alias, versiones de metadata y reglas de negociación | Implementada y probada |
-| 008 | `008_ingestion_requests_dataset_sources.sql` | Solicitudes de ingesta, asociación run-dataset y procedencia de dataset vinculada a policy evaluation | Implementada y probada |
-| 009 | `009_lineage_validation_research_runs.sql` | Linaje/validación de datasets, ejecuciones de transformación e investigación, hipótesis y artifacts | Implementada y probada |
-| 010 | `010_runtime_role_bootstrap.sql` | Roles NOLOGIN, ownership y permisos de lectura deny-by-default | Implementada y probada; escrituras runtime aún denegadas |
+| Versión | Archivo | Alcance |
+|---|---|---|
+| 001 | `001_cci_root_entities.sql` | Esquema `cci`, ledger y ocho entidades raíz |
+| 002 | `002_source_policy_catalog.sql` | Endpoints, políticas y evaluaciones |
+| 003 | `003_provider_platform_reviews.sql` | Plataformas de proveedor, observaciones y revisiones bitemporales |
+| 004 | `004_network_identifiers.sql` | Identificadores de red y mappings accepted de plataforma |
+| 005 | `005_asset_representations_relationships.sql` | Representaciones y relaciones dirigidas de activos |
+| 006 | `006_asset_identity_resolution.sql` | Revisiones y mappings accepted de identidad de activos |
+| 007 | `007_market_instrument_catalog.sql` | Instrumentos por fuente, alias, metadata y reglas |
+| 008 | `008_ingestion_requests_dataset_sources.sql` | Solicitudes, asociación Run–dataset y procedencia ligada a policy evaluation |
+| 009 | `009_lineage_validation_research_runs.sql` | Linaje, validaciones, ejecuciones y artifacts de investigación |
+| 010 | `010_runtime_role_bootstrap.sql` | Diez roles NOLOGIN, ownership y grants SELECT deny-by-default |
+| 011 | `011_migration_checksums.sql` | SHA-256 y rol ejecutor en el ledger |
 
-La cadena 001→002→003→004→005→006→007→008→009→010 requiere una base PostgreSQL vacía. La migración 010 es un bootstrap administrativo de roles cluster-wide y requiere CREATEROLE/ownership; no crea identidades LOGIN. Cada archivo abre y confirma su propia transacción. No deben ejecutarse de nuevo si su versión ya aparece en `cci.schema_migrations`; no usan `IF NOT EXISTS` deliberadamente, para que una divergencia no quede silenciada.
+## Aplicación recomendada
 
-## Aplicación controlada
-
-Desde la raíz del repositorio, usando una conexión de PostgreSQL 16 de pruebas:
+Desde la raíz del repositorio, con PostgreSQL 16 y el driver instalado:
 
 ```bash
-psql "$CCI_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/001_cci_root_entities.sql
-psql "$CCI_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/002_source_policy_catalog.sql
-psql "$CCI_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/003_provider_platform_reviews.sql
-psql "$CCI_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/004_network_identifiers.sql
-psql "$CCI_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/005_asset_representations_relationships.sql
-psql "$CCI_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/006_asset_identity_resolution.sql
-psql "$CCI_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/007_market_instrument_catalog.sql
-psql "$CCI_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/008_ingestion_requests_dataset_sources.sql
-psql "$CCI_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/009_lineage_validation_research_runs.sql
-# 010 requiere una sesión administrativa con CREATEROLE y privilegios de ownership.
-psql "$CCI_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f migrations/010_runtime_role_bootstrap.sql
+python -m pip install "psycopg[binary]==3.2.9"
+export CCI_DATABASE_URL="postgresql://..."
+python scripts/postgresql/migrate.py
+python scripts/postgresql/migrate.py --verify-only
 ```
 
-Verificar el ledger:
+El runner:
 
-```sql
-SELECT version, description, applied_at
-FROM cci.schema_migrations
-ORDER BY version;
-```
+1. Comprueba que `migrations/manifest.json` enumere exactamente todos los SQL y que cada archivo coincida con su SHA-256.
+2. Comprueba que el ledger sea un prefijo secuencial sin versiones desconocidas ni huecos.
+3. Aplica únicamente las migraciones pendientes; cada SQL gestiona su propia transacción.
+4. Comprueba que cada migración se haya registrado en `cci.schema_migrations`.
+5. Tras la migración 011, completa los checksums iniciales del ledger y los compara en cada ejecución posterior.
+6. En modo `--verify-only`, no aplica ni modifica nada: solo verifica el estado y los checksums.
 
-La ejecución automatizada de CI aplica las migraciones desde una instalación limpia mediante psycopg y luego ejecuta las pruebas positivas y negativas contra PostgreSQL real.
+La primera instalación requiere una conexión administrativa capaz de crear roles y transferir ownership, porque la migración 010 crea grupos NOLOGIN y establece `cci_owner`. No crea cuentas LOGIN, contraseñas ni secretos. El bootstrap verifica los atributos de roles preexistentes antes de adoptarlos. Tras ese bootstrap, el migrador controlado debe usar la membresía aprobada de `cci_migrator`.
 
-## Límites explícitos
+No se recomienda aplicar manualmente los SQL con `psql`: hacerlo omite el manifiesto y la verificación de checksums. Cada archivo puede inspeccionarse de forma independiente, pero la aplicación soportada es mediante `scripts/postgresql/migrate.py`.
 
-- La versión 001 instala 8 de las 34 entidades del contrato global.
-- La versión 002 añade 3 entidades: cobertura acumulada 11/34.
-- La versión 003 añade 3 entidades: cobertura acumulada 14/34; implementa seis FKs adicionales, cadenas append-only de revisiones, bloqueo de concurrencia por identidad, vista de resolución vigente y función `valid_at`/`known_at`.
-- La versión 004 añade `network_identifiers`: cobertura acumulada 15/34 entidades y 15/60 FKs. Implementa validación de procedencia, literal/namespace, estado accepted, mapping único por revisión, inmutabilidad y vista de mappings vigentes.
-- La versión 005 añade `asset_representations` y `asset_relationships`: cobertura acumulada 17/34 entidades, 19/60 FKs y 8/12 claves compuestas destino.
-- La versión 006 añade revisiones de identidad y mappings accepted de activos/representaciones: cobertura acumulada 20/34 entidades, 29/60 FKs y 10/12 claves compuestas.
-- La versión 007 añade el catálogo de instrumentos: cobertura acumulada 24/34 entidades, 36/60 FKs y 11/12 claves compuestas destino.
-- La versión 008 añade solicitudes de ingesta, asociaciones Run–dataset y procedencia con evaluación de permiso: cobertura acumulada 27/34 entidades, 48/60 FKs y 12/12 claves compuestas.
-- La versión 009 añade las siete entidades finales: cobertura acumulada **34/34 entidades**, **60/60 FKs** y **12/12 claves compuestas destino**. Implementa linaje acíclico serializado, validaciones append-only, ejecuciones de transformación e investigación, transiciones de estado, artifacts inmutables e hipótesis.
-- La CI PostgreSQL 16 [Run #42329331544](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42329331544) aprueba 102 pruebas del esquema global y 29 del laboratorio aislado: **131/131**.
-- El laboratorio de plataformas de proveedor continúa en el esquema aislado `cci_lab`; no debe contarse como tablas instaladas en `cci`.
-- El modelo global está completo; todavía faltan funciones transaccionales de escritura por dominio, auditoría privilegiada, credenciales LOGIN gestionadas externamente, migrador con checksums/drift y backup/restore.
-- No se deben insertar datos reales de proveedores ni OHLCV. Las pruebas usan fixtures sintéticos.
-- El ledger registra versiones aplicadas, pero aún no valida checksums ni sustituye un futuro ejecutor de migraciones con control de drift.
+## Cobertura y evidencia
+
+- **34/34 entidades** del contrato global instaladas en `cci`.
+- **60/60 relaciones FK** materializadas.
+- **12/12 claves compuestas destino** materializadas.
+- **35 tablas físicas** en `cci`, contando `cci.schema_migrations`.
+- **Diez roles NOLOGIN**; `cci_owner` es propietario y `cci_migrator` hereda esa membresía.
+- Los roles de runtime no tienen DML ni DDL. `cci_reader` solo puede consultar `provider_platform_resolution_current` y `provider_platform_mappings_current`.
+- La función bitemporal `provider_platform_resolution_as_known` se concede solo a `cci_identity_resolver`.
+- CI PostgreSQL 16: [Run #42330173135](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42330173135), **145/145 pruebas aprobadas**: 102 del esquema global, 29 del laboratorio aislado, 9 de roles y 5 del migration runner.
+- El laboratorio `cci_lab` sigue separado; sus seis tablas no se cuentan como entidades globales.
+- Todas las pruebas usan fixtures sintéticos. No se habilita ingestión real ni se almacena OHLCV en PostgreSQL.
+
+## Límites operativos
+
+El gate DDL y el bootstrap inicial de roles están cerrados en CI. La infraestructura productiva todavía requiere:
+
+- funciones transaccionales de escritura por dominio, con `SECURITY DEFINER`, `search_path` seguro, validación de actor y grants EXECUTE explícitos;
+- contrato append-only de auditoría privilegiada con actor, acción, objeto, instante, motivo, evidencia y correlación;
+- identidades LOGIN separadas por servicio y gestión externa de secretos/rotación;
+- validación de actualización desde versiones anteriores y política de forward-fix;
+- despliegue PostgreSQL persistente, backup/restore y verificación de hashes/metadata;
+- confirmación de permisos de retención/licencias por proveedor antes de ingerir o persistir datos reales.
+
+El cierre del DDL no constituye autorización de producción. PR #26 permanece Draft hasta cerrar estos gates.
