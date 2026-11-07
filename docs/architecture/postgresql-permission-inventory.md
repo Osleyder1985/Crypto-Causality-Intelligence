@@ -1,11 +1,12 @@
 # Inventario de permisos PostgreSQL — CCI
 
-- **Estado:** propuesta de autorización v0.1; pendiente de revisión y aprobación.
+- **Estado:** propuesta v0.2 con bootstrap de roles NOLOGIN ejecutado y probado; permisos de escritura de runtime aún denegados. Pendiente de aprobación operativa.
 - **Fecha:** 2026-11-06.
 - **Base documental:** `postgresql-physical-schema.md` v0.8 y `postgresql-logical-data-model.md` v0.8.
 - **Rama:** `integration/issue-25-postgresql-foundation`.
 - **Alcance:** 34 tablas del esquema `cci`.
-- **No incluido:** DDL de roles, GRANT/REVOKE, funciones SQL implementadas ni migraciones.
+- **Implementado:** migración `010_runtime_role_bootstrap.sql`, ownership de objetos, roles NOLOGIN, membresía de migrador, GRANT SELECT por dominio y denegación por defecto de DML/DDL.
+- **No incluido:** identidades LOGIN/credenciales, funciones transaccionales de escritura `SECURITY DEFINER`, auditoría de actor para operaciones privilegiadas ni ACL de almacenamiento Parquet.
 
 ## 1. Principios de autorización
 
@@ -72,7 +73,7 @@ La clasificación T no significa que se permita modificar libremente la fila. So
 
 ## 4. Roles de aplicación propuestos
 
-Los nombres son identificadores de diseño, no roles creados en PostgreSQL.
+Los grupos de roles listados ya existen en PostgreSQL como NOLOGIN; no se han creado usuarios LOGIN, contraseñas ni credenciales de servicio.
 
 | Rol | Responsabilidad | Límites |
 |---|---|---|
@@ -87,7 +88,7 @@ Los nombres son identificadores de diseño, no roles creados en PostgreSQL.
 | `cci_research_writer` | Registrar experimentos, hipótesis, runs analíticos, artefactos y asociaciones | No cambia datasets ni permisos de adquisición; no borra runs ni almacena bytes OHLCV |
 | `cci_reader` | Consultar vistas de lectura autorizadas | Sin DML y sin acceso general a tablas base |
 
-Los roles de servicio deben ser NOLOGIN y heredarse desde cuentas LOGIN individuales de servicio cuando se implemente la autenticación. No se compartirán credenciales humanas ni se concederá membresía de escritura al rol lector.
+Los grupos de servicio son NOLOGIN. Las cuentas LOGIN individuales se crearán fuera de estas migraciones, cuando exista un mecanismo de autenticación aprobado; no se comparten credenciales humanas. `cci_owner` es NOLOGIN/NOINHERIT y posee el esquema y sus objetos. `cci_migrator` es NOLOGIN y miembro de `cci_owner`; el bootstrap exige una sesión administrativa con CREATEROLE y privilegios de cambio de ownership.
 
 ## 5. Lectura por dominio
 
@@ -125,20 +126,34 @@ Las funciones deben validar parámetros, fijar un `search_path` seguro, usar nom
 - `EXECUTE` público sobre funciones privilegiadas.
 - Membresía de roles administrativos para lectores o servicios de ejecución ordinarios.
 
-## 8. Decisiones pendientes antes del DDL de permisos
+## 8. Decisiones pendientes antes de habilitar escrituras de runtime
 
-1. Confirmar si habrá una identidad de base de datos por servicio o si varios procesos compartirán una cuenta técnica; se recomienda una identidad por servicio.
-2. Definir qué vistas de lectura constituirán la interfaz SQL de investigación y analítica.
-3. Decidir si las funciones transaccionales serán propiedad de `cci_owner` o de roles NOLOGIN dedicados por dominio.
+1. Definir identidades LOGIN separadas por servicio, autenticación, rotación de credenciales y conexión desde secretos externos; no se han creado credenciales.
+2. Definir y aprobar las vistas de lectura adicionales para investigación; por ahora `cci_reader` solo puede consultar `provider_platform_resolution_current` y `provider_platform_mappings_current`.
+3. Implementar funciones transaccionales de escritura por dominio, propiedad de roles NOLOGIN dedicados, con `SECURITY DEFINER`, `search_path` seguro, validación de actor y grants EXECUTE explícitos. Ningún rol de runtime tiene INSERT/UPDATE/DELETE.
 4. Concretar qué campos de Runs, solicitudes, datasets, experimentos e hipótesis cambian durante sus transiciones y cuáles quedan inmutables desde el INSERT.
-5. Definir auditoría de cambios administrativos y de retención antes de habilitar esas operaciones.
+5. Aprobar contrato de auditoría append-only con actor humano/servicio, acción, objeto, instante, motivo, evidencia y correlación antes de habilitar cambios administrativos o de retención.
 6. Probar aislamiento entre roles con sesiones reales: operaciones permitidas, operaciones denegadas, invocación de funciones, rollback y concurrencia.
 7. Revisar la interacción entre permisos SQL y permisos de almacenamiento Parquet/DuckDB; un SELECT en PostgreSQL no debe implicar acceso automático a archivos.
+8. Definir migración y procedimiento de rotación/revocación de roles de servicio en despliegue persistente; el bootstrap actual solo crea grupos NOLOGIN.
 
 ## 9. Criterio de aprobación
 
 La matriz se considerará aprobada cuando cada rol tenga un propósito único, cada entidad tenga lectura/escritura justificada, todas las mutaciones estén clasificadas como append-only o transición controlada, y cada operación multi-entidad tenga una función transaccional definida.
 
-Solo después se redactará el DDL de roles, esquemas, privilegios por tabla/columna, funciones y vistas. La prueba de seguridad deberá ejecutarse contra PostgreSQL real con sesiones separadas para cada rol.
+El bootstrap de roles y grants de lectura ya existe. La aprobación final exige funciones transaccionales de escritura, auditoría, cuentas LOGIN gestionadas externamente y pruebas de aislamiento con sesiones separadas para cada rol.
 
-**Estado final:** inventario y propuesta inicial completados documentalmente. No se han creado roles, grants, funciones SQL ni migraciones; no se ha ejecutado una prueba de autorización en PostgreSQL.
+## 10. Evidencia del bootstrap actual
+
+La migración `010_runtime_role_bootstrap.sql`:
+
+- crea diez grupos NOLOGIN (`cci_owner`, `cci_migrator` y ocho roles de servicio);
+- transfiere ownership del esquema, tablas, vistas y funciones a `cci_owner`;
+- concede membresía de `cci_owner` a `cci_migrator`;
+- revoca privilegios de PUBLIC y deja sin DML/DDL a todos los roles de runtime;
+- concede SELECT por dominio a servicios internos y solo dos vistas al rol `cci_reader`;
+- limita `provider_platform_resolution_as_known` a `cci_identity_resolver`, no al lector general.
+
+La CI PostgreSQL 16 [Run #42329620209](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42329620209) aprobó 9 pruebas de roles dentro de 140 pruebas totales. Se verificaron NOLOGIN, ownership, membresía del migrador, `USAGE` sin `CREATE`, ausencia de DML y acceso real por `SET ROLE`.
+
+**Dictamen:** existe un bootstrap de seguridad fail-closed y reproducible, pero no autorización de escritura operativa. No se deben crear credenciales LOGIN ni habilitar ingestión/transformación/investigación hasta implementar y auditar las funciones de dominio y el contrato de auditoría privilegiada.
