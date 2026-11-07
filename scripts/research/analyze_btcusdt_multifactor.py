@@ -79,7 +79,7 @@ def analyze_cohorts(cohorts: dict[str, list[dict]]) -> dict:
 
 def main() -> int:
     parser=argparse.ArgumentParser(description=__doc__); parser.add_argument("--input",required=True); parser.add_argument("--output")
-    args=parser.parse_args(); rendered=json.dumps(analyze_cohorts(load_cohorts(args.input)),indent=2,sort_keys=True)+"\\n"
+    args=parser.parse_args(); rendered=json.dumps(analyze_cohorts(load_cohorts(args.input)),indent=2,sort_keys=True)
     if args.output: Path(args.output).write_text(rendered,encoding="utf-8")
     else: print(rendered,end="")
     return 0
