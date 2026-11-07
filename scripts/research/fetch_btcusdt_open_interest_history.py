@@ -112,10 +112,17 @@ def collect_for_cohorts(cohorts: dict[str, list[dict[str, Any]]],
     for name, rows in cohorts.items():
         if not rows:
             continue
-        start = datetime.fromtimestamp(rows[0]["_ts"] / 1000, tz=timezone.utc).date()
+        start_ms = rows[0]["_ts"]
         end_ms = rows[-1]["_ts"] + HOUR_MS - 1
-        end = datetime.fromtimestamp(end_ms / 1000, tz=timezone.utc).date()
-        windows[name] = {"start_date_utc": start.isoformat(), "end_date_utc": end.isoformat()}
+        start_dt = datetime.fromtimestamp(start_ms / 1000, tz=timezone.utc)
+        end_dt = datetime.fromtimestamp(end_ms / 1000, tz=timezone.utc)
+        start, end = start_dt.date(), end_dt.date()
+        windows[name] = {
+            "start_date_utc": start.isoformat(),
+            "end_date_utc": end.isoformat(),
+            "start_time_utc": start_dt.isoformat(),
+            "end_time_utc": end_dt.isoformat(),
+        }
         current = start
         while current <= end:
             required_days.add(current)
@@ -177,6 +184,7 @@ def collect_for_cohorts(cohorts: dict[str, list[dict[str, Any]]],
         "duplicate_effective_timestamps": duplicate_timestamps,
         "conflicting_duplicate_effective_timestamps": conflicting_duplicates,
         "timestamp_convention_change_utc": SNAPSHOT_LABEL_CHANGE.isoformat(),
+        "timestamp_semantics_fully_verified": False,
         "timestamp_convention_note": (
             "Community issue #491 reports a change at 2026-06-25 00:00 UTC. However, the "
             "downloaded 2026-06-24 BTCUSDT file currently labels 00:00-23:55, not the "
@@ -252,6 +260,15 @@ def audit_and_align(cohorts: dict[str, list[dict[str, Any]]],
         ]
         unique_times = sorted({r["snapshot_time_ms"] for r in cohort_snapshots})
         intervals = [(b - a) / MINUTE_MS for a, b in zip(unique_times, unique_times[1:])]
+        anomalous_gaps = [
+            {
+                "from_snapshot_utc": datetime.fromtimestamp(a / 1000, tz=timezone.utc).isoformat(),
+                "to_snapshot_utc": datetime.fromtimestamp(b / 1000, tz=timezone.utc).isoformat(),
+                "gap_minutes": (b - a) / MINUTE_MS,
+            }
+            for a, b in zip(unique_times, unique_times[1:])
+            if b - a > 5 * MINUTE_MS
+        ]
         report["cohorts"][name] = {
             "spot_candles": len(spot_rows),
             "fresh_asof_candles": fresh,
@@ -259,8 +276,11 @@ def audit_and_align(cohorts: dict[str, list[dict[str, Any]]],
             "missing_before_first_snapshot": missing,
             "stale_snapshot_candles": stale,
             "raw_unique_5m_snapshots_in_window": len(unique_times),
+            "expected_snapshot_interval_minutes": 5,
             "median_snapshot_interval_minutes": median(intervals) if intervals else None,
             "max_snapshot_gap_minutes": max(intervals) if intervals else None,
+            "gaps_over_5_minutes": anomalous_gaps,
+            "gap_count_over_5_minutes": len(anomalous_gaps),
             "zero_open_interest_snapshots": sum(r["sum_open_interest"] == 0 for r in cohort_snapshots),
             "zero_open_interest_value_snapshots": sum(r["sum_open_interest_value"] == 0 for r in cohort_snapshots),
         }
