@@ -2,7 +2,7 @@
 
 - Fuente revisada: `postgresql-physical-schema.md` v0.8, incluidas §4 y §13.
 - Matriz relacionada: `postgresql-fk-normalized-matrix.md`.
-- Estado: revisión documental y contraste parcial contra PostgreSQL global; ocho de las doce claves compuestas destino ya están materializadas en migraciones 002, 003 y 005. No equivale a validar el esquema completo.
+- Estado: revisión documental y contraste parcial contra PostgreSQL global; diez de las doce claves compuestas destino ya están materializadas en migraciones 002, 003, 005 y 006. No equivale a validar el esquema completo.
 - Resultado: 12 claves compuestas destino identificadas para las FKs compuestas normalizadas.
 
 ## 1. Claves compuestas destino
