@@ -33,20 +33,23 @@ class SpotFuturesExtremenessTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "duplicate"):
                 load_dense_flow(path, day, 4)
 
-    def test_analysis_preserves_zero_seconds_and_event_maxima(self):
+    def test_event_max_is_compared_with_equal_duration_baseline_episode_maxima(self):
         day = datetime(2026, 10, 6, tzinfo=timezone.utc)
         event = datetime(2026, 10, 6, 0, 0, 50, tzinfo=timezone.utc)
         spot = [0.0] * 100
         futures = [0.0] * 100
-        spot[50] = -100.0
-        futures[49] = -200.0
+        spot[20] = -60.0
+        futures[30] = -150.0
+        spot[52] = -100.0
+        futures[51] = -200.0
         result = analyze(
             spot, futures, day, event, 5, 40, [1], [5], 20, 7
         )["results"][0]
-        self.assertEqual(result["baseline_observations"], 40)
+        self.assertEqual(result["baseline_observations"], 36)
         self.assertEqual(result["spot_event_max_sell_usdt"], 100.0)
-        self.assertEqual(result["futures_event_max_sell_usdt"], 0.0)
+        self.assertEqual(result["futures_event_max_sell_usdt"], 200.0)
         self.assertEqual(result["spot_empirical_upper_tail_probability"], 0.0)
+        self.assertEqual(result["futures_empirical_upper_tail_probability"], 0.0)
 
     def test_paired_bootstrap_is_reproducible(self):
         a = [0, 1, 0, 1, 0, 0, 1, 0]
