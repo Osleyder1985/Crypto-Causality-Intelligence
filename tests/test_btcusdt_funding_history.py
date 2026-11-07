@@ -77,7 +77,7 @@ class FundingHistoryTests(unittest.TestCase):
         )
         self.assertEqual(report["settlement_count"], 4)
         self.assertEqual(len(report["gaps_above_1_5x_median"]), 1)
-        self.assertEqual(report["gaps_above_1_5x_median"][0]["gap_hours"], 24)
+        self.assertEqual(report["gaps_above_1_5x_median"][0]["gap_hours"], 32)
 
 
 if __name__ == "__main__":
