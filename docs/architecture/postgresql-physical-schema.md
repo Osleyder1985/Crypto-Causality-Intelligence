@@ -1,6 +1,6 @@
 # Diseño físico de PostgreSQL
 
-- **Estado:** especificación física reconciliada v0.8; contrato global propuesto, todavía no implementado integralmente. El registro de runs de investigación tiene migraciones parciales 001/002 probadas en CI, pero no instala el catálogo CCI completo. El subsistema NET-04/05/06 tiene contrato de laboratorio ejecutado, sin promoción a `cci`.
+- **Estado:** especificación física reconciliada v0.8; implementación parcial en `migrations/001_cci_root_entities.sql` (8 de 34 entidades raíz) probada en PostgreSQL 16.15. El laboratorio NET-04/05/06 permanece aislado en `cci_lab`; no equivale a su promoción al esquema `cci`. El esquema global no está completo.
 - **Fecha:** 2026-11-06.
 - **Modelo lógico:** `postgresql-logical-data-model.md`, contrato reconciliado v0.8.
 - **Revisión:** `postgresql-logical-model-review.md`.
@@ -1080,3 +1080,8 @@ NET-04/NET-05 quedan traducidos a claves, FKs, índices, triggers, vistas, flujo
 El contrato de laboratorio está materializado en `tests/postgresql/001_provider_platform_lab.sql` y fue ejecutado contra PostgreSQL 16.15 con 29/29 pruebas aprobadas (Run #38, HEAD probado `55ba44449a1016e7902e90271801ef8ee3f05fa2`). La auditoría de equivalencia laboratorio ↔ especificación está documentada en `postgresql-lab-validation-plan.md`.
 
 **Límite de promoción:** este resultado valida únicamente el subsistema reducido de seis tablas dentro de `cci_lab`. No valida el esquema completo de 34 entidades, la migración desde una base vacía, ni los roles/grants productivos. La especificación de producción sigue siendo propuesta y no se han creado migraciones productivas ni cargado datos reales. La integración en `cci` debe conservar este contrato funcional y añadir sus dependencias, permisos y pruebas de integración.
+
+
+### 10.6 Evidencia de implementación inicial
+
+La migración `001_cci_root_entities.sql` implementa ocho tablas raíz de este contrato y registra su versión en `cci.schema_migrations`. La ejecución PostgreSQL 16.15 [Run #42326803388](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42326803388) ejecutó nueve pruebas nuevas del esquema raíz junto con las 29 pruebas del laboratorio aislado; las 38 pasaron. Esta evidencia cubre exclusivamente las ocho entidades raíz, no las 34 tablas ni las FKs globales.
