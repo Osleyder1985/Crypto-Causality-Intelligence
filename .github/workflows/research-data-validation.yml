@@ -5,6 +5,7 @@ on:
     paths:
       - "scripts/research/**"
       - "scripts/validation/**"
+      - "research/event_anchors/**"
       - "requirements-validation.txt"
       - "tests/**"
       - ".github/workflows/research-data-validation.yml"
@@ -14,6 +15,7 @@ on:
     paths:
       - "scripts/research/**"
       - "scripts/validation/**"
+      - "research/event_anchors/**"
       - "requirements-validation.txt"
       - "tests/**"
       - ".github/workflows/research-data-validation.yml"
