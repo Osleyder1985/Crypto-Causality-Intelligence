@@ -142,7 +142,18 @@ class CCIRuntimeRoleBootstrapTests(unittest.TestCase):
                     'EXECUTE'
                 )
                 """
-            ).fetchone()[0] is False
+            ).fetchone()[0]
+        )
+        self.assertTrue(
+            self.conn.execute(
+                """
+                SELECT has_function_privilege(
+                    'cci_identity_resolver',
+                    'cci.provider_platform_resolution_as_known(timestamptz,timestamptz)',
+                    'EXECUTE'
+                )
+                """
+            ).fetchone()[0]
         )
 
     def test_service_roles_have_no_direct_table_dml(self):
