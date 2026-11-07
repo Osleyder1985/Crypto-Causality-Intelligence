@@ -13,6 +13,7 @@ Estas migraciones son SQL versionado, secuencial y transaccional. No son un inst
 | 005 | `005_asset_representations_relationships.sql` | Representaciones canónicas de activos y relaciones dirigidas con evidencia | Implementada y probada |
 | 006 | `006_asset_identity_resolution.sql` | Revisiones append-only de identidad y mappings accepted de activo/representación | Implementada y probada |
 | 007 | `007_market_instrument_catalog.sql` | Instrumentos por fuente, alias, versiones de metadata y reglas de negociación | Implementada y probada |
+| 008 | `008_ingestion_requests_dataset_sources.sql` | Solicitudes de ingesta, asociación run-dataset y procedencia de dataset vinculada a policy evaluation | Implementada y probada |
 
 La cadena 001→002→003→004→005 requiere una base PostgreSQL vacía. Cada archivo abre y confirma su propia transacción. No deben ejecutarse de nuevo si su versión ya aparece en `cci.schema_migrations`; no usan `IF NOT EXISTS` deliberadamente, para que una divergencia no quede silenciada.
 
