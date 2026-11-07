@@ -187,6 +187,9 @@ class CCIProviderPlatformMigrationTests(unittest.TestCase):
         with self.assertRaises(errors.CheckViolation):
             with self.conn.transaction():
                 self.insert_review(evidence_reference=" ")
+        with self.assertRaises(errors.CheckViolation):
+            with self.conn.transaction():
+                self.insert_review(reviewed_at=None)
 
     def test_first_review_is_current_and_visible_as_known(self):
         review_id = self.insert_review()
@@ -209,9 +212,9 @@ class CCIProviderPlatformMigrationTests(unittest.TestCase):
         ).fetchone()
         self.assertEqual(known[0], review_id)
 
-    def test_second_root_review_is_rejected(self):
+    def test_second_root_review_is_rejected_by_chain_guard(self):
         self.insert_review()
-        with self.assertRaises(errors.UniqueViolation):
+        with self.assertRaises(errors.CheckViolation):
             with self.conn.transaction():
                 self.insert_review()
 
