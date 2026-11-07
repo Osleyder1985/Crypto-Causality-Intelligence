@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "scripts/research/**"
+      - "scripts/validation/**"
       - "tests/**"
       - ".github/workflows/research-data-validation.yml"
   push:
@@ -27,5 +28,5 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Run Binance coverage tests
-        run: python -m unittest discover -s tests -p "test_binance_coverage_downloader.py" -v
+      - name: Run complete test suite
+        run: python -m unittest discover -s tests -v
