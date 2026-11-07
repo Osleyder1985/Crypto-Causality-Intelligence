@@ -11,6 +11,9 @@ from scripts.research.analyze_btcusdt_spot_futures_extremeness import (
     rolling_sell,
 )
 import random
+from unittest.mock import patch
+
+from scripts.research.download_binance_btcusdt_multiday_flow import run as acquire_multiday
 
 
 class SpotFuturesExtremenessTests(unittest.TestCase):
@@ -50,6 +53,60 @@ class SpotFuturesExtremenessTests(unittest.TestCase):
         self.assertEqual(result["futures_event_max_sell_usdt"], 200.0)
         self.assertEqual(result["spot_empirical_upper_tail_probability"], 0.0)
         self.assertEqual(result["futures_empirical_upper_tail_probability"], 0.0)
+
+    def test_analyze_accepts_event_on_later_day_of_multiday_grid(self):
+        day = datetime(2026, 10, 5, tzinfo=timezone.utc)
+        event = datetime(2026, 10, 6, 0, 0, 50, tzinfo=timezone.utc)
+        spot = [0.0] * 172800
+        futures = [0.0] * 172800
+        spot[86450] = -100.0
+        result = analyze(
+            spot, futures, day, event, 5, 40, [1], [5], 20, 7
+        )
+        self.assertEqual(result["input_days"], 2)
+        self.assertEqual(result["results"][0]["baseline_observations"], 36)
+        self.assertEqual(result["results"][0]["spot_event_max_sell_usdt"], 100.0)
+
+    def test_multiday_acquisition_writes_concatenated_flows_and_hash_manifest(self):
+        def fake_acquire(day_text, output):
+            day = datetime.fromisoformat(day_text).replace(tzinfo=timezone.utc)
+            start_ms = int(day.timestamp() * 1000)
+            output.mkdir(parents=True, exist_ok=True)
+            raw = output / "raw"
+            raw.mkdir()
+            markets = {}
+            for market in ("spot", "usd_m"):
+                (output / f"{market}_flow_1s.jsonl").write_text(
+                    json.dumps({
+                        "bucket_ms": 1000,
+                        "bucket_start_ms": start_ms,
+                        "signed_taker_notional_usdt": "-1",
+                    }) + "\n",
+                    encoding="utf-8",
+                )
+                archive_name = f"{market}-aggTrades-{day_text}.zip"
+                (raw / archive_name).write_bytes(f"{market}-{day_text}".encode())
+                (raw / (archive_name + ".CHECKSUM")).write_text("checksum", encoding="ascii")
+                markets[market] = {"rows": 1, "aggregates": {"1s": {"rows": 1}}}
+            return {"markets": markets}
+
+        with tempfile.TemporaryDirectory() as directory:
+            destination = Path(directory) / "result"
+            with patch(
+                "scripts.research.download_binance_btcusdt_multiday_flow.acquire_day",
+                side_effect=fake_acquire,
+            ):
+                manifest = acquire_multiday("2026-10-05", 2, destination)
+            self.assertEqual(manifest["status"], "all_days_acquired_and_checksum_verified")
+            self.assertEqual(len(manifest["markets"]["spot"]), 2)
+            self.assertEqual(len((destination / "spot_flow_1s.jsonl").read_text().splitlines()), 2)
+            self.assertEqual(len(manifest["markets"]["usd_m"][0]["zip_sha256"]), 64)
+            with self.assertRaises(FileExistsError):
+                with patch(
+                    "scripts.research.download_binance_btcusdt_multiday_flow.acquire_day",
+                    side_effect=fake_acquire,
+                ):
+                    acquire_multiday("2026-10-05", 2, destination)
 
     def test_paired_bootstrap_is_reproducible(self):
         a = [0, 1, 0, 1, 0, 0, 1, 0]
