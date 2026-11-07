@@ -31,7 +31,8 @@ class TransactionalWriterValidationTests(unittest.TestCase):
         self.assertEqual(row["open_time_utc"].tzinfo, timezone.utc)
 
     def test_rejects_timestamp_mismatch(self):
-        bad = dict(BASE, open_time_ms=BASE["open_time_ms"] + 3600000,\n                    close_time_ms=BASE["close_time_ms"] + 3600000)
+        bad = dict(BASE, open_time_ms=BASE["open_time_ms"] + 3600000,
+                    close_time_ms=BASE["close_time_ms"] + 3600000)
         with self.assertRaisesRegex(ValueError, "disagree"):
             canonicalize_rows([bad])
 
