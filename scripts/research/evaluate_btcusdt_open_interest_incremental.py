@@ -1,4 +1,4 @@
-"""Paired walk-forward test of incremental USD-M open_interest features over BTCUSDT Spot."""
+"""Paired walk-forward test of incremental USD-M Open Interest features over BTCUSDT Spot."""
 from __future__ import annotations
 
 import argparse
@@ -320,7 +320,7 @@ def analyze(cohorts: dict[str, list[dict[str, Any]]], min_train: int = 168,
         "leakage_controls": [
             "Open Interest features are aligned as-of the Spot candle close",
             "rows without a fresh prior snapshot are excluded from both model variants",
-            "snapshots older than the effective open_interest interval plus one minute are rejected",
+            "snapshots older than the 10-minute freshness threshold are rejected",
             "training labels end at or before each forecast origin",
             "scaling parameters are estimated only from the current training window",
             "each cohort is evaluated independently",
@@ -329,8 +329,8 @@ def analyze(cohorts: dict[str, list[dict[str, Any]]], min_train: int = 168,
         "limitations": [
             "predictive association is not causal identification",
             "the five episodes are selected historical cohorts, not a random sample of all market regimes",
-            "Open Interest history is USD-M Futures data, not Spot-native data",
-            "archive data does not provide markPrice or rateType",
+            "Open Interest is USD-M Futures data, not Spot-native data",
+            "archive metrics do not provide the full futures microstructure state (for example, liquidation flow or aggressor-side positioning)",
             "results do not model transaction costs, slippage, or executable strategy performance",
         ],
         "cohorts": {},
