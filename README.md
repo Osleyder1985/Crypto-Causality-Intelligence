@@ -28,6 +28,28 @@ El sistema estudiará los regímenes **alcistas, bajistas y laterales**, sus ini
 - Evaluar escenarios futuros indicando explícitamente la incertidumbre, los riesgos y las condiciones de invalidación.
 - Monitorear los mercados y emitir alertas o recomendaciones sin ejecutar operaciones.
 
+
+## Prioridad central: investigación de acontecimientos desencadenantes
+
+La pregunta principal de Crypto-Causality Intelligence es **qué acontecimiento o conjunto de acontecimientos inició o contribuyó a un movimiento del mercado, cuándo pudo conocerlo el mercado y qué evidencia respalda esa relación**. La investigación debe comenzar por el mundo y la información disponible, y después contrastarse con la reacción observada en los precios.
+
+El flujo obligatorio de investigación es:
+
+1. **Acontecimiento:** identificar qué sucedió, distinguiendo hechos confirmados, declaraciones, anuncios, filtraciones y rumores.
+2. **Cronología de información:** recuperar la hora del hecho, la publicación original y la primera disponibilidad pública verificable. Conservar timestamps originales, zonas horarias y conversiones UTC.
+3. **Transmisión e impacto esperado:** explicar por qué el acontecimiento podía afectar al activo, al mercado o a las expectativas, sin asumir que lo hizo.
+4. **Reacción del mercado:** localizar el primer movimiento mediante reglas operacionales predefinidas y datos de mercado trazables.
+5. **Contraste causal:** evaluar precedencia, plausibilidad del mecanismo, evidencia favorable y contraria, hipótesis rivales, factores de confusión y ventanas sin catalizador identificado.
+6. **Dictamen:** clasificar la conclusión como evidencia fuerte, contribución probable, correlación temporal, contradicha o no resuelta, justificando la incertidumbre.
+
+Se investigarán, entre otras, noticias geopolíticas, decisiones macroeconómicas y monetarias, regulación, acontecimientos institucionales y empresariales, incidentes de seguridad, cambios tecnológicos, flujos de capital, anuncios y sucesos inesperados.
+
+**Distinción obligatoria:** catalizador es el acontecimiento desencadenante candidato; mecanismo de transmisión explica cómo pudo afectar expectativas o decisiones; amplificador explica por qué el movimiento se intensificó. No deben confundirse.
+
+El análisis de microestructura, volumen, liquidez, derivados, liquidaciones y liderazgo entre venues será auxiliar y solo se utilizará cuando ayude a comprobar la cronología, transmisión o amplificación. **Determinar si Spot o Futuros inició las compras o ventas no es el objetivo central ni un criterio de aceptación de una investigación causal.**
+
+La precedencia temporal, una noticia coincidente o una correlación estadística no demuestran causalidad. Si no existe evidencia suficiente, el resultado correcto es «no resuelto».
+
 ## Fases del proyecto
 
 La hoja de ruta avanza desde la comprensión histórica hasta la inteligencia predictiva y semiautónoma del mercado. Cada fase deberá cumplir criterios de aceptación documentados y verificables antes de que el proyecto avance.
