@@ -74,8 +74,19 @@ DECLARE
     v_platform_key TEXT;
     v_source_key TEXT;
 BEGIN
-    IF NEW.provider_platform_id IS NULL THEN
+    IF NEW.provider_platform_id IS NULL
+       AND NEW.provider_data_source_id IS NULL
+       AND NEW.provider_platform_resolution_review_id IS NULL
+       AND NEW.provider_platform_resolution_status IS NULL THEN
         RETURN NEW;
+    END IF;
+
+    IF NEW.provider_platform_id IS NULL
+       OR NEW.provider_data_source_id IS NULL
+       OR NEW.provider_platform_resolution_review_id IS NULL
+       OR NEW.provider_platform_resolution_status IS NULL THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            MESSAGE = 'provider platform provenance must be all NULL or all complete';
     END IF;
 
     SELECT p.provider_platform_key, ds.source_key
