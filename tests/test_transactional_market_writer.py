@@ -9,7 +9,7 @@ import psycopg
 
 from scripts.persistence.market_writer import (
     IdempotencyConflict, StoragePermissionDenied, canonicalize_rows,
-    payload_digest, write_candle_batch,
+    payload_digest, purge_expired_market_data, write_candle_batch,
 )
 
 OPEN_TIME = datetime(2026, 11, 7, 0, 0, tzinfo=timezone.utc)
@@ -124,6 +124,25 @@ class PostgreSQLTransactionalWriterTests(unittest.TestCase):
         with self.assertRaises(psycopg.Error):
             with self.conn.transaction():
                 self.conn.execute("DELETE FROM cci.audit_events")
+
+    def test_expired_permission_purges_data_and_audits_atomically(self):
+        self.authorize()
+        self.write()
+        self.conn.execute(
+            "UPDATE cci.source_permissions SET storage_allowed = FALSE "
+            "WHERE provider = 'binance' AND market_type = 'SPOT' AND symbol = 'BTCUSDT'"
+        )
+        self.conn.commit()
+        result = purge_expired_market_data(self.conn, actor="retention-worker")
+        self.assertEqual(result["deleted_rows"], 1)
+        self.assertEqual(self.conn.execute("SELECT count(*) FROM cci.market_candles").fetchone()[0], 0)
+        event = self.conn.execute(
+            "SELECT event_type, payload->>'deleted_rows' FROM cci.audit_events "
+            "WHERE event_type = 'market_data.retention_purged'"
+        ).fetchone()
+        self.assertEqual(event, ("market_data.retention_purged", "1"))
+        replay = purge_expired_market_data(self.conn, actor="retention-worker")
+        self.assertEqual(replay["deleted_rows"], 0)
 
 
 if __name__ == "__main__":
