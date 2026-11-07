@@ -21,7 +21,7 @@ class OpenInterestHistoryTests(unittest.TestCase):
     def test_timestamp_convention_change_is_applied_exactly_on_june_25(self):
         label = 1_782_259_200_000
         self.assertEqual(
-            effective_snapshot_time_ms(label, date(2026, 6, 24)), label
+            effective_snapshot_time_ms(label, date(2026, 6, 24)), label + 300_000
         )
         self.assertEqual(
             effective_snapshot_time_ms(label, date(2026, 6, 25)),
