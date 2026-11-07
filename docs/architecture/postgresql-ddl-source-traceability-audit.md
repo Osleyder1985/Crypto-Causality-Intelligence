@@ -48,7 +48,7 @@ No es seguro crear una migración integral copiando supuestos del laboratorio si
 
 ## Dictamen
 
-**Gate DDL no iniciado en Git:** los HEADs inspeccionados no contienen archivos SQL ni migraciones. El siguiente paso no es afirmar que se implementó el contrato SQL, sino restablecer la trazabilidad del laboratorio y producir el primer artefacto SQL versionado, seguido de CI PostgreSQL 16. No se debe promover el PR #26 ni habilitar ingestión productiva hasta que el gate se cierre.
+**Gate DDL iniciado, pero incompleto:** el repositorio ya contiene una migración SQL versionada que instala ocho entidades raíz y una CI PostgreSQL 16 que aprueba sus nueve pruebas junto con las 29 del laboratorio. Restan 26 entidades, las 60 FKs normalizadas, las 12 claves compuestas destino, funciones/triggers, roles y permisos, y pruebas de restauración. No se debe promover el PR #26 ni habilitar ingestión productiva hasta que el gate global se cierre.
 
 
 ## 13. Actualización: recuperación de la fuente histórica
