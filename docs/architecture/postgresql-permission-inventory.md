@@ -154,6 +154,6 @@ La migración `010_runtime_role_bootstrap.sql`:
 - concede SELECT por dominio a servicios internos y solo dos vistas al rol `cci_reader`;
 - limita `provider_platform_resolution_as_known` a `cci_identity_resolver`, no al lector general.
 
-La CI PostgreSQL 16 [Run #42329620209](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42329620209) aprobó 9 pruebas de roles dentro de 140 pruebas totales. Se verificaron NOLOGIN, ownership, membresía del migrador, `USAGE` sin `CREATE`, ausencia de DML y acceso real por `SET ROLE`.
+La CI PostgreSQL 16 [Run #42330173135](https://github.com/Osleyder1985/Crypto-Causality-Intelligence/actions/runs/42330173135) aprobó 9 pruebas de roles dentro de 145 pruebas totales; otras 5 prueban el migration runner y detección de drift. Se verificaron NOLOGIN, ownership de tablas/vistas/funciones, membresía del migrador, `USAGE` sin `CREATE`, ausencia de DML y acceso real con `SET ROLE`.
 
 **Dictamen:** existe un bootstrap de seguridad fail-closed y reproducible, pero no autorización de escritura operativa. No se deben crear credenciales LOGIN ni habilitar ingestión/transformación/investigación hasta implementar y auditar las funciones de dominio y el contrato de auditoría privilegiada.
